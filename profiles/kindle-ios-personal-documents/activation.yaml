@@ -25,9 +25,11 @@ activation:
         height_px: 2560
       colour_model: rgb
       contrast: high
-      density: moderate
+      density: restrained
       type_scale: flexible
-      shape_scale: flexible
+      shape_scale: dominant
+      visual_hierarchy: one-dominant-form
+      typography_role: work-responsive
       thumbnail_intent: legible-at-kindle-library-thumbnail
       viewing_preview:
         kind: prepared-colour

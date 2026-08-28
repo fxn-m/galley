@@ -16,8 +16,9 @@ behaviour:
   - id: kindle-colour-cover-direction
     claim: >
       Kindle for iOS Cover Artwork uses a separate 1600 by 2560 RGB canvas with high contrast,
-      moderate density and flexible type and shape scales. The canvas is Galley's design direction,
-      not Amazon conversion evidence.
+      restrained density, flexible type, a dominant shape scale, one dominant visual form and
+      typography responsive to the work. The canvas is Galley's design direction, not Amazon
+      conversion evidence.
     kind: product-decision
-    date: "2026-08-27"
+    date: "2026-08-28"
     justifies: [cover_artwork]

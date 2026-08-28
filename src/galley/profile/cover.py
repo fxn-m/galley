@@ -15,6 +15,8 @@ COVER_DIRECTION_FIELDS = {
     "density",
     "type_scale",
     "shape_scale",
+    "visual_hierarchy",
+    "typography_role",
     "thumbnail_intent",
     "viewing_preview",
     "font_family",
@@ -45,6 +47,8 @@ def validate_cover_artwork(entry: dict[str, object], path: Path) -> None:
         "density",
         "type_scale",
         "shape_scale",
+        "visual_hierarchy",
+        "typography_role",
         "thumbnail_intent",
     ):
         require_string(value.get(field), f"{label}.{field}")

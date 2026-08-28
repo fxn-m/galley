@@ -48,10 +48,11 @@ behaviour:
   - id: x4-cover-direction
     claim: >
       X4 Cover Artwork uses a separate 480 by 800 grayscale composition with high contrast,
-      restrained density, large type and shapes, and a four-level thumbnail preview. These are
-      Galley authoring decisions grounded in the observed panel, not image compatibility claims.
+      restrained density, large type and shapes, one dominant visual form, typography responsive
+      to the work, and a four-level thumbnail preview. These are Galley authoring decisions grounded
+      in the observed panel, not image compatibility claims.
     kind: product-decision
-    date: "2026-08-27"
+    date: "2026-08-28"
     justifies: [cover_artwork]
   - id: loose-list-items-break-below-the-marker
     claim: >

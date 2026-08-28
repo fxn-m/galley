@@ -47,6 +47,8 @@ activation:
       density: restrained
       type_scale: large
       shape_scale: large
+      visual_hierarchy: one-dominant-form
+      typography_role: work-responsive
       thumbnail_intent: legible-at-device-cover-thumbnail
       viewing_preview:
         kind: quantised

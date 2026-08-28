@@ -209,13 +209,13 @@ def test_both_distributions_carry_complete_skills_and_cover_font(tmp_path: Path)
     for skill in SKILLS:
         for relative in packaged_files(skill):
             assert f"galley/skills/{skill}/{relative}" in wheel
-            assert f"galley-0.1.0/src/galley/skills/{skill}/{relative}" in sdist
+            assert f"galley-0.1.3/src/galley/skills/{skill}/{relative}" in sdist
     for asset in (
         "AtkinsonHyperlegible-Regular.otf",
         "AtkinsonHyperlegible-OFL.txt",
     ):
         assert f"galley/assets/fonts/{asset}" in wheel
-        assert f"galley-0.1.0/src/galley/assets/fonts/{asset}" in sdist
+        assert f"galley-0.1.3/src/galley/assets/fonts/{asset}" in sdist
 
 
 def test_the_installed_cli_installs_skills_from_the_distribution_not_the_checkout(
