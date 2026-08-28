@@ -55,6 +55,10 @@ once, then performs and verifies it after your approval. Setup also asks whether
 should accommodate Kindle for iOS, Xteink X4 or both, so X4 connection questions appear only when
 they are relevant. That answer is not a default conversion target.
 
+If your first request is a conversion instead, Galley validates the Workspace before reading or
+inspecting the source. A missing or invalid configuration enters setup immediately; conversion
+work resumes only after the Workspace validates.
+
 Then try:
 
 ```

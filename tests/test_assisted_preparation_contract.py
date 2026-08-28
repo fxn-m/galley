@@ -77,6 +77,37 @@ def test_assisted_preparation_requires_an_explicit_profile_confirmation_before_i
         )
 
 
+def test_assisted_preparation_validates_workspace_before_profile_or_source_work(
+    installed_contracts: tuple[str, ...],
+) -> None:
+    """A direct conversion request must enter setup before it spends work on an unusable
+    Workspace or on the source itself."""
+
+    for text in installed_contracts:
+        validation = text.index("## Validate Workspace readiness first")
+        confirmation = text.index("## Confirm the Device Profile first")
+        inspection = text.index("## Inspect and classify first")
+        gate = " ".join(text[validation:confirmation].split())
+
+        assert validation < confirmation < inspection
+        assert "Begin every Assisted Preparation with `galley config validate --json`" in gate
+        assert all(
+            activity in gate
+            for activity in (
+                "`galley profiles list`",
+                "reading the source",
+                "inspection",
+                "Cover Artwork",
+                "Localisation",
+                "repair",
+                "preparation",
+            )
+        )
+        assert "hands the request immediately to `galley-setup`" in gate
+        assert "pause source work" in gate.casefold()
+        assert "only after setup's final `galley config validate --json` completes" in gate
+
+
 def test_assisted_preparation_inspects_before_it_classifies_or_changes_the_source(
     installed_contracts: tuple[str, ...],
 ) -> None:

@@ -4,6 +4,14 @@ Assisted Preparation is the complete agent-guided production of one Ready Artifa
 source. It uses Galley's existing public commands and keeps the inspection, any Bespoke Repair,
 Cover Artwork, Localisation, preparation and assessment in one visible journey.
 
+## Validate Workspace readiness first
+
+Begin every Assisted Preparation with `galley config validate --json`. Run this before
+`galley profiles list`, reading the source, inspection, Cover Artwork, Localisation, repair or
+preparation. A configuration refusal hands the request immediately to `galley-setup`; pause source
+work while setup establishes and validates the Workspace. Resume this same request only after
+setup's final `galley config validate --json` completes.
+
 ## Confirm the Device Profile first
 
 Before inspection or any other profile-specific work, run `galley profiles list --json`, present

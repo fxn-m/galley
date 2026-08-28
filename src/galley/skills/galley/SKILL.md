@@ -36,6 +36,21 @@ Detail lives in bounded resources rather than in this file:
 
 Always pass `--json` and read the Report. The human rendering is the same data, shorter.
 
+## Establish Workspace readiness before conversion work
+
+For every natural-language request to prepare one source as a Ready Artifact, begin with
+`galley config validate --json`. This gate comes before `profiles list`, reading the source,
+`inspect`, profile-directed cover work, Localisation, repair or `prepare`. Exit `0` means the
+Workspace is ready. A refusal at `workspace-configuration-missing`,
+`unreadable-workspace-configuration`, `invalid-workspace-configuration`,
+`unknown-configuration-key`, `unsupported-configuration-version`, `duplicate-inbox-name`,
+`inbox-unavailable` or `workspace-location-unusable` hands the user immediately to the
+`galley-setup` skill.
+
+Pause the conversion at that boundary and resume the same request only after setup's final
+validator returns exit `0`. Setup answers make the Workspace usable but leave the Device Profile
+unselected; profile confirmation follows validation.
+
 ## Confirm the Device Profile before conversion work
 
 For every one-source conversion, run `galley profiles list --json`, show concise reader-facing
@@ -58,22 +73,9 @@ otherwise ask before resuming profile-specific work.
 
 When the user chooses one source and wants the complete agent-guided journey to a Ready Artifact,
 follow [the Assisted Preparation contract](resources/assisted-preparation.md).
-It begins with inspection and gives the user one visible account of the classification, repair,
-cover, Localisation, preparation and assessment work around the existing public commands.
-
-## When the Workspace is not configured yet
-
-The Workspace-aware commands resolve one Galley Workspace and read the `galley.toml` inside it.
-`galley config validate --json` is the read-only way to find out what that file says: exit `0`
-means it reads, and a refusal at `workspace-configuration-missing`,
-`invalid-workspace-configuration`, `unknown-configuration-key`,
-`unsupported-configuration-version`, `duplicate-inbox-name`, `inbox-unavailable` or
-`workspace-location-unusable` means configuration is what stopped the run rather than the
-document.
-
-Hand that user to the `galley-setup` skill, which owns the question set and authors the file.
-Choosing a Workspace path for them, or editing `galley.toml` from here, would put configuration
-they have not seen behind everything Galley later reports.
+It begins with Workspace validation, then profile confirmation and inspection, and gives the user
+one visible account of the classification, repair, cover, Localisation, preparation and assessment
+work around the existing public commands.
 
 ## When an external command is unavailable
 

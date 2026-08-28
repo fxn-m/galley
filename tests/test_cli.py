@@ -7,8 +7,8 @@ def test_public_invocations_report_the_same_version() -> None:
     results = run_public_cli("--version")
 
     assert [(result.returncode, result.stdout, result.stderr) for result in results] == [
-        (0, "0.1.6\n", ""),
-        (0, "0.1.6\n", ""),
+        (0, "0.1.7\n", ""),
+        (0, "0.1.7\n", ""),
     ]
 
 
