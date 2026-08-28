@@ -39,6 +39,39 @@ def installed_contracts(tmp_path_factory: pytest.TempPathFactory) -> tuple[str, 
     )
 
 
+def test_assisted_preparation_requires_an_explicit_profile_confirmation_before_inspection(
+    installed_contracts: tuple[str, ...],
+) -> None:
+    """Neither setup nor Workspace state may silently turn a generic conversion into X4 work."""
+
+    for text in installed_contracts:
+        confirmation = " ".join(
+            text[
+                text.index("## Confirm the Device Profile first") : text.index(
+                    "## Inspect and classify first"
+                )
+            ].split()
+        )
+        lowered = confirmation.casefold()
+
+        assert "galley profiles list --json" in confirmation
+        assert "before inspection" in lowered
+        assert "ask the user to confirm" in lowered
+        assert all(field in lowered for field in ("reader", "device", "profile id"))
+        assert "not active until the user confirms" in lowered
+        assert all(
+            forbidden in lowered
+            for forbidden in (
+                "workspace configuration",
+                "setup answers",
+                "available hardware",
+                "prior runs",
+                "source content",
+                "list order",
+            )
+        )
+
+
 def test_assisted_preparation_inspects_before_it_classifies_or_changes_the_source(
     installed_contracts: tuple[str, ...],
 ) -> None:

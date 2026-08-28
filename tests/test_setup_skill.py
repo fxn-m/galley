@@ -27,8 +27,8 @@ from tests.workspace_fixtures import (
 SKILL = Path("src/galley/skills/galley-setup")
 CONFIGURATION = SKILL / "resources/workspace-config.md"
 MAIN_SKILL = Path("src/galley/skills/galley/SKILL.md")
-# The six decisions setup may need from the user, in their supported order. The recommended-default
-# fast path can settle them all without rendering six prompts.
+# The six persisted configuration decisions setup may need from the user, in their supported
+# order. Reader scope controls which apply but is deliberately not a configuration key.
 REQUIRED_SUBJECTS = ("workspace", "inboxes", "recursion", "host", "destination", "probe")
 COMMAND_GROUPS = (("config", "validate"), ("device", "status"))
 OWNED_DIRECTORIES = ("work", "ready", "ready/evidence", "delivery")
@@ -84,6 +84,15 @@ def test_the_decision_set_is_exactly_the_six_subjects_the_specification_permits(
     """An extra decision would offer a choice that Galley does not support."""
 
     assert _subjects() == list(REQUIRED_SUBJECTS)
+
+
+def test_reader_scope_is_not_a_seventh_configuration_key_or_profile_default() -> None:
+    """Setup may tailor its questions to the readers in use without persisting a profile choice."""
+
+    skill = " ".join(_skill_text().split())
+    assert "Reader scope is onboarding context, not another configuration key" in skill
+    assert "not a default profile" in skill
+    assert "final three apply only when setup includes X4" in skill
 
 
 def test_every_decision_has_a_default_for_the_one_response_fast_path() -> None:

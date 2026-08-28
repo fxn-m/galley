@@ -29,12 +29,23 @@ commands yourself; a command list is the plan the user approves, not homework to
 If an installer prerequisite such as npm or Java is absent, include that prerequisite in the same
 plan rather than asking the user to obtain it first.
 
-## One fast path, then only unresolved questions
+## Scope setup to the user's reading targets
+
+Before offering configuration defaults, ask which readers the user expects this Workspace to
+support: **Kindle for iOS**, **Xteink X4**, or **both**. This answer scopes the setup conversation;
+it is not written to `galley.toml`, does not establish a default Device Profile, and leaves the
+profile for every later conversion unselected.
+
+Ask about the CrossPoint host, destination and optional probe only when the answer includes X4. A
+Kindle-only setup has no X4 connection decisions and writes no `[x4-crosspoint]` table. The main
+Galley skill separately confirms the Device Profile for every individual conversion.
+
+## One configuration fast path, then only unresolved questions
 
 After the inventory, ask one choice between **All recommended defaults** and **Customise**. If the
 user takes the defaults, accept every default in the table below and ask no more configuration
-questions. If they customise, ask which defaults should differ and then ask only for those values,
-in batches of at most three questions.
+questions that apply to the selected readers. If they customise, ask which applicable defaults
+should differ and then ask only for those values, in batches of at most three questions.
 
 Use a native structured-question tool when the current harness exposes one in the current mode,
 and obey its live schema. Do not change modes merely to obtain a picker; when no picker is
@@ -54,8 +65,9 @@ route or ordinary chat.
 | `probe` | May I ask the device for its status once, read-only? | no probe |
 
 Those six subjects are the whole configuration decision set, not a requirement to produce six
-prompts. Everything else Galley needs is either fixed release data or a Galley-owned path, so
-asking about it would offer a choice that does not exist.
+prompts. The final three apply only when setup includes X4. Reader scope is onboarding context, not
+another configuration key. Everything else Galley needs is either fixed release data or a
+Galley-owned path, so asking about it would offer a choice that does not exist.
 
 ## Naming the Inboxes
 
@@ -80,8 +92,9 @@ Show the complete proposed state in one message:
 - each dependency's required version, observed state and executable path;
 - every proposed dependency change, including the exact command or immutable download, digest,
   destination and any PATH or shell-profile edit;
-- the Workspace path, every Inbox with its name, written path and recursion, the host and
-  destination, the exact directories you will create, and the complete TOML.
+- the selected reader scope, explicitly labelled as not persisted and not a default profile;
+- the Workspace path, every Inbox with its name, written path and recursion, any applicable X4
+  host and destination, the exact directories you will create, and the complete TOML.
 
 For a Workspace that already has a configuration, show a diff of the file instead of repeating the
 whole TOML.
@@ -120,9 +133,10 @@ run of this skill.
 ## Writing the TOML
 
 Author the file directly. `version = 1` comes first, then one `[[inbox]]` table per Inbox in the
-order the user gave them, then `[x4-crosspoint]` for a host or destination the user actually
-chose. Leaving a device value out is meaningful: the validator reports it as `default` rather than
-`configured`, which keeps the file a record of decisions instead of a copy of Galley's defaults.
+order the user gave them. Add `[x4-crosspoint]` only when setup includes X4 and the user chose a
+host or destination different from its default. Leaving a device value out is meaningful: the
+validator reports it as `default` rather than `configured`, which keeps the file a record of
+decisions instead of a copy of Galley's defaults.
 
 ## Validating, and the optional probe
 
@@ -136,7 +150,7 @@ Exit `0` means the configuration reads and every path it names can serve its rol
 it refused: read `refusal.boundary` and `refusal.summary`, correct the file, and validate again.
 [The configuration contract](resources/workspace-config.md) lists what each boundary means.
 
-Then, only with the permission question 6 asked for:
+Then, only when setup includes X4 and the applicable probe question granted permission:
 
 ```
 galley device status --workspace WORKSPACE --json

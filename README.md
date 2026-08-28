@@ -51,7 +51,9 @@ Set up Galley.
 
 The Setup Skill first checks Galley's pinned dependencies. If anything is absent or at another
 version, your agent chooses the exact installation route for your machine, shows the complete plan
-once, then performs and verifies it after your approval.
+once, then performs and verifies it after your approval. Setup also asks whether the Workspace
+should accommodate Kindle for iOS, Xteink X4 or both, so X4 connection questions appear only when
+they are relevant. That answer is not a default conversion target.
 
 Then try:
 
@@ -64,6 +66,10 @@ Or, for an article on the web:
 ```
 Galley https://mitchellh.com/writing/my-ai-adoption-journey
 ```
+
+For each conversion, Galley shows the available Device Profiles and confirms which reader the
+artifact is for before inspecting or preparing it. Workspace configuration never selects a target
+implicitly.
 
 Or, for a reading folder:
 

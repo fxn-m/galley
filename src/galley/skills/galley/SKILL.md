@@ -36,6 +36,20 @@ Detail lives in bounded resources rather than in this file:
 
 Always pass `--json` and read the Report. The human rendering is the same data, shorter.
 
+## Confirm the Device Profile before conversion work
+
+For every one-source conversion, run `galley profiles list --json`, show the available reader and
+device choices, and ask the user to confirm which one this artifact is for. Do this before
+`inspect`, profile-directed cover work, Localisation or `prepare`. Even when the request names a
+target, restate the reader, device and profile id and take one short confirmation so the chosen
+constraints are visible before work begins.
+
+Never infer the profile from an `[x4-crosspoint]` configuration table, setup answers, available
+hardware, a previous conversion, the source or the order returned by `profiles list`. Workspace
+configuration can make delivery possible; it does not choose what is being prepared. When a
+conversion resumes after setup, retain a profile confirmation already made for that request;
+otherwise ask before resuming profile-specific work.
+
 ## Assisted Preparation
 
 When the user chooses one source and wants the complete agent-guided journey to a Ready Artifact,

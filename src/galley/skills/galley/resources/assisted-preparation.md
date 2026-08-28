@@ -4,6 +4,17 @@ Assisted Preparation is the complete agent-guided production of one Ready Artifa
 source. It uses Galley's existing public commands and keeps the inspection, any Bespoke Repair,
 Cover Artwork, Localisation, preparation and assessment in one visible journey.
 
+## Confirm the Device Profile first
+
+Before inspection or any other profile-specific work, run `galley profiles list --json`, present
+the available reader and device choices, and ask the user to confirm the target for this artifact.
+Restate the chosen reader, device and profile id. A profile named in the request may be proposed,
+but it is not active until the user confirms it.
+
+Do not infer this choice from Workspace configuration, setup answers, available hardware, prior
+runs, source content or list order. If setup interrupts a pending conversion, resume with a target
+that was already confirmed for that request; otherwise ask before continuing.
+
 ## Inspect and classify first
 
 Begin with

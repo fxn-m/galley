@@ -21,6 +21,25 @@ def test_setup_uses_native_questions_without_requiring_a_particular_harness() ->
     assert "ordinary chat" in skill
 
 
+def test_setup_scopes_x4_questions_without_creating_a_default_conversion_target() -> None:
+    """Reader scope makes irrelevant setup questions disappear but cannot choose a later
+    artifact's Device Profile."""
+
+    skill = _skill_text()
+    scope = skill[
+        skill.index("## Scope setup to the user's reading targets") : skill.index(
+            "## One configuration fast path"
+        )
+    ]
+
+    assert all(reader in scope for reader in ("Kindle for iOS", "Xteink X4", "both"))
+    assert "not written to `galley.toml`" in scope
+    assert "does not establish a default Device Profile" in scope
+    assert "Ask about the CrossPoint host, destination and optional probe only" in scope
+    assert "Kindle-only setup" in scope
+    assert "separately confirms the Device Profile for every individual conversion" in scope
+
+
 def test_configuration_choices_and_mutation_authorisation_are_separate() -> None:
     """Accepting defaults must never silently authorise dependency installs or file writes."""
 
