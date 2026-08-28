@@ -9,22 +9,21 @@ Galley turns web articles and Markdown into EPUBs compatible with your e-ink rea
 Tell your agent what you want to read; Galley gives it the tools and instructions to
 do the work.
 
+It currently knows two targets:
 
-It currently knows two targets: 
 - Xteink X4 running [CrossPoint](https://crosspointreader.com/)
-- Kindle for iOS
+- Kindle
 
 ## Inspiration
 
-Between web extractors and converters such as [Pandoc](https://pandoc.org/), turning Markdown or a
-URL into a valid EPUB is the easy part. Plain conversion even handles ordinary prose well. But valid
-is not the same as readable: code, tables, footnotes, images, and navigation are where generic
-conversion starts to fall apart.
+With web extractors such as [Defuddle](https://github.com/kepano/defuddle), and converters such as [Pandoc](https://pandoc.org/), turning Markdown or a URL into a valid EPUB is straightforward.
 
-E-ink readers are wonderfully opinionated little machines. A book can pass
-[EPUBCheck](https://www.w3.org/publishing/epubcheck/) while its footnotes fail, its images disappear,
-or its content is silently lost on the device in your hand. Galley sniffs those quirks out: device
-behaviour lives in profiles, and uncertain calls stay with you.
+But _valid_ is not the same as _readable_: hierarchy, code, tables, footnotes, images, callouts, and navigation are where generic conversion starts to fall apart.
+
+E-ink readers are wonderfully opinionated little machines. A book can pass [EPUBCheck](https://www.w3.org/publishing/epubcheck/) while its footnotes fail, its images disappear,
+or its content is silently lost on the device in your hand.
+
+Galley sniffs those quirks out: device behaviour lives in profiles, tooling flags violations, your agent can make surgical repairs, and uncertain calls stay with you.
 
 ## Quick start
 
@@ -35,9 +34,12 @@ uv tool install "git+https://github.com/fxn-m/galley.git"
 galley skill install
 ```
 
-The last command installs Galley's two matching Agent Skills: `galley` runs the reading workflow,
-and `galley-setup` handles the first conversation. Use `--target` if your agent reads skills from a
-different directory.
+The last command installs Galley's two Agent Skills:
+
+- `galley-setup` handles the first conversation
+- `galley` runs the main workflow
+
+Galley is tested on macOS. Linux and Windows support is currently experimental.
 
 ## First run
 
@@ -47,19 +49,20 @@ Open your coding agent and say:
 Set up Galley.
 ```
 
-The Setup Skill first checks Galley's pinned document tools. If anything is absent or at another
+The Setup Skill first checks Galley's pinned dependencies. If anything is absent or at another
 version, your agent chooses the exact installation route for your machine, shows the complete plan
-once, then performs and verifies it after your approval. It first offers the complete recommended
-workspace, reading-folder, and device configuration; choose **All recommended defaults** to accept
-it in one response, or **Customise** to answer only the questions that differ. The agent uses your
-coding environment's native question controls when available, then asks separately before any
-installs or writes. It writes a small, visible configuration file, creates only Galley's own working
-folders, and checks the result.
+once, then performs and verifies it after your approval.
 
 Then try:
 
 ```
-Prepare this article for my X4 with Galley.
+Galley the-silmarillion.md
+```
+
+Or, for an article on the web:
+
+```
+Galley https://mitchellh.com/writing/my-ai-adoption-journey
 ```
 
 Or, for a reading folder:
@@ -76,15 +79,14 @@ The CLI is still available directly when you want it:
 
 ```sh
 galley profiles list
-galley prepare article.md --profile x4-crosspoint --output article.epub
+galley prepare the-silmarillion.md --profile x4-crosspoint --output the-silmarillion-x4.epub
+galley prepare https://mitchellh.com/writing/my-ai-adoption-journey --profile kindle-ios-personal-documents --output my-ai-adoption-journey.epub
 ```
-
-An Article-Like Page URL can be used in place of `article.md`.
 
 ## How it works
 
-Your agent starts by inspecting the source. If the journey is routine, it prepares the book. If
-meaning or structure needs repair, it makes a separate, reversible repair and asks you before
+Your agent starts by inspecting the source. If the conversion is routine, it prepares the book. If
+meaning or structure needs repair, it makes a separate, reversible repair and will ask you before
 making an ambiguous editorial choice.
 
 Underneath that conversation, Galley applies only the changes selected for the reading device,
@@ -94,7 +96,6 @@ measured, and what still needs an agent or a person to judge.
 The original source is never edited. Network access is explicit, and delivery to an X4 stays on
 the local network.
 
-Galley is early, empirical software. Its profiles describe the devices and versions that were
-actually observed; they are not promises about every e-reader.
+**Galley is very much a work in progress.**
 
 MIT licensed.
