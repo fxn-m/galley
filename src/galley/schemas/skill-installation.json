@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "galley/skill-installation/1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["galley", "outcome", "refusal", "source", "target", "skills"],
+  "oneOf": [
+    {
+      "properties": { "outcome": { "const": "completed" }, "refusal": { "type": "null" } }
+    },
+    {
+      "properties": { "outcome": { "const": "refused" }, "refusal": { "$ref": "#/$defs/refusal" } }
+    }
+  ],
+  "properties": {
+    "galley": { "$ref": "#/$defs/galley" },
+    "outcome": { "enum": ["completed", "refused"] },
+    "refusal": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/refusal" }]
+    },
+    "source": { "$ref": "#/$defs/source" },
+    "target": { "$ref": "#/$defs/target" },
+    "skills": { "type": "array", "items": { "$ref": "#/$defs/skill" } }
+  },
+  "$defs": {
+    "galley": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version", "command", "run_id", "started_at", "finished_at", "duration_ms",
+        "document_schema"
+      ],
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "command": { "enum": ["skill install", "skill uninstall"] },
+        "run_id": { "type": "string", "minLength": 1 },
+        "started_at": { "type": "string", "minLength": 1 },
+        "finished_at": { "type": "string", "minLength": 1 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "document_schema": { "const": "galley/skill-installation/1" }
+      }
+    },
+    "refusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boundary", "authority", "stage", "summary", "fact"],
+      "properties": {
+        "boundary": { "type": "string", "minLength": 1 },
+        "authority": { "enum": ["skill install", "skill uninstall"] },
+        "stage": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "fact": { "type": "object" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["galley_version", "path", "skills"],
+      "properties": {
+        "galley_version": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "skills": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "path"],
+      "properties": {
+        "source": { "enum": ["option", "default"] },
+        "path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "skill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "path", "state", "action", "manifest", "differences", "files"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "state": { "enum": ["absent", "managed", "modified", "foreign"] },
+        "action": {
+          "enum": [
+            "installed", "upgraded", "replaced", "unchanged", "removed", "retained", "skipped"
+          ]
+        },
+        "manifest": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/manifest" }]
+        },
+        "differences": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "files": { "type": "array", "items": { "$ref": "#/$defs/file" } }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["galley_version", "files"],
+      "properties": {
+        "galley_version": { "type": "string", "minLength": 1 },
+        "files": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "byte_size", "action"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string" },
+        "byte_size": { "type": "integer", "minimum": -1 },
+        "action": { "enum": ["written", "unchanged", "removed", "retained"] }
+      }
+    }
+  }
+}

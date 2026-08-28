@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "galley/report/1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "galley", "outcome", "refusal", "profile", "source", "extraction",
+    "canonical_document", "preparation", "artifact", "compatibility", "observations", "warnings",
+    "reading_verdict"
+  ],
+  "oneOf": [
+    {
+      "properties": { "outcome": { "const": "completed" }, "refusal": { "type": "null" } }
+    },
+    {
+      "properties": { "outcome": { "const": "refused" }, "refusal": { "$ref": "#/$defs/refusal" } }
+    }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": { "outcome": { "const": "completed" } }
+      },
+      "then": {
+        "properties": {
+          "profile": { "properties": { "resolved": { "const": true } }, "required": ["resolved"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "refusal": {
+            "type": "object",
+            "properties": { "boundary": { "const": "unknown-profile" } },
+            "required": ["boundary"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "profile": { "properties": { "resolved": { "const": false } }, "required": ["resolved"] }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "galley": { "$ref": "#/$defs/galley" },
+    "outcome": { "enum": ["completed", "refused"] },
+    "refusal": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/refusal" }]
+    },
+    "profile": { "$ref": "#/$defs/profile" },
+    "source": { "$ref": "#/$defs/factCategory" },
+    "extraction": { "$ref": "#/$defs/factCategory" },
+    "canonical_document": { "$ref": "#/$defs/factCategory" },
+    "preparation": { "$ref": "#/$defs/factCategory" },
+    "artifact": { "$ref": "#/$defs/factCategory" },
+    "compatibility": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/compatibility" }
+    },
+    "observations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/observation" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/warning" }
+    },
+    "reading_verdict": { "$ref": "#/$defs/readingVerdict" }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "factCategory": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/factObject" }]
+    },
+    "factObject": {
+      "type": "object",
+      "properties": {
+        "basis": { "enum": ["measured", "projected", "reported"] },
+        "relation": { "type": "string", "minLength": 1 },
+        "value": { "$ref": "#/$defs/quantityValue" }
+      },
+      "additionalProperties": { "$ref": "#/$defs/factValue" },
+      "allOf": [
+        {
+          "if": { "required": ["value"] },
+          "then": { "required": ["basis"] }
+        },
+        {
+          "if": {
+            "properties": { "basis": { "const": "projected" } },
+            "required": ["basis"]
+          },
+          "then": { "required": ["relation"] }
+        }
+      ]
+    },
+    "factValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "string" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/factValue" }
+        },
+        { "$ref": "#/$defs/factObject" }
+      ]
+    },
+    "quantityValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string" },
+        { "type": "array", "items": { "$ref": "#/$defs/quantityValue" } },
+        { "$ref": "#/$defs/factObject" }
+      ]
+    },
+    "quantity": {
+      "allOf": [
+        { "$ref": "#/$defs/factObject" },
+        { "required": ["value", "basis"] }
+      ]
+    },
+    "nullableQuantity": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/quantity" }]
+    },
+    "galley": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version", "command", "run_id", "started_at", "finished_at", "duration_ms", "report_schema",
+        "dependencies"
+      ],
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "command": { "enum": ["inspect", "prepare", "audit", "localise"] },
+        "run_id": { "type": "string", "minLength": 1 },
+        "started_at": { "type": "string", "minLength": 1 },
+        "finished_at": { "type": "string", "minLength": 1 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "report_schema": { "const": "galley/report/1" },
+        "dependencies": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "refusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary", "authority", "stage", "artifact_written", "summary", "fact",
+        "basis_for_inference"
+      ],
+      "properties": {
+        "boundary": { "type": "string", "minLength": 1 },
+        "authority": { "type": "string", "minLength": 1 },
+        "stage": { "type": "string", "minLength": 1 },
+        "artifact_written": { "const": false },
+        "summary": { "type": "string", "minLength": 1 },
+        "fact": { "$ref": "#/$defs/factObject" },
+        "basis_for_inference": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/factObject" }]
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested", "resolved", "id", "profile_version", "observed_software"],
+      "oneOf": [
+        {
+          "properties": {
+            "resolved": { "const": false }, "id": { "type": "null" },
+            "profile_version": { "type": "null" },
+            "observed_software": { "type": "null" }
+          }
+        },
+        {
+          "properties": {
+            "resolved": { "const": true }, "id": { "type": "string", "minLength": 1 },
+            "profile_version": { "type": "string", "minLength": 1 },
+            "observed_software": { "$ref": "#/$defs/observedSoftware" }
+          }
+        }
+      ],
+      "properties": {
+        "requested": { "type": "string", "minLength": 1 },
+        "resolved": { "type": "boolean" },
+        "id": { "$ref": "#/$defs/nullableString" },
+        "profile_version": { "$ref": "#/$defs/nullableString" },
+        "observed_software": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/observedSoftware" }] }
+      }
+    },
+    "observedSoftware": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "version", "operating_system", "observed_at"],
+      "if": { "properties": { "kind": { "const": "firmware" } } },
+      "then": { "properties": { "operating_system": { "type": "null" } } },
+      "else": { "properties": {
+        "operating_system": { "$ref": "#/$defs/operatingSystem" }
+      } },
+      "properties": {
+        "kind": { "enum": ["firmware", "application"] }, "version": { "$ref": "#/$defs/nullableString" },
+        "operating_system": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/operatingSystem" }] },
+        "observed_at": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "operatingSystem": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": { "name": { "type": "string", "minLength": 1 },
+        "version": { "$ref": "#/$defs/nullableString" } }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirement_id", "verdict", "failure_mode", "authority", "applicability", "measurement",
+        "enforced_limit", "observed_limit",
+        "profile_version"
+      ],
+      "properties": {
+        "requirement_id": { "type": "string", "minLength": 1 },
+        "verdict": {
+          "enum": ["true", "false", "unknown", "unevaluable", "not_applicable"]
+        },
+        "failure_mode": {
+          "enum": [
+            "crash", "silent-misdirection", "silent-loss", "visible-loss", "graceful-degradation",
+            "unknown"
+          ]
+        },
+        "authority": { "enum": ["report", "refuse"] },
+        "applicability": { "type": ["boolean", "null"] },
+        "measurement": { "$ref": "#/$defs/nullableQuantity" },
+        "enforced_limit": { "$ref": "#/$defs/nullableQuantity" },
+        "observed_limit": { "$ref": "#/$defs/nullableQuantity" },
+        "profile_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name", "evidence", "consequence", "applicability", "fired", "measurement", "locations",
+        "note"
+      ],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "evidence": { "enum": ["computable", "flaggable", "device-judged"] },
+        "consequence": {
+          "enum": [
+            "content-loss", "semantic-inversion", "structure-loss", "legibility", "navigation",
+            "contamination"
+          ]
+        },
+        "applicability": { "type": ["boolean", "null"] },
+        "fired": { "type": ["boolean", "null"] },
+        "measurement": { "$ref": "#/$defs/nullableQuantity" },
+        "locations": {
+          "type": "array",
+          "items": {
+            "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/factObject" }]
+          }
+        },
+        "note": { "type": "string" }
+      }
+    },
+    "warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "event", "detail", "recomputable"],
+      "properties": {
+        "stage": { "type": "string", "minLength": 1 },
+        "event": { "type": "string", "minLength": 1 },
+        "detail": { "type": "string", "minLength": 1 },
+        "recomputable": { "const": false }
+      }
+    },
+    "readingVerdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "predicted"],
+      "properties": {
+        "value": {
+          "enum": ["excellent", "acceptable", "poor", "unusable", "not_tested"]
+        },
+        "predicted": {
+          "type": ["string", "null"],
+          "enum": ["excellent", "acceptable", "poor", "unusable", "not_tested", null]
+        }
+      }
+    }
+  }
+}

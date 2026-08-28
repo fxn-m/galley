@@ -1,0 +1,32 @@
+id: anchors-per-chapter
+statement: No chapter carries more than 1024 anchors.
+evaluable_on: artifact
+basis: measured
+failure_mode: graceful-degradation
+authority: report
+limit:
+  enforced: 1024
+  observed: null
+  units: anchors
+provenance:
+  - claim: MAX_ANCHORS_PER_CHAPTER = 1024 and excess anchors are capped
+    kind: firmware-source
+    firmware: "1.4.1"
+    source_tag: "1.4.1"
+    date: "2026-08-13"
+    ref: parsers/ChapterHtmlSlimParser.cpp
+  - claim: unchanged at v1.5.0
+    kind: firmware-source
+    firmware: "v1.5.0"
+    source_tag: "v1.5.0"
+    date: "2026-08-16"
+  - claim: spec states "fewer than 1,024 anchors per chapter"
+    kind: spec-document
+    date: "2026-07-16"
+  - claim: spec's 1,024 figure is "wrong by about 4x"
+    kind: device-inference
+    date: "2026-07-16"
+    status: retracted
+    retracted_by: >
+      source read at 1.4.1; the observed crash was the link accumulator, a different phenomenon
+    retracted_on: "2026-08-13"

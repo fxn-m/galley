@@ -1,0 +1,104 @@
+# Pandoc's native AST vocabulary at the pinned version, kept as validated release data.
+#
+# Every constructor Pandoc exposes belongs to exactly one of `blocks`, `inlines` and `other`.
+# `blocks` and `inlines` are the node kinds a document is made of and the only ones Galley reads
+# text or facts from; `other` holds the container, metadata and document-level names that are
+# never a block or an inline. `sub_types` holds the string tags Pandoc writes as `{"t": name}`
+# inside a node's payload — alignments, quote kinds, list styles — which are not nodes at all.
+#
+# `scripts/checkmodel.py` proves the first three lists partition Pandoc's constructor vocabulary
+# exactly and that every sub-type tag Pandoc exposes is listed, so a name added, renamed or
+# retired by a later Pandoc fails at commit time rather than being silently skipped by a reader
+# that has never heard of it. Anything outside all four lists is reported as an unknown
+# constructor rather than passed over in silence.
+schema: galley/pandoc-ast/1
+version: 1
+pandoc_version: "3.10"
+blocks:
+  - BlockQuote
+  - BulletList
+  - CodeBlock
+  - DefinitionList
+  - Div
+  - Figure
+  - Header
+  - HorizontalRule
+  - LineBlock
+  - OrderedList
+  - Para
+  - Plain
+  - RawBlock
+  - Table
+inlines:
+  - Cite
+  - Code
+  - Emph
+  - Image
+  - LineBreak
+  - Link
+  - Math
+  - Note
+  - Quoted
+  - RawInline
+  - SmallCaps
+  - SoftBreak
+  - Space
+  - Span
+  - Str
+  - Strikeout
+  - Strong
+  - Subscript
+  - Superscript
+  - Underline
+other:
+  - Attr
+  - AttributeList
+  - Blocks
+  - Caption
+  - Cell
+  - Citation
+  - Inlines
+  - ListAttributes
+  - Meta
+  - MetaBlocks
+  - MetaBool
+  - MetaInlines
+  - MetaList
+  - MetaMap
+  - MetaString
+  - Pandoc
+  - ReaderOptions
+  - Row
+  - SimpleTable
+  - TableBody
+  - TableFoot
+  - TableHead
+  - WriterOptions
+# Pandoc's Lua namespace exposes every tag below except `ColWidth` and `ColWidthDefault`, which
+# appear only in native JSON. Those two are therefore held here on the authority of the AST
+# itself, and a table fixture proves they are never reported as unknown constructors.
+sub_types:
+  - AlignCenter
+  - AlignDefault
+  - AlignLeft
+  - AlignRight
+  - AuthorInText
+  - ColWidth
+  - ColWidthDefault
+  - Decimal
+  - DefaultDelim
+  - DefaultStyle
+  - DisplayMath
+  - DoubleQuote
+  - Example
+  - InlineMath
+  - LowerAlpha
+  - LowerRoman
+  - NormalCitation
+  - OneParen
+  - Period
+  - SingleQuote
+  - SuppressAuthor
+  - TwoParens
+  - UpperAlpha
+  - UpperRoman

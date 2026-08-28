@@ -1,0 +1,81 @@
+# The unit-level import directions of src/galley/, exactly as exercised. checkimports.py
+# fails on an undeclared direction and on a declared one no longer used, so this file is
+# always the true current graph. Direction reads: unit -> units it may import from.
+#
+# Three former back-edges — document -> {epub, transforms}, report -> tools, tools -> images —
+# each came from shared-vocabulary constants living with their producers. Moving that vocabulary
+# to neutral homes removed all three, and this
+# file is where a fourth would have to be declared to exist. Nothing may join them.
+schema: galley/import-layers/1
+version: 1
+units:
+  __main__: [cli]
+  cli:
+    [
+      delivery,
+      documents,
+      installation,
+      localisation,
+      output,
+      profile,
+      reader_software,
+      report,
+      sources,
+      workflows,
+      workspace,
+    ]
+  data: []
+  delivery: [digests, documents, json_reading, locations, network, outcomes, report, workspace]
+  digests: []
+  document: [json_reading, observations, profile, release_data, report, validation]
+  documents: [json_reading, outcomes, report, validation]
+  epub: [document, observations, profile, report]
+  json_reading: []
+  images: [document, epub, json_reading, locations, observations, profile, report, tools]
+  installation: [digests, documents, json_reading, locations, report]
+  localisation:
+    [
+      digests,
+      document,
+      documents,
+      images,
+      json_reading,
+      locations,
+      output,
+      profile,
+      report,
+      sources,
+      tools,
+      workflows,
+    ]
+  locations: []
+  network: []
+  observations: []
+  outcomes: []
+  output: [digests, document, locations, outcomes, report]
+  profile: [json_reading, observations, reader_software, report, validation]
+  reader_software: []
+  release_data: [json_reading]
+  report: [json_reading, reader_software, validation]
+  schemas: []
+  sources: [json_reading, release_data]
+  tools: [json_reading, network, release_data, report]
+  transforms: [document, json_reading, images, profile, release_data, report, tools]
+  validation: []
+  workspace: [digests, documents, json_reading, locations, report, sources]
+  workflows:
+    [
+      document,
+      epub,
+      json_reading,
+      images,
+      locations,
+      observations,
+      output,
+      profile,
+      release_data,
+      report,
+      sources,
+      tools,
+      transforms,
+    ]

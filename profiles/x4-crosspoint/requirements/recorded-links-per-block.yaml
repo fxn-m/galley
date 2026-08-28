@@ -1,0 +1,40 @@
+id: recorded-links-per-block
+statement: No single block carries more than 128 recorded links.
+evaluable_on: artifact
+basis: measured
+failure_mode: crash
+authority: refuse
+limit:
+  enforced: 128
+  observed: 256
+  units: recorded links
+  rationale: >
+    Mechanism boundary, not a round number. At 128 or fewer the accumulator never exceeds
+    capacity 128 (16,896 B) and never attempts the 67,584 B allocation that aborts. This is a
+    2x margin in links and 4x in the failing allocation, covering images and v1.5.0 that no
+    probe exercised.
+counting_rule:
+  excluded_schemes: [http, https, mailto, ftp, tel, javascript]
+  requires_visible_text: true
+  status: device-verified
+provenance:
+  - claim: 257 recorded links in one block aborts the device
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-08-13"
+  - claim: 256 recorded links in one block survives
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-08-13"
+  - claim: 512 links spread at 8 or fewer per block survives, so the unit is the block
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-08-13"
+  - claim: >
+      pendingFootnotes is a std::vector of 132-byte elements draining at each block boundary,
+      so peak size is the largest block's link count
+    kind: firmware-source
+    firmware: "1.4.1"
+    source_tag: "1.4.1"
+    date: "2026-08-13"
+    ref: parsers/ChapterHtmlSlimParser.cpp

@@ -1,0 +1,38 @@
+# Device Profile — Xteink X4 running CrossPoint.
+# The manifest names every fragment; a loader assembles and validates one public object.
+schema: galley/device-profile/2
+id: x4-crosspoint
+profile_version: 0.4.0
+device: Xteink X4
+reader: CrossPoint
+
+software:
+  kind: firmware
+  version: "1.4.1"
+  observed_at: "2026-08-16"
+  operating_system: null
+  latest_release: "v1.5.0"
+  latest_release_reviewed: false
+  # Partial reads at v1.5.0 cover navigation constants and image decoders, not a full review.
+  queued_changes:
+    - constant: FOOTNOTE_HREF_LEN
+      from: 96
+      to: 256
+      commit: 1582e70e
+      landed: "2026-08-09"
+      note: Unreleased main; a reason to re-check, never a profile value.
+
+parts:
+  requirements:
+    - requirements/recorded-links-per-block.yaml
+    - requirements/footnote-href-length.yaml
+    - requirements/anchors-per-chapter.yaml
+    - requirements/footnotes-per-screen.yaml
+    - requirements/image-media-type.yaml
+    - requirements/png-decoding.yaml
+    - requirements/jpeg-decoding.yaml
+  non_requirements:
+    - non-requirements/package-validity.yaml
+  behaviour: behaviour.yaml
+  activation: activation.yaml
+  observations: observations.yaml

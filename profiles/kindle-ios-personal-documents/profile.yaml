@@ -1,0 +1,28 @@
+# Device Profile — Kindle for iOS personal documents through the user-controlled share handoff.
+schema: galley/device-profile/2
+id: kindle-ios-personal-documents
+profile_version: 0.3.0
+device: iPhone 15 Pro
+reader: Kindle for iOS
+
+software:
+  kind: application
+  version: "7.65"
+  observed_at: "2026-08-27"
+  operating_system:
+    name: iOS
+    version: "26.6"
+  queued_changes: []
+
+parts:
+  requirements:
+    - requirements/personal-document-conversion.yaml
+  non_requirements:
+    - non-requirements/kdp-publication.yaml
+    - non-requirements/raw-usb-epub.yaml
+    - non-requirements/arbitrary-epub-input.yaml
+    - non-requirements/automated-submission.yaml
+    - non-requirements/raw-epub-runtime.yaml
+  behaviour: behaviour.yaml
+  activation: activation.yaml
+  observations: observations.yaml

@@ -1,0 +1,122 @@
+# What an EPUB3 content document admits as an attribute, and where Galley may emit one.
+#
+# EPUB3 content documents are XHTML, so an attribute the profile does not admit on the element it
+# lands on makes the whole book invalid. Pandoc's readers keep a source element's unmodelled
+# attributes in the node's `Attr` key-values and its writers emit them, so the filtering can only
+# happen between the two — the reader does not know what element the writer will produce.
+#
+# The writer already namespaces most unrecognised names into `data-`, which is the format's own
+# mechanism for carrying arbitrary author data and is valid everywhere. It does not do it for the
+# names on its own list of HTML attributes, which is applied without regard to the element: that
+# is why `width` reaches a `<table>` verbatim while `align`, `cellpadding` and `bgcolor` off the
+# same table arrive as `data-align`, `data-cellpadding` and `data-bgcolor`. Galley completes that
+# rescue rather than inventing a policy of its own, so nothing the source stated is lost.
+#
+# `global` is EPUBCheck 5.3.0's own enumeration of what it admits on an element that adds nothing
+# of its own, read from an EPUBCheck message produced on 2026-08-19.
+#
+# Event handlers are admitted, by the prefix below, because the format admits them. Whether a
+# prepared reading artifact should carry `onclick` at all is a real question and a different one:
+# it is about what Galley chooses to emit, not about what the format will take, and answering it
+# here would be this rule quietly becoming two.
+schema: galley/xhtml-attributes/1
+version: 1
+global_prefixes:
+  - aria-
+  - data-
+  - on
+  - xml:
+  - ns:
+global:
+  - about
+  - accesskey
+  - autocapitalize
+  - autofocus
+  - border
+  - class
+  - content
+  - contenteditable
+  - datatype
+  - dir
+  - draggable
+  - enterkeyhint
+  - epub:type
+  - hidden
+  - id
+  - inert
+  - inlist
+  - inputmode
+  - is
+  - itemid
+  - itemprop
+  - itemref
+  - itemscope
+  - itemtype
+  - lang
+  - nonce
+  - popover
+  - prefix
+  - property
+  - rel
+  - resource
+  - rev
+  - role
+  - slot
+  - spellcheck
+  - style
+  - tabindex
+  - title
+  - translate
+  - typeof
+  - vocab
+# Every Pandoc constructor that carries an `Attr`, the element the EPUB3 writer produces from it,
+# and what that element admits beyond the global set. Two of the nine add anything at all; the
+# rest — a heading, a division, a span, a code block, a code span, a table, a figure — admit the
+# global set and nothing more.
+elements:
+  - constructor: Header
+    element: h1-h6
+    attributes: []
+  - constructor: Div
+    element: div
+    attributes: []
+  - constructor: Span
+    element: span
+    attributes: []
+  - constructor: CodeBlock
+    element: pre
+    attributes: []
+  - constructor: Code
+    element: code
+    attributes: []
+  - constructor: Table
+    element: table
+    attributes: []
+  - constructor: Figure
+    element: figure
+    attributes: []
+  - constructor: Image
+    element: img
+    attributes:
+      - alt
+      - crossorigin
+      - decoding
+      - height
+      - ismap
+      - loading
+      - referrerpolicy
+      - sizes
+      - src
+      - srcset
+      - usemap
+      - width
+  - constructor: Link
+    element: a
+    attributes:
+      - download
+      - href
+      - hreflang
+      - ping
+      - referrerpolicy
+      - target
+      - type

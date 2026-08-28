@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "galley/config-validation/1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "galley", "outcome", "refusal", "workspace", "configuration", "inboxes", "locations",
+    "connection"
+  ],
+  "oneOf": [
+    {
+      "properties": { "outcome": { "const": "completed" }, "refusal": { "type": "null" } }
+    },
+    {
+      "properties": { "outcome": { "const": "refused" }, "refusal": { "$ref": "#/$defs/refusal" } }
+    }
+  ],
+  "properties": {
+    "galley": { "$ref": "#/$defs/galley" },
+    "outcome": { "enum": ["completed", "refused"] },
+    "refusal": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/refusal" }]
+    },
+    "workspace": { "$ref": "#/$defs/workspace" },
+    "configuration": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/configuration" }]
+    },
+    "inboxes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/inbox" }
+    },
+    "locations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/location" }
+    },
+    "connection": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/connection" }]
+    }
+  },
+  "$defs": {
+    "galley": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version", "command", "run_id", "started_at", "finished_at", "duration_ms",
+        "document_schema"
+      ],
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "command": { "const": "config validate" },
+        "run_id": { "type": "string", "minLength": 1 },
+        "started_at": { "type": "string", "minLength": 1 },
+        "finished_at": { "type": "string", "minLength": 1 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "document_schema": { "const": "galley/config-validation/1" }
+      }
+    },
+    "refusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boundary", "authority", "stage", "summary", "fact"],
+      "properties": {
+        "boundary": { "type": "string", "minLength": 1 },
+        "authority": { "const": "config validate" },
+        "stage": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "fact": { "type": "object" }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "path", "configuration_path"],
+      "properties": {
+        "source": { "enum": ["option", "environment", "default"] },
+        "path": { "type": "string", "minLength": 1 },
+        "configuration_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "version"],
+      "properties": {
+        "schema": { "const": "galley/workspace-config/1" },
+        "version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "inbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name", "configured_path", "path_resolution", "resolved_path", "recursive", "state"
+      ],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "configured_path": { "type": "string", "minLength": 1 },
+        "path_resolution": { "enum": ["relative", "home-relative", "absolute"] },
+        "resolved_path": { "type": "string", "minLength": 1 },
+        "recursive": { "type": "boolean" },
+        "state": { "$ref": "#/$defs/pathState" }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "path", "state"],
+      "properties": {
+        "role": { "enum": ["work", "ready", "delivery"] },
+        "path": { "type": "string", "minLength": 1 },
+        "state": { "$ref": "#/$defs/pathState" }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "destination"],
+      "properties": {
+        "host": { "$ref": "#/$defs/setting" },
+        "destination": { "$ref": "#/$defs/setting" }
+      }
+    },
+    "setting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "source"],
+      "properties": {
+        "value": { "type": "string", "minLength": 1 },
+        "source": { "enum": ["configured", "default"] }
+      }
+    },
+    "pathState": {
+      "enum": ["usable", "absent", "not-a-directory", "unreadable", "unwritable"]
+    }
+  }
+}

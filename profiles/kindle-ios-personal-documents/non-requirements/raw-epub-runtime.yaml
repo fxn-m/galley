@@ -1,0 +1,10 @@
+id: raw-epub-runtime
+statement: Native or byte-preserving raw EPUB runtime in Kindle for iOS is not a requirement.
+rationale: >
+  EPUB is the Submission Artifact. Amazon inserts an opaque conversion step, so Galley audits the
+  submitted bytes and observes the converted library item without equating the two.
+provenance:
+  - claim: Amazon describes personal-document EPUB handling as conversion to Kindle format.
+    kind: spec-document
+    date: "2026-08-27"
+    ref: https://digprjsurvey.amazon.com/csad/help/node/TWXpUGw76dtEg2VD9P

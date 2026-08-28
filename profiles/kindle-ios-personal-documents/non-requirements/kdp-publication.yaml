@@ -1,0 +1,10 @@
+id: kdp-publication
+statement: KDP publication readiness is not a requirement of this personal-document profile.
+rationale: >
+  KDP is a store-publishing surface with a different conversion and quality contract. Its guidance
+  may justify conservative authoring decisions only where the profile labels that use explicitly.
+provenance:
+  - claim: Personal files can differ in features and quality from files delivered to store customers.
+    kind: spec-document
+    date: "2026-08-27"
+    ref: https://kdp.amazon.com/en_US/help/topic/GULSQMHU5MNH4EZM

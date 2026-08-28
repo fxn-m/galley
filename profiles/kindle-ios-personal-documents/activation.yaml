@@ -1,0 +1,40 @@
+activation:
+  image_encoding:
+    value:
+      preferred: png-rgb-8
+      colour_model: rgb
+      opaque_colour_type: 2
+      alpha_colour_type: 6
+      preserve_compatible_fitting_bytes: false
+      rasterize_svg: true
+      viewing_levels: null
+    justified_by: colour-capable-raster-probe
+    device_judged: false
+  image_fit:
+    value:
+      max_width_px: 1600
+      max_height_px: 2560
+      preserve_aspect_ratio: true
+      upscale: false
+    justified_by: conservative-kindle-raster-bounds
+    device_judged: false
+  cover_artwork:
+    value:
+      canvas:
+        width_px: 1600
+        height_px: 2560
+      colour_model: rgb
+      contrast: high
+      density: moderate
+      type_scale: flexible
+      shape_scale: flexible
+      thumbnail_intent: legible-at-kindle-library-thumbnail
+      viewing_preview:
+        kind: prepared-colour
+        levels: null
+      font_family: Atkinson Hyperlegible
+      separate_composition: true
+      source_format: svg
+      packaged_format: png
+    justified_by: kindle-colour-cover-direction
+    device_judged: false

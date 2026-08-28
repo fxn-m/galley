@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "galley/reading-record/1",
+  "title": "Device-reading record",
+  "description": "What a human records after reading a delivered book on the device. No Galley command emits or reads this document. It is anchored to a Ready Artifact and the Delivery Record that put it on the device, read with CrossPoint's Optimize disabled so the bytes under the reader's eyes are the bytes the Report audited. It is the only artifact that carries a Reading Verdict, and `not_tested` is not one of its values: the record exists because a read happened.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "reader",
+    "read_on",
+    "artifact_sha256",
+    "ready_artifact_path",
+    "report_path",
+    "report_sha256",
+    "delivery_record_id",
+    "assessment_sha256",
+    "profile",
+    "firmware",
+    "optimize_disabled",
+    "observations",
+    "reading_verdict",
+    "note"
+  ],
+  "properties": {
+    "schema": { "const": "galley/reading-record/1" },
+    "reader": { "type": "string", "minLength": 1 },
+    "read_on": { "type": "string", "minLength": 1 },
+    "artifact_sha256": { "$ref": "#/$defs/digest" },
+    "ready_artifact_path": { "type": "string", "minLength": 1 },
+    "report_path": { "type": "string", "minLength": 1 },
+    "report_sha256": { "$ref": "#/$defs/digest" },
+    "delivery_record_id": { "type": "string", "minLength": 1 },
+    "assessment_sha256": {
+      "description": "The agent assessment this reader had in front of them, or null where there was none. Naming it records what the read can disagree with; it never edits it.",
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }]
+    },
+    "profile": { "$ref": "#/$defs/profile" },
+    "firmware": { "type": "string", "minLength": 1 },
+    "optimize_disabled": { "const": true },
+    "observations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/observation" }
+    },
+    "reading_verdict": {
+      "enum": ["excellent", "acceptable", "poor", "unusable"]
+    },
+    "note": { "type": "string" }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "profile_version"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "profile_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "observation": {
+      "description": "One Reading Quality Observation the reader settled on the panel.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation", "fired", "central_content", "basis"],
+      "properties": {
+        "observation": {
+          "enum": [
+            "ordered-list-numbering-loss",
+            "page-break-content-destruction",
+            "unrenderable-images",
+            "alt-text-fallback-absence",
+            "colour-meaning-collapse",
+            "strikethrough-inversion",
+            "table-relationship-loss",
+            "code-block-reflow",
+            "nested-list-flattening",
+            "caption-indistinction",
+            "alignment-meaning-flattening",
+            "boundary-chrome-presence",
+            "unrenderable-glyphs",
+            "diagram-text-legibility",
+            "footnote-target-reliability",
+            "link-footnote-dilution",
+            "pagination-granularity",
+            "ingress-conversion-acceptance",
+            "library-title-presentation",
+            "library-author-presentation",
+            "library-cover-presentation",
+            "navigation-usability",
+            "typography-preservation",
+            "colour-image-presentation",
+            "footnote-usability",
+            "theme-adaptation",
+            "large-text-adaptation"
+          ]
+        },
+        "fired": { "type": "boolean" },
+        "central_content": { "type": "boolean" },
+        "basis": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

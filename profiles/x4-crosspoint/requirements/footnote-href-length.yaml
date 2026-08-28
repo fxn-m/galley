@@ -1,0 +1,47 @@
+id: footnote-href-length
+statement: Every recorded link's href is at most 96 bytes.
+evaluable_on: artifact
+basis: measured
+failure_mode: silent-misdirection
+authority: refuse
+limit:
+  enforced: 96
+  observed: null
+  units: bytes
+  rationale: >
+    Galley bounds every identifier it hands the writer to this limit less the writer's own path
+    prefix, so an href's length is a property of Galley's naming rather than of the document's
+    words. It was not always: the worked one-file-per-note build's longest href is 37 bytes, and
+    that reading mistook a short title for a guarantee — a navigation entry is
+    text/chNNN.xhtml# plus a slug of the heading, so a 108-character title measured 125 bytes and
+    a book refused its own navigation. Galley now bounds every generated identifier, making the
+    claim true. The rule also covers foreign artifacts read by audit, which are bounded by
+    nothing.
+provenance:
+  - claim: FOOTNOTE_HREF_LEN = 96
+    kind: firmware-source
+    firmware: "1.4.1"
+    source_tag: "1.4.1"
+    date: "2026-08-16"
+    ref: Epub/FootnoteEntry.h
+  - claim: still 96 at v1.5.0 and v1.5.0-rc-4
+    kind: firmware-source
+    firmware: "v1.5.0"
+    source_tag: "v1.5.0"
+    date: "2026-08-16"
+    ref: Epub/FootnoteEntry.h
+  - claim: >
+      an over-long href is silently truncated, the anchor is not found, and the reader lands
+      at the start of the footnote chapter instead of the note
+    kind: firmware-source
+    firmware: "<=1.4.1"
+    source_tag: "1.4.1"
+    date: "2026-08-16"
+    ref: commit 8154f88d (#1723), which raised the limit from 56 to 96
+  - claim: recorded as "96 in 1.4.1 and 256 in later firmware"
+    kind: device-inference
+    date: "2026-08-13"
+    status: retracted
+    retracted_by: >
+      source read at pinned tags 1.4.1, v1.5.0-rc-4 and v1.5.0; no released firmware carries 256
+    retracted_on: "2026-08-16"

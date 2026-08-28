@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "galley/device-status/1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "galley", "outcome", "refusal", "workspace", "configuration", "host", "device"
+  ],
+  "oneOf": [
+    {
+      "properties": { "outcome": { "const": "completed" }, "refusal": { "type": "null" } }
+    },
+    {
+      "properties": { "outcome": { "const": "refused" }, "refusal": { "$ref": "#/$defs/refusal" } }
+    }
+  ],
+  "properties": {
+    "galley": { "$ref": "#/$defs/galley" },
+    "outcome": { "enum": ["completed", "refused"] },
+    "refusal": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/refusal" }]
+    },
+    "workspace": { "$ref": "#/$defs/workspace" },
+    "configuration": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/configuration" }]
+    },
+    "host": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/setting" }]
+    },
+    "device": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/device" }]
+    }
+  },
+  "$defs": {
+    "galley": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version", "command", "run_id", "started_at", "finished_at", "duration_ms",
+        "document_schema"
+      ],
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "command": { "const": "device status" },
+        "run_id": { "type": "string", "minLength": 1 },
+        "started_at": { "type": "string", "minLength": 1 },
+        "finished_at": { "type": "string", "minLength": 1 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "document_schema": { "const": "galley/device-status/1" }
+      }
+    },
+    "refusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boundary", "authority", "stage", "summary", "fact"],
+      "properties": {
+        "boundary": { "type": "string", "minLength": 1 },
+        "authority": { "const": "device status" },
+        "stage": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "fact": { "type": "object" }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "path", "configuration_path"],
+      "properties": {
+        "source": { "enum": ["option", "environment", "default"] },
+        "path": { "type": "string", "minLength": 1 },
+        "configuration_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "version"],
+      "properties": {
+        "schema": { "const": "galley/workspace-config/1" },
+        "version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "setting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "source"],
+      "properties": {
+        "value": { "type": "string", "minLength": 1 },
+        "source": { "enum": ["configured", "default", "option"] }
+      }
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host", "port", "addresses", "timeout_seconds", "model", "firmware", "mode", "status"
+      ],
+      "properties": {
+        "host": { "type": "string", "minLength": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "addresses": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "timeout_seconds": { "type": "number", "exclusiveMinimum": 0 },
+        "model": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] },
+        "firmware": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] },
+        "mode": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] },
+        "status": { "oneOf": [{ "type": "null" }, { "type": "object" }] }
+      }
+    }
+  }
+}

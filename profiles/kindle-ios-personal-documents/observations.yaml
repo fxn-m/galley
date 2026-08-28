@@ -1,0 +1,39 @@
+observations:
+  - name: ingress-conversion-acceptance
+    enabled: true
+    note: >
+      Record Amazon's visible acceptance, rejection, or delay after the user-controlled share,
+      with the Submission Artifact digest, channel, account region, and observation time.
+  - name: library-title-presentation
+    enabled: true
+    note: Record the library title exactly as Kindle for iOS presents it after conversion.
+  - name: library-author-presentation
+    enabled: true
+    note: Record the library author exactly as Kindle for iOS presents it after conversion.
+  - name: library-cover-presentation
+    enabled: true
+    note: Record whether the converted library item shows the submitted cover and how it is cropped.
+  - name: navigation-usability
+    enabled: true
+    note: >
+      Observe contents availability, hierarchy, start location, chapter movement, and return
+      navigation in the converted personal document.
+  - name: typography-preservation
+    enabled: true
+    note: >
+      Observe body defaults, headings, emphasis, callouts, code, lists, blockquotes, and any CSS
+      discarded or rewritten by conversion.
+  - name: colour-image-presentation
+    enabled: true
+    note: >
+      Observe colour, transparency, downsampling, captions, diagrams, and cover/inline-image
+      legibility without assuming the submitted RGB bytes survive conversion.
+  - name: footnote-usability
+    enabled: true
+    note: Observe footnote opening, pop-up or navigation behaviour, return links, and back movement.
+  - name: theme-adaptation
+    enabled: true
+    note: Observe image, text, and contrast behaviour in every Kindle for iOS theme tested.
+  - name: large-text-adaptation
+    enabled: true
+    note: Observe reflow, clipping, navigation, images, and footnotes at named large-text settings.

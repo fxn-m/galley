@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "galley/agent-assessment/1",
+  "title": "Agent assessment",
+  "description": "What an agent records beside a preparation Report, never inside it. No Galley command emits or reads this document: the CLI owns facts and refusal, so a shape it authored would be the CLI grading. It carries the flaggable judgements assigned to the agent and one Predicted Verdict, and it has no field for a Reading Verdict, which is a human's after a device read.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "assessed_by",
+    "assessed_at",
+    "report_path",
+    "report_sha256",
+    "artifact_sha256",
+    "profile",
+    "worklist",
+    "findings",
+    "outstanding",
+    "predicted_verdict",
+    "predicted_basis"
+  ],
+  "properties": {
+    "schema": { "const": "galley/agent-assessment/1" },
+    "assessed_by": { "type": "string", "minLength": 1 },
+    "assessed_at": { "type": "string", "minLength": 1 },
+    "report_path": { "type": "string", "minLength": 1 },
+    "report_sha256": { "$ref": "#/$defs/digest" },
+    "artifact_sha256": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }]
+    },
+    "profile": { "$ref": "#/$defs/profile" },
+    "worklist": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "outstanding": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "predicted_verdict": {
+      "description": "An estimate of what a reader would say. `excellent` is not among the values because it requires a human device read; observations alone can never reach it.",
+      "enum": ["acceptable", "poor", "unusable", "not_tested"]
+    },
+    "predicted_basis": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "profile_version"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "profile_version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "entry": {
+      "description": "One worklist entry, derived from the Report rather than chosen.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "name", "owner"],
+      "properties": {
+        "source": { "enum": ["observation", "interlock"] },
+        "name": { "type": "string", "minLength": 1 },
+        "owner": { "enum": ["agent", "human"] }
+      }
+    },
+    "finding": {
+      "description": "One flaggable observation the agent settled, and what it settled it from.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation", "fired", "central_content", "basis"],
+      "properties": {
+        "observation": {
+          "enum": [
+            "colour-meaning-collapse",
+            "alignment-meaning-flattening",
+            "boundary-chrome-presence",
+            "diagram-text-legibility",
+            "link-footnote-dilution"
+          ]
+        },
+        "fired": { "type": "boolean" },
+        "central_content": { "type": "boolean" },
+        "basis": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

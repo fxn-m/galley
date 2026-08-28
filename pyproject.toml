@@ -1,0 +1,55 @@
+[project]
+name = "galley"
+version = "0.1.0"
+description = "Make your content readable on e-ink displays"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.14"
+dependencies = [
+    "jsonschema>=4.26.0",
+    "pillow>=12.3.0",
+    "pyyaml>=6.0.3",
+    "typer>=0.26.8",
+]
+
+[project.urls]
+Homepage = "https://github.com/fxn-m/galley"
+Issues = "https://github.com/fxn-m/galley/issues"
+Repository = "https://github.com/fxn-m/galley"
+
+[build-system]
+requires = ["uv_build>=0.11.28,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+data = { data = "profiles" }
+
+[project.scripts]
+galley = "galley.cli:main"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.39.9",
+    "pytest>=9.1.1",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.15.20",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src", "tests", "scripts"]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+addopts = ["-ra", "--strict-config", "--strict-markers"]
+testpaths = ["tests"]
+markers = [
+    "real_epubcheck: run against the real pinned EPUBCheck command, paying its JVM start",
+]
+
+[tool.basedpyright]
+include = ["src", "tests", "scripts"]
+pythonVersion = "3.14"
+typeCheckingMode = "strict"

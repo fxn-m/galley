@@ -1,0 +1,72 @@
+activation:
+  one_file_per_note:
+    value: true
+    justified_by: one-file-per-note-resolves
+    device_judged: true
+  footnote_backlinks:
+    value: false
+    justified_by: hardware-back-button
+    device_judged: true
+  strip_non_apparatus_hrefs:
+    value: true
+    justified_by: link-slots-are-per-screen
+    device_judged: true
+  cover_wrapper:
+    value: xhtml-img
+    justified_by: cover-reads-from-opf
+    device_judged: true
+  image_encoding:
+    value:
+      preferred: png-gray-8
+      colour_model: grayscale
+      opaque_colour_type: 0
+      alpha_colour_type: 4
+      preserve_compatible_fitting_bytes: true
+      rasterize_svg: true
+      # The panel's own level count, used to render the viewing preview an agent judges from.
+      # It is evidence about display, never applied to the packaged bytes.
+      viewing_levels: 4
+    required_by: [image-media-type, png-decoding, jpeg-decoding]
+    justified_by: four-level-panel
+    device_judged: true
+  image_fit:
+    value:
+      max_width_px: 480
+      max_height_px: 800
+      preserve_aspect_ratio: true
+      upscale: false
+    justified_by: panel-geometry
+    device_judged: true
+  cover_artwork:
+    value:
+      canvas:
+        width_px: 480
+        height_px: 800
+      colour_model: grayscale
+      contrast: high
+      density: restrained
+      type_scale: large
+      shape_scale: large
+      thumbnail_intent: legible-at-device-cover-thumbnail
+      viewing_preview:
+        kind: quantised
+        levels: 4
+      font_family: Atkinson Hyperlegible
+      separate_composition: true
+      source_format: svg
+      packaged_format: png
+    justified_by: x4-cover-direction
+    device_judged: false
+  toc_depth:
+    value: 3
+    justified_by: nav-membership-drives-pagination
+    device_judged: true
+    note: >
+      Read at both settings on 2026-08-26, firmware 1.4.1, during the same device
+      read: the same 39,362-word work at one navigation entry and at sixty, differing in nothing
+      else. Sixty was preferred -- "slot 10 is better, it's great" -- against a one-entry copy the
+      same reader had called fine two days earlier, so this is a preference between two acceptable
+      books rather than a complaint about a broken one. At one entry the device breaks close to no
+      pages in the whole work and the contents offers a single line.
+      The read establishes that 1 is wrong. It does not choose 3 over 6: that work carries only
+      h1 to h3, so the two settings are identical for it, and 3 is set because 3 is what was read.

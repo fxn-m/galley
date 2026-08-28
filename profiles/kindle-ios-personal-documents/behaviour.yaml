@@ -1,0 +1,23 @@
+behaviour:
+  - id: colour-capable-raster-probe
+    claim: >
+      Galley prepares RGB/RGBA PNG so the first Kindle for iOS run can observe colour and
+      transparency after conversion. This is a test input decision, not a preservation result.
+    kind: product-decision
+    date: "2026-08-27"
+    justifies: [image_encoding]
+  - id: conservative-kindle-raster-bounds
+    claim: >
+      Ordinary prepared rasters fit within 1600 by 2560 pixels without upscaling. This bounds
+      Galley output conservatively and is not represented as a Send to Kindle acceptance limit.
+    kind: product-decision
+    date: "2026-08-27"
+    justifies: [image_fit]
+  - id: kindle-colour-cover-direction
+    claim: >
+      Kindle for iOS Cover Artwork uses a separate 1600 by 2560 RGB canvas with high contrast,
+      moderate density and flexible type and shape scales. The canvas is Galley's design direction,
+      not Amazon conversion evidence.
+    kind: product-decision
+    date: "2026-08-27"
+    justifies: [cover_artwork]

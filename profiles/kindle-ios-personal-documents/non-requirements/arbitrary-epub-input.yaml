@@ -1,0 +1,9 @@
+id: arbitrary-epub-input
+statement: Compatibility of arbitrary third-party EPUB input is not a requirement.
+rationale: >
+  The supported Submission Artifact is the reflowable EPUB Galley itself prepared and audited.
+  Amazon conversion behaviour for other EPUB construction choices remains outside this profile.
+provenance:
+  - claim: The first scope admits Galley-produced reflowable EPUB rather than all EPUB-shaped input.
+    kind: product-decision
+    date: "2026-08-27"

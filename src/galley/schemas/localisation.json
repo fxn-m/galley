@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "galley/localisation/1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["galley", "outcome", "refusal", "profile", "source", "evidence", "references"],
+  "oneOf": [
+    {
+      "properties": { "outcome": { "const": "completed" }, "refusal": { "type": "null" } }
+    },
+    {
+      "properties": { "outcome": { "const": "refused" }, "refusal": { "$ref": "#/$defs/refusal" } }
+    }
+  ],
+  "properties": {
+    "galley": { "$ref": "#/$defs/galley" },
+    "outcome": { "enum": ["completed", "refused"] },
+    "refusal": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/refusal" }]
+    },
+    "profile": { "$ref": "#/$defs/profile" },
+    "source": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/source" }]
+    },
+    "evidence": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/evidence" }]
+    },
+    "references": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/reference" }
+    }
+  },
+  "$defs": {
+    "galley": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version", "command", "run_id", "started_at", "finished_at", "duration_ms",
+        "document_schema"
+      ],
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "command": { "const": "localise" },
+        "run_id": { "type": "string", "minLength": 1 },
+        "started_at": { "type": "string", "minLength": 1 },
+        "finished_at": { "type": "string", "minLength": 1 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "document_schema": { "const": "galley/localisation/1" }
+      }
+    },
+    "refusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boundary", "authority", "stage", "summary", "fact"],
+      "properties": {
+        "boundary": { "type": "string", "minLength": 1 },
+        "authority": { "const": "localise" },
+        "stage": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "fact": { "type": "object" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested", "resolved", "id"],
+      "properties": {
+        "requested": { "type": "string", "minLength": 1 },
+        "resolved": { "type": "boolean" },
+        "id": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "sha256"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[0-9a-f]{64}$" }]
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "directory", "inspection_report", "canonical_document", "preservation_baseline",
+        "images_directory"
+      ],
+      "properties": {
+        "directory": { "type": "string", "minLength": 1 },
+        "inspection_report": { "type": "string", "minLength": 1 },
+        "canonical_document": { "type": "string", "minLength": 1 },
+        "preservation_baseline": { "type": "string", "minLength": 1 },
+        "images_directory": { "type": "string", "minLength": 1 }
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identifier", "locator", "host", "addresses", "occurrences", "transport", "path",
+        "sha256", "byte_size", "media_type"
+      ],
+      "properties": {
+        "identifier": { "type": "string", "minLength": 1 },
+        "locator": { "type": "string", "minLength": 1 },
+        "host": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] },
+        "addresses": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "occurrences": { "type": "integer", "minimum": 1 },
+        "transport": { "$ref": "#/$defs/transport" },
+        "path": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] },
+        "sha256": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[0-9a-f]{64}$" }]
+        },
+        "byte_size": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] },
+        "media_type": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] }
+      }
+    },
+    "transport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "status", "detail"],
+      "properties": {
+        "outcome": {
+          "enum": [
+            "retrieved",
+            "unsupported-locator",
+            "unresolvable-host",
+            "blocked-host",
+            "redirected",
+            "http-error",
+            "oversize",
+            "undecodable"
+          ]
+        },
+        "status": { "oneOf": [{ "type": "null" }, { "type": "integer" }] },
+        "detail": { "type": "string" }
+      }
+    }
+  }
+}

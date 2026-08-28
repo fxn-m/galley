@@ -1,0 +1,80 @@
+observations:
+  - name: footnote-target-reliability
+    enabled: true
+    note: >
+      Computable from a built artifact: a footnote reference whose target does not resolve lands
+      the reader somewhere other than its note. Counted from measured references and measured
+      identifiers, never inferred.
+  - name: link-footnote-dilution
+    enabled: true
+    note: Requires rendered-screen knowledge the CLI cannot measure; left to the reader.
+  - name: page-break-content-destruction
+    enabled: true
+    note: Elements marked doc-pagebreak are skipped with their content.
+    tuning:
+      markers: [doc-pagebreak, pagebreak]
+      attributes: [epub:type, role, class]
+      note: >
+        The device fact is doc-pagebreak, read at 1.4.1. `pagebreak` is the class EPUB3 authors
+        and Pandoc write, which the packaging step turns into epub:type="pagebreak", so a source
+        carrying it will carry the marked form in the built book.
+  - name: ordered-list-numbering-loss
+    enabled: true
+  - name: unrenderable-glyphs
+    enabled: true
+    tuning:
+      codepoints: ["U+21A9", "U+FE0E", "U+2510", "U+251C", "U+2518", "U+2E2E", "U+2192"]
+      exhaustive: false
+      note: >
+        A lower bound, not a parameter. The device renders an unsupported codepoint as a
+        diamond and nobody has enumerated the supported set.
+      # U+2E2E (reversed question mark) and U+2192 (rightwards arrow) were read on real hardware
+      # at firmware 1.4.1 on 2026-08-23 and confirmed on 2026-08-24: three irony marks and two
+      # arrows drew as diamonds, with the arrows compared to the same passage in a browser. This
+      # is a device-test claim, and not a
+      # Galley defect either way -- the artifact carries zero U+FFFD, so both characters reached
+      # the book exactly as the source wrote them and the font is what is short. The zero-U+FFFD
+      # count is the test that separates a font gap from a decoding loss, and it is the one to
+      # keep: reading the surrounding context does not separate them, because U+2E2E is a
+      # deliberate exotic character sitting in ordinary prose.
+  - name: unrenderable-images
+    enabled: true
+    note: Join each measured artifact encoding against the profile's exact safe set.
+  - name: alt-text-fallback-absence
+    enabled: true
+    note: Fires only when an unrenderable image also has blank alt; blank alt alone is a fact.
+  - name: diagram-text-legibility
+    enabled: true
+    note: >
+      Agent judgement from a deterministic prepared-pixel preview and reported dimensions and
+      scale. The CLI leaves fired null and applies no OCR or scale threshold.
+  - name: colour-meaning-collapse
+    enabled: true
+    note: >
+      Agent judgement comparing source and prepared greyscale previews. Audit of an already-grey
+      artifact cannot assess it without a retained source image and leaves fired null.
+  - name: strikethrough-inversion
+    enabled: true
+    note: >
+      Probe A5 on CrossPoint 1.4.1, 2026-07-16: Pandoc emits `del` and the panel renders it as
+      plain unstruck text. Not loss but inversion — a retracted price reads as a live one — so
+      the observation fires wherever a Strikeout occurs.
+  - name: table-relationship-loss
+    enabled: true
+    note: >
+      Probe A3 on CrossPoint 1.4.1, 2026-07-16: every cell becomes its own paragraph labelled
+      `Tab Row N, Cell M:`, a positional label rather than a semantic one, so the header-to-data
+      relationship is destroyed while every character survives. Every table linearises.
+  - name: code-block-reflow
+    enabled: true
+    note: >
+      Probe A4 on CrossPoint 1.4.1, 2026-07-16: `pre` is transparent and `font-family` ignored,
+      so a code block reflows as prose — no indentation, no monospace, the whole block run
+      together as one paragraph. Every code block reflows, whatever stylesheet the book carries.
+  - name: boundary-chrome-presence
+    enabled: true
+    note: >
+      Agent judgement over primitives the Report already carries: the link count in
+      `canonical_document.reading`, and the reader-visible word count in `extraction` where the
+      source had an extraction stage at all. Extraction Failure uses one measurement against one
+      threshold, so the CLI states those counts and never classifies a page by them.

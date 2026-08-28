@@ -1,0 +1,47 @@
+id: png-decoding
+statement: Every PNG uses a device-verified sample-depth and colour-type pair.
+evaluable_on: artifact
+basis: measured
+applies_to:
+  measured_media_types: [image/png]
+failure_mode: visible-loss
+authority: report
+support:
+  compatible:
+    - {sample_depth: 8, colour_types: [0, 2, 3, 4, 6]}
+  incompatible:
+    - {sample_depth: 16, colour_types: [0, 2, 4, 6]}
+  unlisted: unknown
+provenance:
+  - claim: every legal PNG colour type rendered at 8-bit sample depth
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-08-16"
+  - claim: tested 16-bit PNG types 0, 2, 4 and 6 all showed placeholders
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-08-16"
+  - claim: PNG colour types 2 and 6 do not render
+    kind: device-inference
+    firmware: "1.4.1"
+    date: "2026-07-16"
+    status: retracted
+    retracted_by: >
+      the 2026-08-16 matrix; both old samples were 16-bit and both colour types render at 8-bit
+    retracted_on: "2026-08-16"
+  - claim: >
+      the 1.4.1 decoder has branches for greyscale, indexed, truecolour, greyscale-alpha and
+      truecolour-alpha, and warns rather than explicitly refusing non-8-bit samples
+    kind: firmware-source
+    firmware: "1.4.1"
+    source_tag: "1.4.1"
+    date: "2026-08-16"
+    ref: lib/Epub/Epub/converters/PngToFramebufferConverter.cpp
+  - claim: >
+      v1.5.0 explicitly accepts 8-bit for every PNG colour type, accepts low-bit greyscale and
+      indexed forms, and refuses 16-bit
+    kind: firmware-source
+    firmware: "v1.5.0"
+    source_tag: "v1.5.0"
+    date: "2026-08-16"
+    ref: lib/Epub/Epub/converters/PngToFramebufferConverter.cpp

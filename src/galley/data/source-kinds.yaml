@@ -1,0 +1,36 @@
+# The source kinds Galley accepts and refuses as release data. A second Device Profile does not
+# change what Galley can read.
+#
+# `statement` is what a refusal names as an accepted route, so the message a user sees comes from
+# the same entry that defines the route.
+schema: galley/source-kinds/1
+version: 1
+supported:
+  - id: markdown
+    statement: a local Markdown file (.md or .markdown)
+    suffixes: [".md", ".markdown"]
+  - id: article-url
+    statement: an http:// or https:// Article-Like Page
+    schemes: ["http", "https"]
+refused:
+  - id: local-html
+    statement: a saved local HTML page
+    suffixes: [".html", ".htm", ".xhtml"]
+    reason: >
+      A saved page can convert into a plausible book with silently wrong images because its
+      original retrieval context is missing. Fetch the page by URL instead.
+  - id: pdf
+    statement: a PDF
+    suffixes: [".pdf"]
+    reason: PDF input, extraction, OCR and preparation are out of 0.1.0 scope.
+  - id: epub
+    statement: an EPUB
+    suffixes: [".epub"]
+    reason: >
+      An EPUB is audit's subject rather than a source to inspect or prepare. Use `galley audit`.
+  - id: unsupported-url-scheme
+    statement: a locator whose scheme is not http or https
+    reason: Only a live http or https fetch is a supported Article-Like Page route.
+  - id: unknown-local-kind
+    statement: a local file of an unrecognised kind
+    reason: Galley reads Markdown sources and live Article-Like Page URLs in 0.1.0.

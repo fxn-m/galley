@@ -1,0 +1,33 @@
+id: footnotes-per-screen
+statement: No rendered screen carries more than 16 recorded links.
+evaluable_on: null
+verdict: unevaluable
+basis: null
+failure_mode: silent-loss
+authority: report
+limit:
+  enforced: null
+  observed: 16
+  units: recorded links per rendered screen
+unevaluable_because: >
+  Galley cannot compute rendered screens, so no artifact can be checked against this limit. The
+  evidence is complete; the instrument cannot exist. Galley strips categorically instead; see
+  behaviour link-slots-are-per-screen.
+provenance:
+  - claim: MAX_FOOTNOTES_PER_PAGE = 16
+    kind: firmware-source
+    firmware: "1.4.1"
+    source_tag: "1.4.1"
+    date: "2026-08-13"
+    ref: Epub/Page.h
+  - claim: unchanged at v1.5.0
+    kind: firmware-source
+    firmware: "v1.5.0"
+    source_tag: "v1.5.0"
+    date: "2026-08-16"
+  - claim: >
+      20 references on one screen listed 16; eviction is silent and in document order, so
+      ordinary prose links evict real footnotes
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-08-13"

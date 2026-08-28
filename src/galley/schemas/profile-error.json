@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "galley/profile-error/1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["error", "outcome", "schema"],
+  "properties": {
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "profile"],
+      "properties": {
+        "code": {"const": "unknown-profile"},
+        "message": {"type": "string"},
+        "profile": {"type": "string"}
+      }
+    },
+    "outcome": {"const": "invocation-error"},
+    "schema": {"const": "galley/profile-error/1"}
+  }
+}

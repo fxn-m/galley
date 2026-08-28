@@ -1,0 +1,30 @@
+schema: galley/modelled-set/1
+version: 1
+pandoc_version: "3.10"
+constructors:
+  - Plain
+  - Para
+  - CodeBlock
+  - BlockQuote
+  - OrderedList
+  - BulletList
+  - DefinitionList
+  - Header
+  - HorizontalRule
+  - Figure
+  - Div
+  - Str
+  - Emph
+  - Strong
+  - Superscript
+  - Subscript
+  - SmallCaps
+  - Quoted
+  - Code
+  - Space
+  - SoftBreak
+  - LineBreak
+  - Link
+  - Image
+  - Note
+  - Span

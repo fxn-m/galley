@@ -1,0 +1,28 @@
+id: image-media-type
+statement: Every content image uses a device-verified media type.
+evaluable_on: artifact
+basis: measured
+failure_mode: visible-loss
+authority: report
+support:
+  compatible: [image/png, image/jpeg]
+  incompatible: [image/webp, image/svg+xml]
+  unlisted: unknown
+provenance:
+  - claim: PNG and JPEG content images render
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-08-16"
+  - claim: WebP does not render
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-07-16"
+  - claim: SVG does not render as content or as a cover wrapper
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-07-16"
+  - claim: >
+      unrenderable images show an italic "[Image: alt]" stand-in
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-07-16"

@@ -1,0 +1,37 @@
+id: jpeg-decoding
+statement: Every JPEG uses a device-verified colour-model and scan-mode pair.
+evaluable_on: artifact
+basis: measured
+applies_to:
+  measured_media_types: [image/jpeg]
+failure_mode: silent-misdirection
+authority: refuse
+support:
+  compatible:
+    - {scan_mode: baseline, colour_models: [greyscale, rgb]}
+  incompatible:
+    - {scan_mode: progressive, colour_models: [rgb]}
+  unlisted: unknown
+provenance:
+  - claim: baseline greyscale and colour JPEGs render well
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-08-16"
+  - claim: progressive colour JPEG renders recognisably but visibly distorted
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-08-16"
+  - claim: >
+      the 1.4.1 JPEG decoder asks JPEGDEC for 8-bit greyscale output and contains a reduced-quality
+      progressive path
+    kind: firmware-source
+    firmware: "1.4.1"
+    source_tag: "1.4.1"
+    date: "2026-08-16"
+    ref: lib/Epub/Epub/converters/JpegToFramebufferConverter.cpp
+  - claim: the v1.5.0 JPEG decoder is byte-identical to 1.4.1
+    kind: firmware-source
+    firmware: "v1.5.0"
+    source_tag: "v1.5.0"
+    date: "2026-08-16"
+    ref: lib/Epub/Epub/converters/JpegToFramebufferConverter.cpp

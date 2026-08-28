@@ -1,0 +1,14 @@
+id: package-validity
+statement: EPUB validity is not a requirement.
+rationale: >
+  The device imposes no validity gate, so an EPUBCheck failure must never be read as "this book
+  will not open". Galley still runs EPUBCheck and reports its result as a fact.
+provenance:
+  - claim: device opens an EPUBCheck-invalid file with 29 RSC-012 errors and reads it
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-07-16"
+  - claim: device accepts both EPUB2 and EPUB3
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-07-16"

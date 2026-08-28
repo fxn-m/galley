@@ -1,0 +1,13 @@
+id: raw-usb-epub
+statement: Raw EPUB reading after USB transfer is not a requirement or fallback for this profile.
+rationale: >
+  Amazon documents file transfer but not raw EPUB readability through that route. Galley keeps the
+  first Kindle surface on the documented personal-document conversion path.
+provenance:
+  - claim: Amazon's USB help documents transfer locations and conditions, not raw EPUB rendering.
+    kind: spec-document
+    date: "2026-08-27"
+    ref: https://digprjsurvey.amazon.com/csad/help/node/TCUBEdEkbIhK07ysFu
+  - claim: Raw USB delivery stays out of the first Kindle implementation.
+    kind: product-decision
+    date: "2026-08-27"

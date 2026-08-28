@@ -1,0 +1,73 @@
+behaviour:
+  - id: nav-membership-drives-pagination
+    claim: Page breaks are driven by nav membership, not heading level.
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-07-16"
+    justifies: [toc_depth]
+  - id: hardware-back-button
+    claim: >
+      The chassis Back button returns from a note, making an in-text back-link redundant and
+      costing one of sixteen per-screen slots.
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-08-15"
+    justifies: [footnote_backlinks]
+  - id: cover-reads-from-opf
+    claim: >
+      Cover art reads from the OPF cover-image entry regardless of the XHTML wrapper; an SVG
+      wrapper is blank in-book.
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-07-16"
+    justifies: [cover_wrapper]
+  - id: link-slots-are-per-screen
+    claim: >
+      Footnote slots are counted per rendered screen, which Galley cannot compute, so stripping
+      is categorical rather than density-triggered.
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-08-13"
+    justifies: [strip_non_apparatus_hrefs]
+  - id: one-file-per-note-resolves
+    claim: >
+      Cross-file note targets resolve reliably; pandoc's intra-file aside[id] footnotes
+      misdirect. One-file-per-note is preferred at 29 notes.
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-08-15"
+    justifies: [one_file_per_note]
+  - id: four-level-panel
+    claim: >
+      The panel presents four greyscale levels, so retained source colour cannot increase the
+      device's displayed colour fidelity.
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-07-16"
+    justifies: [image_encoding]
+  - id: x4-cover-direction
+    claim: >
+      X4 Cover Artwork uses a separate 480 by 800 grayscale composition with high contrast,
+      restrained density, large type and shapes, and a four-level thumbnail preview. These are
+      Galley authoring decisions grounded in the observed panel, not image compatibility claims.
+    kind: product-decision
+    date: "2026-08-27"
+    justifies: [cover_artwork]
+  - id: loose-list-items-break-below-the-marker
+    claim: >
+      A list item wrapping a paragraph renders its text as a block below the bullet marker,
+      leaving the marker alone on its line; an item holding inline content renders beside it.
+    kind: device-test
+    firmware: "1.4.1"
+    date: "2026-08-21"
+    # Read on real hardware by a reader who identified both groups without knowing the markup
+    # differed: two of two loose items wrong and twelve of twelve tight items right. Galley
+    # transforms nothing on this evidence -- a loose list
+    # is a real distinction in the source, and flattening one to please a firmware would edit
+    # the author's document to fix the reader's.
+    justifies: []
+  - id: panel-geometry
+    claim: The panel raster is 480 by 800 pixels.
+    kind: spec-document
+    date: "2026-07-16"
+    justifies: [image_fit]

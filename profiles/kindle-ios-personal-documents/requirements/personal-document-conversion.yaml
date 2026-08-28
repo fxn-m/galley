@@ -1,0 +1,28 @@
+id: personal-document-conversion
+statement: >
+  The Submission Artifact is a Galley-produced reflowable EPUB intended for user-controlled
+  personal-document submission through Kindle for iOS and subsequent Amazon conversion.
+evaluable_on: post-submission observation
+basis: null
+failure_mode: unknown
+authority: report
+provenance:
+  - claim: Send to Kindle accepts EPUB and delivers converted documents to Kindle apps and devices.
+    kind: spec-document
+    date: "2026-08-27"
+    ref: https://digprjsurvey.amazon.com/csad/help/node/G5WYD9SAF7PGXRNA
+  - claim: Imported EPUB is converted to Kindle format rather than documented as raw EPUB runtime.
+    kind: spec-document
+    date: "2026-08-27"
+    ref: https://digprjsurvey.amazon.com/csad/help/node/TIh9JOMGAKr7bY4zqu
+  - claim: >
+      Galley admits only its own prepared reflowable EPUB at this profile boundary and records the
+      later Amazon outcome separately; this is not an arbitrary-EPUB or conversion-success claim.
+    kind: product-decision
+    date: "2026-08-27"
+  - claim: >
+      On iPhone 15 Pro running iOS 26.6 and Kindle for iOS 7.65 in the UK account region, the
+      Files-to-Kindle share accepted one Galley-produced EPUB and its converted library item
+      appeared in approximately one minute with the intended identity and a successful read.
+    kind: device-test
+    date: "2026-08-27"

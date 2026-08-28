@@ -1,0 +1,103 @@
+# Repair Conventions: named ways a source writes something Galley's tooling does not recognise.
+#
+# This is release data beside the Agent Skill, never Device Profile data and never a CLI
+# capability. Each entry describes a source shape and the target every repair aims at, so an
+# agent reads knowledge here instead of the skill growing an instruction per website. Recording
+# a convention changes nothing `prepare` does.
+#
+# Adding an entry is not a licence to add a `prepare` transform. Capabilities enter the CLI by
+# being general — true of a format or a Device Profile — and never by recurring.
+schema: galley/repair-conventions/3
+version: 3
+conventions:
+  - id: paul-graham-hand-rolled-endnotes
+    title: Paul Graham's hand-rolled endnotes
+    source: paulgraham.com
+    why_not_general: >-
+      A fact about one website, not about a format. These brackets are one author's habit on one
+      site; treating every bracketed link as a note would rewrite unrelated documents.
+    pairing_key: >-
+      The marker's visible digit, on both carriers. Never the anchor's id, name or href:
+      extraction destroys in-page anchor targets — 353 of 353 measured — so an id-based or
+      href-based key pairs nothing at all on the retrieved route.
+    complete_when: >-
+      Every visible bracketed digit has exactly one prose reference and one non-empty notes
+      definition carrying the same digit.
+    preserve_when_ambiguous: >-
+      If a digit is missing, duplicated, unpaired or attached to an empty definition, leave the
+      apparatus unchanged and flag it for Bespoke Repair rather than guessing a pairing.
+    carriers:
+      - kind: article-url
+        reference: >-
+          A link in the prose whose visible text is a bracketed number, pointing at an in-page
+          target that extraction has already removed.
+        definition: >-
+          A notes section at the end of the work, each note introduced by the same bracketed
+          number as visible text.
+        pairing_evidence: read the digit from the anchor's visible text
+      - kind: markdown
+        reference: >-
+          The same bracketed number as link text, in extractor-produced Markdown that retained
+          the original address.
+        definition: >-
+          The same notes section, each note introduced by the same bracketed number as link text.
+        pairing_evidence: read the digit from the link text
+    target: >-
+      A Recovered Footnote Apparatus — Pandoc `Note` nodes attached at each reference, with the
+      notes section removed from the body. The repair teaches Galley a convention, never a code
+      path, because everything downstream already understands a Note.
+    retained_evidence: >-
+      Every marker digit is reader-visible text, so it appears in the Preservation Baseline twice
+      per note: once at the reference and once at its definition. Both survive into the built
+      book, as the reference number and as the note's "Footnote N." label, so no digit is
+      expected missing. The one baseline token the repair consumes is the notes section's own
+      heading word — declare it, and only it, through `--expected-missing-tokens`.
+  - id: substack-markdown-social-embed
+    title: Substack's malformed Markdown social-post carrier
+    source: observed Substack Markdown export
+    why_not_general: >-
+      This malformed hybrid is not a fact about Markdown, X posts or social platforms generally.
+      Galley already prepares native Pandoc structure; recognising this source-specific shape
+      belongs to Repairing Assisted Preparation and never licenses an automatic CLI transform.
+    pairing_key: >-
+      One X status URL together with the author handle in its path. Recognise only the two layouts
+      recorded here after a standalone `[` and avatar-plus-identity opening: the early-close
+      variant has a standalone `](STATUS_URL)` immediately after identity, followed by a body link
+      to that same URL, timestamp, rule and engagement chrome; the late-close variant has body,
+      optional media, timestamp, rule and engagement chrome before the standalone closing token.
+      In both, the identity handle must match the status URL's author segment.
+    complete_when: >-
+      The opening boundary, plain identity name and handle, non-empty body, timestamp and one X
+      status URL are present in one of those two observed layouts. In the early-close variant the
+      following body link repeats the closing status URL; in the late-close variant the body lies
+      before the closing token. The identity handle agrees with the URL, and any retained media
+      has enough evidence for useful alternative text.
+    preserve_when_ambiguous: >-
+      If a boundary or required field is absent, two plausible identities or meanings remain, the
+      handle conflicts with the status URL, or media meaning cannot be stated, leave the carrier
+      unchanged and flag it for Bespoke Repair rather than guessing or rasterising it.
+    carriers:
+      - kind: markdown
+        reference: >-
+          The exact observed opening sequence: a standalone `[`, an `X avatar for @handle` image,
+          then concatenated display name, decorative flag emoji and `@handle` identity text.
+        definition: >-
+          Either the observed early-close layout — the standalone closing token, a body link to
+          the same status URL, timestamp, rule and engagement metadata — or the observed late-close
+          layout — body, optional media, timestamp, rule, engagement metadata, then that token.
+        pairing_evidence: >-
+          No digit is paired. Read the matching author handle and status identifier from the
+          closing status URL, and require the visible identity handle to agree.
+    target: >-
+      A Semantic Social Embed made only from native reflowable document structure: plain
+      `Post by Name (@handle)` identity, body text with only its meaningful links, optional media
+      with useful alternative text, timestamp, and a final `View original post` link. Omit the
+      avatar, decorative flags, engagement counts and platform UI chrome; never link the whole
+      post, introduce raw HTML, rasterise the card or invent a social AST node.
+    retained_evidence: >-
+      Keep the original source, inspection Report and Preservation Baseline. Identity, body,
+      meaningful body links, optional media meaning, timestamp and status URL must survive in the
+      repaired Canonical Document. Declare only discarded wrapper and chrome tokens. If the
+      wrapper boundary, identity, body, timestamp or status URL is missing or conflicts, leave the
+      carrier unchanged and flag it for Bespoke Repair rather than guessing, dropping or
+      rasterising it.
