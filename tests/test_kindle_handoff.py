@@ -1,4 +1,4 @@
-"""The installed Agent Skill stages one Kindle Submission Artifact and stops."""
+"""The installed Agent Skill publishes one Kindle Ready Artifact and gives it to the user."""
 
 import hashlib
 import json
@@ -6,12 +6,17 @@ import re
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from tests.markdown_fixtures import PLAIN_BOOK, write_markdown
 from tests.public_cli import public_cli_commands, run_command
+from tests.ready_fixtures import ready_reports
 from tests.skill_fixtures import isolated_home
+from tests.workspace_fixtures import workspace_environment
 
 PROFILE = "kindle-ios-personal-documents"
 PROFILE_VERSION = "0.3.0"
+SKILL = Path("src/galley/skills/galley")
 RESOURCE = Path("resources/kindle-ios-handoff.md")
 
 
@@ -24,21 +29,31 @@ def _option(command: list[str], name: str) -> str | None:
     return command[command.index(name) + 1] if name in command else None
 
 
-def _installed_handoff_command(tmp_path: Path, index: int, installer: list[str]) -> list[str]:
-    target = tmp_path / f"installed-skills-{index}"
-    result = run_command(
-        installer,
-        "--target",
-        str(target),
-        "--json",
-        environment=isolated_home(tmp_path / f"home-{index}"),
-    )
-    assert (result.returncode, result.stderr) == (0, "")
-    installed = target / "galley" / RESOURCE
-    assert installed.read_bytes() == (Path("src/galley/skills/galley") / RESOURCE).read_bytes()
-    commands = _commands(installed.read_text(encoding="utf-8"))
-    assert len(commands) == 1
-    return commands[0]
+@pytest.fixture(scope="module")
+def installed_guidance(tmp_path_factory: pytest.TempPathFactory) -> tuple[tuple[str, str], ...]:
+    root = tmp_path_factory.mktemp("kindle-user-handoff")
+    installed: list[tuple[str, str]] = []
+    for index, installer in enumerate(public_cli_commands("skill", "install")):
+        target = root / f"installed-skills-{index}"
+        result = run_command(
+            installer,
+            "--target",
+            str(target),
+            "--json",
+            environment=isolated_home(root / f"home-{index}"),
+        )
+        assert (result.returncode, result.stderr) == (0, "")
+        installed_skill = target / "galley" / "SKILL.md"
+        installed_handoff = target / "galley" / RESOURCE
+        assert installed_skill.read_bytes() == (SKILL / "SKILL.md").read_bytes()
+        assert installed_handoff.read_bytes() == (SKILL / RESOURCE).read_bytes()
+        installed.append(
+            (
+                installed_skill.read_text(encoding="utf-8"),
+                installed_handoff.read_text(encoding="utf-8"),
+            )
+        )
+    return tuple(installed)
 
 
 def _json(result: Any) -> Any:
@@ -46,80 +61,56 @@ def _json(result: Any) -> Any:
     return json.loads(result.stdout)
 
 
-def test_the_installed_skill_command_runs_the_public_kindle_handoff(tmp_path: Path) -> None:
-    installers = public_cli_commands("skill", "install")
+def test_the_installed_skill_command_publishes_the_public_kindle_ready_artifact(
+    tmp_path: Path, installed_guidance: tuple[tuple[str, str], ...]
+) -> None:
     preparers = public_cli_commands("prepare")
-    for index, (installer, preparer) in enumerate(zip(installers, preparers, strict=True)):
-        documented = _installed_handoff_command(tmp_path, index, installer)
+    for index, ((_, handoff), preparer) in enumerate(
+        zip(installed_guidance, preparers, strict=True)
+    ):
+        commands = _commands(handoff)
+        assert len(commands) == 1
+        documented = commands[0]
         assert documented[:3] == ["galley", "prepare", "SOURCE"]
         assert _option(documented, "--profile") == PROFILE
-        assert _option(documented, "--output") == "CONFIRMED_HANDOFF_FOLDER/BOOK.epub"
-        assert _option(documented, "--evidence-dir") == "GALLEY_EVIDENCE/BOOK.galley"
-        assert {"--json"} <= set(documented)
-        assert {"--ready", "--overwrite"}.isdisjoint(documented)
+        assert {"--ready", "--json"} <= set(documented)
+        assert {"--output", "--evidence-dir", "--overwrite"}.isdisjoint(documented)
 
         source = write_markdown(tmp_path / f"source-{index}.md", PLAIN_BOOK)
-        handoff = tmp_path / f"confirmed-handoff-{index}"
-        evidence_root = tmp_path / f"galley-evidence-{index}"
-        handoff.mkdir()
-        evidence_root.mkdir()
-        output = handoff / "book.epub"
-        evidence = evidence_root / "book.galley"
-        replacements = {
-            "SOURCE": str(source),
-            "CONFIRMED_HANDOFF_FOLDER/BOOK.epub": str(output),
-            "GALLEY_EVIDENCE/BOOK.galley": str(evidence),
-        }
-        arguments = [replacements.get(argument, argument) for argument in documented[2:]]
-
-        report = _json(run_command(preparer, *arguments))
-
-        assert sorted(path.name for path in handoff.iterdir()) == ["book.epub"]
-        assert handoff not in evidence.parents
-        assert sorted(path.name for path in evidence.iterdir()) == [
-            "canonical-document.json",
-            "preservation-baseline.txt",
-            "report.json",
+        workspace = tmp_path / f"workspace-{index}"
+        environment = workspace_environment(workspace, tmp_path / f"runtime-home-{index}")
+        arguments = [
+            str(source) if argument == "SOURCE" else argument for argument in documented[2:]
         ]
-        assert json.loads((evidence / "report.json").read_text(encoding="utf-8")) == report
+
+        report = _json(run_command(preparer, *arguments, environment=environment))
+        output = Path(report["artifact"]["path"])
+
         assert report["outcome"] == "completed"
         assert report["profile"]["id"] == PROFILE
         assert report["profile"]["profile_version"] == PROFILE_VERSION
-        assert report["artifact"]["path"] == str(output.resolve())
+        assert output.parent == workspace / "ready"
         assert report["artifact"]["sha256"] == hashlib.sha256(output.read_bytes()).hexdigest()
         assert report["artifact"]["byte_size"] == {
             "basis": "measured",
             "unit": "bytes",
             "value": output.stat().st_size,
         }
+        retained = ready_reports(workspace)
+        assert len(retained) == 1
+        assert retained[0] == report
 
 
-def test_the_kindle_handoff_keeps_the_existing_output_refusal(tmp_path: Path) -> None:
-    source = write_markdown(tmp_path / "source.md", PLAIN_BOOK)
-    for index, command in enumerate(public_cli_commands("prepare")):
-        handoff = tmp_path / f"confirmed-handoff-{index}"
-        handoff.mkdir()
-        output = handoff / "book.epub"
-        existing = b"an existing submission artifact\n"
-        _ = output.write_bytes(existing)
-        evidence = tmp_path / f"external-evidence-{index}" / "book.galley"
+def test_kindle_guidance_forbids_agent_side_handoff_and_names_the_manual_step(
+    installed_guidance: tuple[tuple[str, str], ...],
+) -> None:
+    for skill, handoff in installed_guidance:
+        combined = " ".join(f"{skill} {handoff}".split())
 
-        result = run_command(
-            command,
-            str(source),
-            "--profile",
-            PROFILE,
-            "--output",
-            str(output),
-            "--evidence-dir",
-            str(evidence),
-            "--json",
-        )
-
-        assert (result.returncode, result.stderr) == (3, "")
-        report = json.loads(result.stdout)
-        assert report["refusal"]["boundary"] == "output-exists"
-        assert report["refusal"]["artifact_written"] is False
-        assert output.read_bytes() == existing
-        assert not evidence.exists()
-        assert sorted(path.name for path in handoff.iterdir()) == ["book.epub"]
+        assert "user-confirmed iCloud Drive Handoff Folder" not in combined
+        assert "CONFIRMED_HANDOFF_FOLDER" not in combined
+        assert "Do not ask for an iCloud Drive folder" in combined
+        assert "copy the EPUB into one or upload it to Kindle" in combined
+        assert "exact local path" in combined
+        assert "preferred Send to Kindle route" in combined
+        assert "Upload or share this EPUB" in combined

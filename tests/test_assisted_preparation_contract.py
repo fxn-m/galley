@@ -156,6 +156,28 @@ def test_assisted_preparation_batches_repairs_and_parallelises_only_independent_
         assert "ask the user" in lowered
 
 
+def test_assisted_preparation_always_finishes_with_a_ready_artifact(
+    installed_contracts: tuple[str, ...],
+) -> None:
+    """A chosen source reaches the same immutable Workspace boundary for every profile; later
+    delivery or personal-document submission belongs to a separate actor."""
+
+    for text in installed_contracts:
+        opening = " ".join(text[: text.index("## Inspect and classify first")].split())
+        workflow = " ".join(
+            text[
+                text.index("## Work after classification") : text.index(
+                    "## Keep the workflow boundary"
+                )
+            ].split()
+        )
+
+        assert "production of one Ready Artifact" in opening
+        assert "Submission Artifact" not in opening
+        assert "final preparation with `--ready`" in workflow
+        assert "Report's `artifact.path`" in workflow
+
+
 def test_assisted_preparation_adds_no_orchestration_or_timing_system(
     installed_contracts: tuple[str, ...],
 ) -> None:

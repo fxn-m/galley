@@ -1,6 +1,6 @@
 [project]
 name = "galley"
-version = "0.1.3"
+version = "0.1.4"
 description = "Make your content readable on e-ink displays"
 readme = "README.md"
 license = "MIT"

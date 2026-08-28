@@ -1,4 +1,4 @@
-# Device Profile — Kindle for iOS personal documents through the user-controlled share handoff.
+# Device Profile — Kindle for iOS personal documents through user-controlled submission.
 schema: galley/device-profile/2
 id: kindle-ios-personal-documents
 profile_version: 0.3.0

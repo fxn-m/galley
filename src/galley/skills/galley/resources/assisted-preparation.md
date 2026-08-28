@@ -1,8 +1,8 @@
 # Leading an Assisted Preparation
 
-Assisted Preparation is the complete agent-guided production of a Ready Artifact or Submission
-Artifact from one chosen source. It uses Galley's existing public commands and keeps the inspection,
-any Bespoke Repair, Cover Artwork, Localisation, preparation and assessment in one visible journey.
+Assisted Preparation is the complete agent-guided production of one Ready Artifact from one chosen
+source. It uses Galley's existing public commands and keeps the inspection, any Bespoke Repair,
+Cover Artwork, Localisation, preparation and assessment in one visible journey.
 
 ## Inspect and classify first
 
@@ -54,8 +54,9 @@ Continue from the retained inspection evidence through the work the classified j
   dependent repair, cover, Localisation and preparation work in evidence order.
 - Have the active cover author preview the SVG before packaging. A delegated cover returns only
   after its owner has rendered, judged and revised it; the main agent does not repeat that review.
-- Run final preparation once its inputs are settled, then read compact Report facts for the
-  outcome, worklist, cover rasterisation, reference and packaging evidence.
+- Run final preparation with `--ready` once its inputs are settled, then read compact Report facts
+  for the outcome, worklist, cover rasterisation, reference and packaging evidence. The completed
+  Report's `artifact.path` is the path handed to the user.
 
 If later failure is unambiguous, fix it and continue from the new evidence. If it exposes ambiguity
 or a Central Content judgment, stop and ask the user rather than entering repeated blind retries.

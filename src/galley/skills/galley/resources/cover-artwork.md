@@ -111,7 +111,9 @@ the creative review.
 
 ## Prepare and verify the evidence
 
-Use the ordinary explicit-output interface and keep evidence outside any later handoff folder:
+Use the ordinary explicit-output interface in the cover author's working area. Keep this preview
+artifact and evidence outside the Workspace's `ready/` directory; final Assisted Preparation
+publishes its own Ready Artifact and evidence after accepting the cover:
 
 ```text
 galley prepare SOURCE \

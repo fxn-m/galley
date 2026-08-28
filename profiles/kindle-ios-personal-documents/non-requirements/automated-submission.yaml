@@ -1,16 +1,19 @@
 id: automated-submission
 statement: Automated upload, email submission, or delivery confirmation is not a requirement.
 rationale: >
-  The first path ends at a user-controlled iOS Files share handoff. It adds no credentials,
-  private endpoints, watcher, or claim that Amazon received or converted the artifact.
+  Galley ends at an immutable Ready Artifact in the Workspace and reports its local path. The user
+  chooses the later Send to Kindle route. Galley adds no credentials, private endpoints, watcher,
+  iCloud handoff, or claim that Amazon received or converted the artifact.
 provenance:
   - claim: Amazon documents user-facing Send to Kindle channels and no public personal-document API.
     kind: spec-document
     date: "2026-08-27"
     ref: https://digprjsurvey.amazon.com/csad/help/node/G5WYD9SAF7PGXRNA
-  - claim: Galley stops at the iOS handoff and does not automate submission in the first slice.
+  - claim: >
+      Galley publishes the EPUB to Workspace Ready, reports its exact local path, and leaves every
+      Send to Kindle and file-transfer step to the user.
     kind: product-decision
-    date: "2026-08-27"
+    date: "2026-08-28"
   - claim: >
       The first observed Files-to-Kindle share completed without troublesome delay, so one
       successful run does not earn a credentialled or automated submission surface.

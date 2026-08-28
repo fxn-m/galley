@@ -1,6 +1,6 @@
 ---
 name: galley
-description: Prepare documents for constrained reading environments with the Galley CLI. Use when inspecting, preparing or auditing Markdown or an Article-Like Page for a Device Profile, staging its Kindle iOS handoff, reading a Galley Report, or repairing a document Galley's tooling misreads before resubmitting it.
+description: Prepare documents for constrained reading environments with the Galley CLI. Use when inspecting, preparing or auditing Markdown or an Article-Like Page for a Device Profile, preparing a Kindle-ready EPUB, reading a Galley Report, or repairing a document Galley's tooling misreads before resubmitting it.
 ---
 
 # Galley
@@ -20,7 +20,7 @@ Detail lives in bounded resources rather than in this file:
 [a complete worked repair](resources/worked-repair.md),
 [localising a document's remote images](resources/localisation.md),
 [authoring profile-directed Cover Artwork](resources/cover-artwork.md),
-[staging a Kindle iOS Submission Artifact](resources/kindle-ios-handoff.md),
+[handing a Ready Artifact to a Kindle user](resources/kindle-ios-handoff.md),
 [the "Galley my inbox" run](resources/galley-my-inbox.md),
 [your worklist and the assessment you record](resources/assessment.md), and
 [the device-read protocol](resources/device-read.md).
@@ -38,8 +38,8 @@ Always pass `--json` and read the Report. The human rendering is the same data, 
 
 ## Assisted Preparation
 
-When the user chooses one source and wants the complete agent-guided journey to a Ready Artifact or
-Submission Artifact, follow [the Assisted Preparation contract](resources/assisted-preparation.md).
+When the user chooses one source and wants the complete agent-guided journey to a Ready Artifact,
+follow [the Assisted Preparation contract](resources/assisted-preparation.md).
 It begins with inspection and gives the user one visible account of the classification, repair,
 cover, Localisation, preparation and assessment work around the existing public commands.
 
@@ -118,10 +118,11 @@ direction, not a recolour preset.
 
 ## When the artifact goes to Kindle for iOS
 
-Galley stops at a user-confirmed iCloud Drive Handoff Folder; the person controls everything from
-iOS Files onward. Read [the Kindle iOS handoff guide](resources/kindle-ios-handoff.md) to place one
-Submission Artifact there, keep its evidence elsewhere, report exactly what local preparation
-proved, and give the person the short manual continuation.
+Galley publishes the EPUB as a Ready Artifact in the Workspace and stops. Do not ask for an iCloud
+Drive folder, copy the EPUB into one or upload it to Kindle. Read
+[the Kindle user handoff guide](resources/kindle-ios-handoff.md), report the Ready Artifact's exact
+local path, and tell the person to upload or share that file through their preferred Send to Kindle
+route.
 
 ## When the pictures are still on the web
 
