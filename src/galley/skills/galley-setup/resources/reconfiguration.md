@@ -21,8 +21,9 @@ Read the existing `galley.toml` first and work from what is there.
 
 1. Read the current file and report what it says now — Workspace, each Inbox with its recursion,
    host and destination.
-2. Ask only about what the user came to change. The six questions are the first-run set; a user
-   changing one Inbox path answers one question.
+2. Ask only about what the user came to change. The six subjects in the first-run table are the
+   complete decision set, not six mandatory prompts; a user changing one Inbox path answers one
+   question. Follow the entry skill's native-question rule and ordinary-chat fallback.
 3. Show a **diff** of the file rather than a summary of the new state, so the user sees exactly
    which lines move.
 4. Take one confirmation, apply the edit, and validate.

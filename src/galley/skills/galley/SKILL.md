@@ -57,6 +57,14 @@ Hand that user to the `galley-setup` skill, which owns the question set and auth
 Choosing a Workspace path for them, or editing `galley.toml` from here, would put configuration
 they have not seen behind everything Galley later reports.
 
+## When an external command is unavailable
+
+A `dependency-unavailable` refusal, or a missing Pandoc, Defuddle, EPUBCheck or resvg command named
+inside another refusal, hands the environment to `galley-setup`. That skill inventories the pinned
+release requirements, plans and performs any approved installation, and verifies all four commands.
+Resume the original reading request after setup reports them ready; raw installation commands are
+not a task to pass on to the user.
+
 ## "Galley my inbox"
 
 One request runs the whole Workspace: validate configuration, check the Inbox once, prepare every

@@ -22,7 +22,7 @@ refused:
   - id: pdf
     statement: a PDF
     suffixes: [".pdf"]
-    reason: PDF input, extraction, OCR and preparation are out of 0.1.0 scope.
+    reason: PDF input, extraction, OCR and preparation are outside this release's scope.
   - id: epub
     statement: an EPUB
     suffixes: [".epub"]
@@ -33,4 +33,4 @@ refused:
     reason: Only a live http or https fetch is a supported Article-Like Page route.
   - id: unknown-local-kind
     statement: a local file of an unrecognised kind
-    reason: Galley reads Markdown sources and live Article-Like Page URLs in 0.1.0.
+    reason: Galley reads Markdown sources and live Article-Like Page URLs in this release.

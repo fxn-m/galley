@@ -12,27 +12,26 @@ do the work.
 
 It currently knows two targets: 
 - Xteink X4 running [CrossPoint](https://crosspointreader.com/)
-- Kindle personal documents shared through Kindle for iOS.
+- Kindle for iOS
 
 ## Inspiration
 
-Between web extractors and converters such as Pandoc, turning Markdown or a URL into a valid EPUB
-is the easy part. Plain conversion even handles ordinary prose well. But valid is not the same as
-readable: code, tables, footnotes, images, and navigation are where generic conversion starts to
-fall apart.
+Between web extractors and converters such as [Pandoc](https://pandoc.org/), turning Markdown or a
+URL into a valid EPUB is the easy part. Plain conversion even handles ordinary prose well. But valid
+is not the same as readable: code, tables, footnotes, images, and navigation are where generic
+conversion starts to fall apart.
 
-E-ink readers are wonderfully opinionated little machines. A book can pass EPUBCheck while its
-footnotes fail, its images disappear, or its content is silently lost on the device in your hand.
-Galley sniffs those quirks out: device behaviour lives in small profiles, every conversion explains
-itself, and uncertain calls stay with you.
+E-ink readers are wonderfully opinionated little machines. A book can pass
+[EPUBCheck](https://www.w3.org/publishing/epubcheck/) while its footnotes fail, its images disappear,
+or its content is silently lost on the device in your hand. Galley sniffs those quirks out: device
+behaviour lives in profiles, and uncertain calls stay with you.
 
 ## Quick start
 
-Install Galley 0.1.0 from its tagged GitHub release with
-[uv](https://docs.astral.sh/uv/):
+Install Galley from GitHub with [uv](https://docs.astral.sh/uv/):
 
 ```sh
-uv tool install "git+https://github.com/fxn-m/galley.git@v0.1.0"
+uv tool install "git+https://github.com/fxn-m/galley.git"
 galley skill install
 ```
 
@@ -40,27 +39,34 @@ The last command installs Galley's two matching Agent Skills: `galley` runs the 
 and `galley-setup` handles the first conversation. Use `--target` if your agent reads skills from a
 different directory.
 
-Put the pinned command-line tools on your `PATH`: Pandoc 3.10, Defuddle 0.19.1, EPUBCheck 5.3.0
-(with Java), and resvg 0.48.1. Defuddle can be installed with
-`npm install --global defuddle@0.19.1`.
-
 ## First run
 
 Open your coding agent and say:
 
-> Set up Galley.
+```
+Set up Galley.
+```
 
-The Setup Skill asks six short questions about your workspace, reading folders, and device. If the
-suggested setup suits you, answer **“all defaults”** and confirm once. It writes a small, visible
-configuration file, creates only Galley's own working folders, and checks the result for you.
+The Setup Skill first checks Galley's pinned document tools. If anything is absent or at another
+version, your agent chooses the exact installation route for your machine, shows the complete plan
+once, then performs and verifies it after your approval. It first offers the complete recommended
+workspace, reading-folder, and device configuration; choose **All recommended defaults** to accept
+it in one response, or **Customise** to answer only the questions that differ. The agent uses your
+coding environment's native question controls when available, then asks separately before any
+installs or writes. It writes a small, visible configuration file, creates only Galley's own working
+folders, and checks the result.
 
 Then try:
 
-> Prepare this article for my X4 with Galley.
+```
+Prepare this article for my X4 with Galley.
+```
 
 Or, for a reading folder:
 
-> Galley my inbox.
+```
+Galley my inbox.
+```
 
 The main skill checks what is new, prepares the straightforward books, keeps useful evidence when
 something needs attention, and shows you exactly what it wants to deliver before asking for one

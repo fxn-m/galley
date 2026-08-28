@@ -123,7 +123,7 @@ def _parsed(
     recovery: Recovery,
     parse: Parse,
 ) -> Inspection:
-    """Wrap the parse of the recovered content HTML, which is the only HTML reader 0.1.0 has.
+    """Wrap the parse of recovered content HTML, the only HTML reader this release has.
 
     Recovery has already run and already been settled against its own result, so the notes in
     this AST are the notes the book will carry — which is what the link interlock and Text

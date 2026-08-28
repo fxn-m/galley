@@ -1,25 +1,48 @@
 ---
 name: galley-setup
-description: Author and validate a Galley Workspace Configuration through a short first-run conversation. Use when Galley reports missing or invalid Workspace Configuration, when setting Galley up for the first time, or when changing the Workspace, its Inboxes, or the CrossPoint host and destination.
+description: Bootstrap Galley's pinned external tools and author or repair its Workspace Configuration. Use for first-run setup, dependency failures, or changes to the Workspace, Inboxes, or CrossPoint connection.
 ---
 
 # Galley setup
 
-Galley's CLI reads and validates Workspace Configuration and never writes it. Authoring the
-visible `galley.toml` is this skill's whole job: ask six things, show one summary, take one
-confirmation, write the file with ordinary file tools, then hand the result to the read-only
-validator.
+A complete setup leaves Galley's four pinned external commands runnable and its visible
+`galley.toml` valid. Galley's CLI reads and validates Workspace Configuration and never writes it,
+so this skill owns both the dependency bootstrap and that one configuration file.
 
-Detail lives in two bounded resources:
+Detail lives in three bounded resources:
+[dependency bootstrap](resources/dependencies.md) for the exact release requirements, probes,
+installation sources and approval boundary,
 [the configuration contract](resources/workspace-config.md) for the strict schema, the annotated
 template and every refusal, and [reconfiguration](resources/reconfiguration.md) for editing a
 Workspace that already exists. Once setup validates, the reading workflow belongs to the `galley`
 skill.
 
-## The six questions
+## Start with a read-only dependency inventory
 
-Ask all six in one message, each with its default shown, so a user who is content with every
-default can answer "all defaults" and be finished in one response.
+Read [dependency bootstrap](resources/dependencies.md), detect the platform and architecture, and
+run all four version probes before asking the configuration questions. A ready command needs no
+discussion. For anything absent, unusable or at another version, work out the exact installation
+route and retain it for the summary.
+
+Dependency releases are fixed Galley release data, not user choices. Run the approved installation
+commands yourself; a command list is the plan the user approves, not homework to hand back to them.
+If an installer prerequisite such as npm or Java is absent, include that prerequisite in the same
+plan rather than asking the user to obtain it first.
+
+## One fast path, then only unresolved questions
+
+After the inventory, ask one choice between **All recommended defaults** and **Customise**. If the
+user takes the defaults, accept every default in the table below and ask no more configuration
+questions. If they customise, ask which defaults should differ and then ask only for those values,
+in batches of at most three questions.
+
+Use a native structured-question tool when the current harness exposes one in the current mode,
+and obey its live schema. Do not change modes merely to obtain a picker; when no picker is
+available, ask the same compact questions in ordinary chat. For a native picker, use short
+headers, put the recommended answer first, explain each option's consequence in one sentence, and
+keep choices mutually exclusive unless the tool explicitly supports multi-select. Do not add an
+**Other** option when the host supplies one. Paths, names and hostnames may use the host's free-text
+route or ordinary chat.
 
 | Subject | Ask | Default |
 |---|---|---|
@@ -30,8 +53,9 @@ default can answer "all defaults" and be finished in one response.
 | `destination` | Which folder on the device receives books? | `/` |
 | `probe` | May I ask the device for its status once, read-only? | no probe |
 
-Those six are the whole question set. Everything else Galley needs is either fixed release data
-or a Galley-owned path, so asking about it would offer a choice that does not exist.
+Those six subjects are the whole configuration decision set, not a requirement to produce six
+prompts. Everything else Galley needs is either fixed release data or a Galley-owned path, so
+asking about it would offer a choice that does not exist.
 
 ## Naming the Inboxes
 
@@ -51,16 +75,37 @@ gets read:
 
 ## One summary, one confirmation
 
-Show the complete proposed state in one message: the Workspace path, every Inbox with its name,
-the path as it will be written and its recursion, the host and destination, the exact directories
-you will create, and the complete TOML you are about to write. For a Workspace that already has a
-configuration, show a diff of the file instead.
+Show the complete proposed state in one message:
 
-Then take one confirmation covering all of it, and write only after that.
+- each dependency's required version, observed state and executable path;
+- every proposed dependency change, including the exact command or immutable download, digest,
+  destination and any PATH or shell-profile edit;
+- the Workspace path, every Inbox with its name, written path and recursion, the host and
+  destination, the exact directories you will create, and the complete TOML.
 
-## What setup may create
+For a Workspace that already has a configuration, show a diff of the file instead of repeating the
+whole TOML.
 
-With ordinary file tools, and only inside the Workspace:
+Configuration answers select the proposed state; they do not authorise side effects. After the
+summary, take a separate **Proceed / Revise / Cancel** decision covering all of it, using the
+native structured-question tool when it is available in the current mode and ordinary chat
+otherwise. **Proceed** is what authorises the listed external installs and writes; it never
+overrides any additional approval the host requires.
+
+After confirmation, perform dependency changes first and rerun every probe. If any requirement is
+still not ready, report what the command returned and stop before changing Workspace files. Once
+the dependencies verify, create the approved directories, write the file and validate it.
+
+## What setup may change
+
+An approved dependency plan may use an existing package manager when it can supply the exact
+release, or place an immutable upstream artifact in a user-owned tool directory and expose its
+command through a user-writable directory on PATH. It may install npm or a Java runtime only when
+the selected pinned tool needs it. The summary names this complete scope before anything changes;
+an existing command at another version is left alone unless the plan explicitly names its
+replacement.
+
+For Workspace setup, ordinary file tools may create only:
 
 - the Galley Workspace directory itself;
 - the Galley-owned `work/`, `ready/`, `ready/evidence/` and `delivery/` locations beneath it;

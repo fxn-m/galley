@@ -1,9 +1,9 @@
 """Hold the Setup Skill to the CLI it teaches and the configuration it authors.
 
-The skill is the only author of Workspace Configuration, which makes its annotated
-template and its question set product surface rather than documentation: a template the validator
-refuses would be a first-run conversation that ends in a refusal, and a boundary it tells an agent
-to read would be advice about a string Galley never emits.
+The skill is the only author of Workspace Configuration, which makes its annotated template and
+decision set product surface rather than documentation: a template the validator refuses would be
+a first-run conversation that ends in a refusal, and a boundary it tells an agent to read would be
+advice about a string Galley never emits.
 """
 
 import re
@@ -27,9 +27,8 @@ from tests.workspace_fixtures import (
 SKILL = Path("src/galley/skills/galley-setup")
 CONFIGURATION = SKILL / "resources/workspace-config.md"
 MAIN_SKILL = Path("src/galley/skills/galley/SKILL.md")
-# The six subjects the setup questionnaire may ask about, in their supported order. Nothing else
-# may be asked, because everything else is fixed release data or a Galley-owned path — a choice
-# that does not exist.
+# The six decisions setup may need from the user, in their supported order. The recommended-default
+# fast path can settle them all without rendering six prompts.
 REQUIRED_SUBJECTS = ("workspace", "inboxes", "recursion", "host", "destination", "probe")
 COMMAND_GROUPS = (("config", "validate"), ("device", "status"))
 OWNED_DIRECTORIES = ("work", "ready", "ready/evidence", "delivery")
@@ -81,14 +80,14 @@ def _help(*arguments: str) -> str:
     return result.stdout
 
 
-def test_the_question_set_is_exactly_the_six_subjects_the_specification_permits() -> None:
-    """ "Asks only for" is a closed list, so an extra question is a defect in the surface."""
+def test_the_decision_set_is_exactly_the_six_subjects_the_specification_permits() -> None:
+    """An extra decision would offer a choice that Galley does not support."""
 
     assert _subjects() == list(REQUIRED_SUBJECTS)
 
 
-def test_every_question_offers_a_default_that_can_be_accepted_in_one_response() -> None:
-    """A user content with every default answers once, so every row states its own default."""
+def test_every_decision_has_a_default_for_the_one_response_fast_path() -> None:
+    """The fast path is meaningful only when every configuration decision has a stated default."""
 
     rows = re.findall(r"^\| `([a-z]+)` \| ([^|]+)\| ([^|]+)\|$", _skill_text(), flags=re.MULTILINE)
     assert [subject for subject, _ask, _default in rows] == list(REQUIRED_SUBJECTS)
@@ -147,7 +146,8 @@ def test_every_option_the_setup_skill_names_exists_on_the_installed_cli() -> Non
     documented = set[str]()
     for path in sorted(SKILL.rglob("*.md")):
         text = path.read_text(encoding="utf-8")
-        documented.update(re.findall(r"`(--[a-z][a-z-]+)`", text))
+        for invocation in re.findall(r"`(galley [^`\n]+)`", text):
+            documented.update(re.findall(r"--[a-z][a-z-]+", invocation))
         for block in re.findall(r"```\n(.*?)```", text, flags=re.DOTALL):
             if block.startswith("galley "):
                 documented.update(re.findall(r"--[a-z][a-z-]+", block))
@@ -279,5 +279,6 @@ def test_the_main_skill_directs_to_this_skill_by_name_for_every_boundary_it_name
     }
 
     assert "galley-setup" in main
+    assert "dependency-unavailable" in main
     assert named, "the main skill names no configuration boundary at all"
     assert named <= documented, sorted(named - documented)

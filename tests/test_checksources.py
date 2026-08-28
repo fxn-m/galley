@@ -40,7 +40,8 @@ def test_a_refused_kind_without_a_reason_is_rejected(tmp_path: Path) -> None:
     data = tmp_path / "source-kinds.yaml"
     _ = data.write_text(
         DATA.read_text(encoding="utf-8").replace(
-            "    reason: PDF input, extraction, OCR and preparation are out of 0.1.0 scope.\n", ""
+            "    reason: PDF input, extraction, OCR and preparation are outside this release's scope.\n",
+            "",
         ),
         encoding="utf-8",
     )
