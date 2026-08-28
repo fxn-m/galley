@@ -38,11 +38,15 @@ Always pass `--json` and read the Report. The human rendering is the same data, 
 
 ## Confirm the Device Profile before conversion work
 
-For every one-source conversion, run `galley profiles list --json`, show the available reader and
-device choices, and ask the user to confirm which one this artifact is for. Do this before
-`inspect`, profile-directed cover work, Localisation or `prepare`. Even when the request names a
-target, restate the reader, device and profile id and take one short confirmation so the chosen
-constraints are visible before work begins.
+For every one-source conversion, run `galley profiles list --json`, show concise reader-facing
+choices, and ask the user to confirm which one this artifact is for. The shipped confirmation
+labels are **Kindle for iOS** for `kindle-ios-personal-documents` and **Xteink X4** for
+`x4-crosspoint`. The `device` and observed-software fields are profile provenance, not confirmation
+copy; in particular, the Kindle choice is simply **Kindle for iOS**, without the observed iPhone
+model. Keep the profile id for commands and Reports rather than making the conversational label
+technical. Do this before `inspect`, profile-directed cover work, Localisation or `prepare`. Even
+when the request names a target, restate that concise label and take one short confirmation so the
+chosen constraints are visible before work begins.
 
 Never infer the profile from an `[x4-crosspoint]` configuration table, setup answers, available
 hardware, a previous conversion, the source or the order returned by `profiles list`. Workspace

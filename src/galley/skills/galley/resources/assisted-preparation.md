@@ -7,9 +7,12 @@ Cover Artwork, Localisation, preparation and assessment in one visible journey.
 ## Confirm the Device Profile first
 
 Before inspection or any other profile-specific work, run `galley profiles list --json`, present
-the available reader and device choices, and ask the user to confirm the target for this artifact.
-Restate the chosen reader, device and profile id. A profile named in the request may be proposed,
-but it is not active until the user confirms it.
+concise reader-facing choices, and ask the user to confirm the target for this artifact. The shipped
+confirmation labels are **Kindle for iOS** for `kindle-ios-personal-documents` and **Xteink X4** for
+`x4-crosspoint`. The `device` and observed-software fields are profile provenance rather than part
+of those labels: say **Kindle for iOS**, without the observed iPhone model. Keep the profile id for
+commands and Reports. A profile named in the request may be proposed, but it is not active until
+the user confirms it.
 
 Do not infer this choice from Workspace configuration, setup answers, available hardware, prior
 runs, source content or list order. If setup interrupts a pending conversion, resume with a target

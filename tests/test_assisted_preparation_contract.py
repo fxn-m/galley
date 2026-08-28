@@ -57,7 +57,12 @@ def test_assisted_preparation_requires_an_explicit_profile_confirmation_before_i
         assert "galley profiles list --json" in confirmation
         assert "before inspection" in lowered
         assert "ask the user to confirm" in lowered
-        assert all(field in lowered for field in ("reader", "device", "profile id"))
+        assert "concise reader-facing choices" in lowered
+        assert "**Kindle for iOS** for `kindle-ios-personal-documents`" in confirmation
+        assert "**Xteink X4** for `x4-crosspoint`" in confirmation
+        assert "profile provenance rather than part of those labels" in lowered
+        assert "without the observed iPhone model" in confirmation
+        assert "Keep the profile id for commands and Reports" in confirmation
         assert "not active until the user confirms" in lowered
         assert all(
             forbidden in lowered
