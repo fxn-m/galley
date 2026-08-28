@@ -91,7 +91,7 @@ def test_reader_scope_is_not_a_seventh_configuration_key_or_profile_default() ->
 
     skill = " ".join(_skill_text().split())
     assert "Reader scope is onboarding context, not another configuration key" in skill
-    assert "not a default profile" in skill
+    assert "does not establish a default Device Profile" in skill
     assert "final three apply only when setup includes X4" in skill
 
 

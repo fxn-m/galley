@@ -114,3 +114,26 @@ def test_kindle_guidance_forbids_agent_side_handoff_and_names_the_manual_step(
         assert "exact local path" in combined
         assert "preferred Send to Kindle route" in combined
         assert "Upload or share this EPUB" in combined
+
+
+def test_kindle_handoff_leads_with_the_file_and_keeps_audit_fields_in_the_report(
+    installed_guidance: tuple[tuple[str, str], ...],
+) -> None:
+    """A successful handoff is useful to a reader without serialising the technical Report."""
+
+    for _skill, handoff in installed_guidance:
+        compact = " ".join(handoff.split())
+
+        assert "clickable Kindle-ready file" in compact
+        assert "labelled **Technical report**, after the primary handoff" in compact
+        assert "Routine success needs only “It passed Galley's checks.”" in compact
+        assert all(
+            field in compact
+            for field in (
+                "`artifact.sha256`",
+                "`artifact.byte_size.value`",
+                "`profile.id`",
+                "`profile.profile_version`",
+            )
+        )
+        assert "in the Report unless the person asks" in compact

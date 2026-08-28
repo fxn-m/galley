@@ -48,3 +48,20 @@ def test_configuration_choices_and_mutation_authorisation_are_separate() -> None
     assert policy in skill
     assert "Proceed / Revise / Cancel" in skill
     assert "Proceed" in skill and "external installs and writes" in skill
+
+
+def test_setup_keeps_technical_inventory_out_of_the_primary_conversation() -> None:
+    """Exact setup evidence remains available without making the user follow its machinery."""
+
+    skill = _skill_text()
+    plain = skill[skill.index("## Keep setup plain") : skill.index("## Start with")]
+    summary = skill[skill.index("## One summary, one confirmation") : skill.index("## What setup")]
+
+    assert "Galley needs setting up first" in plain
+    assert "outcomes and choices" in plain
+    assert "no separate progress announcement" in plain
+    assert "setup is complete" in plain
+    assert "one concise message" in summary
+    assert "one line saying all required tools are ready" in summary
+    assert "selected readers, without explaining internal persistence" in summary
+    assert "**Technical details** only for customised" in summary

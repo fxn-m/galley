@@ -111,7 +111,7 @@ def test_assisted_preparation_validates_workspace_before_profile_or_source_work(
 def test_assisted_preparation_inspects_before_it_classifies_or_changes_the_source(
     installed_contracts: tuple[str, ...],
 ) -> None:
-    """Every journey begins from inspection evidence and names its initial classification before
+    """Every journey begins from inspection evidence and classifies the work internally before
     repair, cover work, Localisation or final preparation can change or package the source."""
 
     for text in installed_contracts:
@@ -132,11 +132,10 @@ def test_assisted_preparation_inspects_before_it_classifies_or_changes_the_sourc
         )
 
 
-def test_assisted_preparation_visibly_reclassifies_when_later_evidence_requires_repair(
+def test_assisted_preparation_plainly_explains_a_later_repair_without_internal_labels(
     installed_contracts: tuple[str, ...],
 ) -> None:
-    """A Routine journey does not hide a later repair discovery: its public account changes to
-    Repairing and tells the user what evidence changed the classification."""
+    """A later repair discovery reaches the reader as a concrete finding, not workflow jargon."""
 
     for text in installed_contracts:
         start = text.index("## Reclassify when evidence changes")
@@ -145,8 +144,11 @@ def test_assisted_preparation_visibly_reclassifies_when_later_evidence_requires_
 
         assert "Routine Assisted Preparation" in reclassification
         assert "Repairing Assisted Preparation" in reclassification
-        assert "tell the user" in reclassification
-        assert "evidence" in reclassification
+        assert "internal classification" in reclassification
+        assert "specific finding" in reclassification
+        assert "plain language" in reclassification
+        assert "without naming the classification" in reclassification
+        assert "proof machinery" in reclassification
 
 
 def test_assisted_preparation_keeps_semantic_and_editorial_repair_choices_with_the_user(

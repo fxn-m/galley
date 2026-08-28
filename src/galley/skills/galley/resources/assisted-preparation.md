@@ -4,6 +4,10 @@ Assisted Preparation is the complete agent-guided production of one Ready Artifa
 source. It uses Galley's existing public commands and keeps the inspection, any Bespoke Repair,
 Cover Artwork, Localisation, preparation and assessment in one visible journey.
 
+Before the first update, read [the user-facing communication contract](user-facing-communication.md).
+The workflow terms below direct internal work; translate them into concrete, ordinary language for
+the reader.
+
 ## Validate Workspace readiness first
 
 Begin every Assisted Preparation with `galley config validate --json`. Run this before
@@ -32,7 +36,7 @@ Begin with
 `galley inspect SOURCE --profile PROFILE --evidence-dir INSPECTION.galley --json`, retaining its
 Canonical Document, Preservation Baseline and Report. Read the chosen source and that inspection
 evidence before starting any repair, Cover Artwork, Localisation or final preparation, then tell the
-user which initial classification the evidence supports:
+workflow which internal classification the evidence supports:
 
 - **Routine Assisted Preparation** when inspection finds no need for a Bespoke Repair. Cover
   Artwork or Localisation may still be required.
@@ -41,8 +45,9 @@ user which initial classification the evidence supports:
 ## Reclassify when evidence changes
 
 Classification follows evidence rather than locking the journey onto its first path. If later
-evidence reveals a Bespoke Repair in what began as Routine Assisted Preparation, change the visible
-classification to Repairing Assisted Preparation and tell the user what evidence changed it.
+evidence reveals a Bespoke Repair in what began as Routine Assisted Preparation, change the
+internal classification to Repairing Assisted Preparation. Tell the user the specific finding and
+what it means in plain language, without naming the classification or narrating proof machinery.
 
 ## Decide whether to repair or ask
 

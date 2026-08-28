@@ -13,6 +13,7 @@ Three layers do three jobs, and this skill is the middle one:
 - **A human** records the Reading Verdict, after reading the book on the device.
 
 Detail lives in bounded resources rather than in this file:
+[keeping the conversation plain](resources/user-facing-communication.md),
 [the command contract](resources/cli-contract.md),
 [reading a Report](resources/report-fields.md),
 [leading an Assisted Preparation](resources/assisted-preparation.md),
@@ -35,6 +36,13 @@ Detail lives in bounded resources rather than in this file:
 | Bring a Markdown source's remote images onto this machine | `galley localise SOURCE --profile PROFILE --evidence-dir DIR --json` |
 
 Always pass `--json` and read the Report. The human rendering is the same data, shorter.
+
+## Keep the conversation plain
+
+Read [the user-facing communication contract](resources/user-facing-communication.md) before the
+first update. Galley's formal vocabulary belongs in commands, Reports and retained evidence. Tell
+the reader what is happening in ordinary language, at meaningful transitions, with technical
+details available rather than foregrounded.
 
 ## Establish Workspace readiness before conversion work
 
@@ -74,8 +82,8 @@ otherwise ask before resuming profile-specific work.
 When the user chooses one source and wants the complete agent-guided journey to a Ready Artifact,
 follow [the Assisted Preparation contract](resources/assisted-preparation.md).
 It begins with Workspace validation, then profile confirmation and inspection, and gives the user
-one visible account of the classification, repair, cover, Localisation, preparation and assessment
-work around the existing public commands.
+a concise account of meaningful findings, decisions and the finished file while the exact
+classification, repair, cover, Localisation, preparation and assessment evidence stays retained.
 
 ## When an external command is unavailable
 

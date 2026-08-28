@@ -17,6 +17,19 @@ template and every refusal, and [reconfiguration](resources/reconfiguration.md) 
 Workspace that already exists. Once setup validates, the reading workflow belongs to the `galley`
 skill.
 
+## Keep setup plain
+
+The inventory and configuration remain exact, but the person needs outcomes and choices rather
+than a narrated setup pipeline. Say **Galley needs setting up first**, ask the applicable questions,
+and move directly from their answers to the complete approval summary. Loading instructions,
+probing tools, resolving paths and preparing that summary need no separate progress announcement.
+
+Use ordinary names in conversation: **required tools**, **Galley folder**, **reading folder** and
+**settings**. Reserve dependency bootstrap, Workspace Configuration, Device Profile, refusal
+boundary and validator terminology for the retained technical work or for diagnosing a failure.
+After approval and successful validation, say simply that setup is complete and resume the original
+request.
+
 ## Start with a read-only dependency inventory
 
 Read [dependency bootstrap](resources/dependencies.md), detect the platform and architecture, and
@@ -87,14 +100,17 @@ gets read:
 
 ## One summary, one confirmation
 
-Show the complete proposed state in one message:
+Show the complete proposed state in one concise message:
 
-- each dependency's required version, observed state and executable path;
+- when every dependency is ready, one line saying all required tools are ready;
 - every proposed dependency change, including the exact command or immutable download, digest,
   destination and any PATH or shell-profile edit;
-- the selected reader scope, explicitly labelled as not persisted and not a default profile;
+- the selected readers, without explaining internal persistence unless the user asks;
 - the Workspace path, every Inbox with its name, written path and recursion, any applicable X4
-  host and destination, the exact directories you will create, and the complete TOML.
+  host and destination, and the directories and settings you will create.
+
+Show the complete TOML under **Technical details** only for customised first-run settings or when
+the user asks to see it. Recommended defaults are fully described by the concise proposal.
 
 For a Workspace that already has a configuration, show a diff of the file instead of repeating the
 whole TOML.

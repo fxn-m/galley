@@ -103,6 +103,10 @@ Underneath that conversation, Galley applies only the changes selected for the r
 builds an EPUB3, and checks the finished book. It leaves a plain record of what changed, what was
 measured, and what still needs an agent or a person to judge.
 
+The technical detail stays in that record. During preparation, your agent gives short, plain
+updates about meaningful findings and decisions, then leads with the finished file and what to do
+next.
+
 The original source is never edited. Network access is explicit, and delivery to an X4 stays on
 the local network.
 

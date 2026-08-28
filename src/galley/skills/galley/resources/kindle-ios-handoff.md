@@ -26,12 +26,16 @@ from the completed Report.
 
 ## Report the local result and stop
 
-Return:
+Lead with:
 
-- `artifact.path` as the exact local Ready Artifact path;
-- `artifact.sha256` and `artifact.byte_size.value`;
-- `profile.id` and `profile.profile_version`;
-- the retained Ready evidence path containing this run's `report.json`.
+- `artifact.path` as the clickable Kindle-ready file;
+- any reading caveat that materially matters; and
+- the retained evidence path, labelled **Technical report**, after the primary handoff.
+
+Routine success needs only “It passed Galley's checks.” Keep `artifact.sha256`,
+`artifact.byte_size.value`, `profile.id`, `profile.profile_version`, checker counts and repair
+declarations in the Report unless the person asks for them or they distinguish otherwise ambiguous
+artifacts.
 
 Then give one concise manual continuation:
 
