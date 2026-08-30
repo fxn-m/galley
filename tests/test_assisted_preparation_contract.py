@@ -39,10 +39,10 @@ def installed_contracts(tmp_path_factory: pytest.TempPathFactory) -> tuple[str, 
     )
 
 
-def test_assisted_preparation_requires_an_explicit_profile_confirmation_before_inspection(
+def test_assisted_preparation_uses_a_named_profile_and_asks_only_when_none_is_named(
     installed_contracts: tuple[str, ...],
 ) -> None:
-    """Neither setup nor Workspace state may silently turn a generic conversion into X4 work."""
+    """The request can name the profile; ambient state cannot, and an unnamed request must ask."""
 
     for text in installed_contracts:
         confirmation = " ".join(
@@ -52,21 +52,17 @@ def test_assisted_preparation_requires_an_explicit_profile_confirmation_before_i
                 )
             ].split()
         )
-        lowered = confirmation.casefold()
-
         assert "galley profiles list --json" in confirmation
-        assert "before inspection" in lowered
-        assert "ask the user to confirm" in lowered
-        assert "concise reader-facing choices" in lowered
+        assert "An explicit Kindle or X4 request establishes that profile" in confirmation
+        assert "state the concise label and continue" in confirmation
+        assert "With no named target" in confirmation
+        assert "wait for the user's selection" in confirmation
         assert "**Kindle for iOS** for `kindle-ios-personal-documents`" in confirmation
         assert "**Xteink X4** for `x4-crosspoint`" in confirmation
-        assert "profile provenance rather than part of those labels" in lowered
-        assert "without the observed iPhone model" in confirmation
-        assert "Keep the profile id for commands and Reports" in confirmation
-        assert "not active until the user confirms" in lowered
+        assert "ids and observed-device provenance in commands and Reports" in confirmation
         assert all(
-            forbidden in lowered
-            for forbidden in (
+            source in confirmation.casefold()
+            for source in (
                 "workspace configuration",
                 "setup answers",
                 "available hardware",
