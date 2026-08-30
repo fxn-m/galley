@@ -21,7 +21,7 @@ that decide the next conversational step.
 When the plan identifies X4 and its exact action is `upload-new`, ask only: “Send it to X4?” A bare
 affirmative answer authorises that immediately preceding Ready Artifact, logical host, destination
 and `upload-new` action. It carries no overwrite authority and no authority for another artifact or
-later plan.
+later plan. Artwork and send are never one question.
 
 After approval, run the explicit values from that plan:
 
