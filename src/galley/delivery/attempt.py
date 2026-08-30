@@ -46,10 +46,23 @@ def _confirmed(
     confirmed = client.listing(prepared.destination)
     listing = confirmed.value
     document = with_exchanges(document, confirmed.exchanges)
+    if not _matches(book, listing):
+        confirmed = client.listing(prepared.destination)
+        listing = confirmed.value
+        document = with_exchanges(document, confirmed.exchanges)
     if isinstance(listing, DeliveryRefusal):
         return _unconfirmed(document, book, transfer, listing.summary)
     document = with_destination(document, postflight=listing.facts(book.path.name))
     return _judged(document, book, transfer, listing)
+
+
+def _matches(book: Deliverable, listing: Listing | DeliveryRefusal) -> bool:
+    """Say whether a confirmation already proves the exact uploaded artifact is present."""
+
+    if isinstance(listing, DeliveryRefusal):
+        return False
+    entry = listing.matching(book.path.name)
+    return entry is not None and entry.byte_size == book.byte_size
 
 
 def _judged(

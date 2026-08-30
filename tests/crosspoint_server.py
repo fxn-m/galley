@@ -37,6 +37,8 @@ class Device:
     status: object = field(default_factory=lambda: dict(X4_STATUS))
     files: dict[str, int] = field(default_factory=dict[str, int])
     status_delay_seconds: float = 0.0
+    status_disconnects: int = 0
+    listing_disconnects: int = 0
     upload_delay_seconds: float = 0.0
     redirect_paths: tuple[str, ...] = ()
     malformed_paths: tuple[str, ...] = ()
@@ -112,11 +114,19 @@ class _Handler(BaseHTTPRequestHandler):
         if self._diverted(route.path):
             return
         if route.path == STATUS_PATH:
+            if self.device.status_disconnects:
+                self.device.status_disconnects -= 1
+                self.close_connection = True
+                return
             time.sleep(self.device.status_delay_seconds)
             self._json(self.device.status)
             return
         if route.path == FILES_PATH:
             self.device.listing_requests += 1
+            if self.device.listing_disconnects:
+                self.device.listing_disconnects -= 1
+                self.close_connection = True
+                return
             if self.device.listing_malformed_after_upload and self.device.upload_requests:
                 self._respond(b"<html>not json</html>", "application/json", 200)
                 return

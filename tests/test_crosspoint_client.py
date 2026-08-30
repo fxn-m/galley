@@ -13,6 +13,7 @@ from galley.delivery.crosspoint import (
     Listing,
     PythonHttpTransport,
     Transfer,
+    TransportFailure,
     TransportRequest,
     TransportResponse,
 )
@@ -26,15 +27,22 @@ class ControlledTransport:
 
     name = "controlled"
 
-    def __init__(self, *responses: TransportResponse) -> None:
+    def __init__(self, *responses: TransportResponse | TransportFailure) -> None:
         self.responses = list(responses)
         self.requests: list[TransportRequest] = []
+        self.addresses: list[str] = []
+        self.timeouts: list[float] = []
 
     def exchange(
-        self, target: DeliveryTarget, address: str, request: TransportRequest
-    ) -> TransportResponse:
+        self,
+        target: DeliveryTarget,
+        address: str,
+        request: TransportRequest,
+        timeout_seconds: float,
+    ) -> TransportResponse | TransportFailure:
         _ = target
-        _ = address
+        self.addresses.append(address)
+        self.timeouts.append(timeout_seconds)
         self.requests.append(request)
         return self.responses.pop(0)
 
@@ -143,9 +151,86 @@ def test_python_adapter_connects_to_ipv4_or_ipv6_but_keeps_logical_authority(
     transport = PythonHttpTransport(cast(OpenerDirector, cast(object, opener)))
     target = DeliveryTarget("x4.local:8080", "x4.local", 8080, (address,), 3.0)
 
-    response = transport.exchange(target, address, TransportRequest("GET", "/api/status"))
+    response = transport.exchange(target, address, TransportRequest("GET", "/api/status"), 3.0)
 
     assert response == TransportResponse(200, b"{}")
     assert opener.request is not None
     assert opener.request.full_url == f"http://{authority}/api/status"
     assert opener.request.get_header("Host") == "x4.local:8080"
+
+
+def test_safe_read_recovers_once_on_the_next_validated_address() -> None:
+    """A transient read failure is visible and followed by one bounded address attempt."""
+
+    transport = ControlledTransport(
+        TransportFailure(ConnectionRefusedError("first address")),
+        TransportResponse(200, b'{"device":"X4","version":"1.4.1"}'),
+    )
+    target = DeliveryTarget(
+        "x4.local", "x4.local", 80, ("192.168.1.20", "192.168.1.21"), 3.0
+    )
+
+    result = CrossPointClient(target, transport).status()
+
+    assert isinstance(result.value, DeviceStatus)
+    assert transport.addresses == ["192.168.1.20", "192.168.1.21"]
+    assert [exchange.outcome for exchange in result.exchanges] == ["failed", "response"]
+    assert len(transport.timeouts) == 2
+    assert 0 < transport.timeouts[1] <= transport.timeouts[0] <= 3.0
+
+
+def test_safe_read_stops_after_one_recovery_attempt() -> None:
+    """Two failures exhaust the read operation without indefinite waiting."""
+
+    transport = ControlledTransport(
+        TransportFailure(TimeoutError("first")),
+        TransportFailure(TimeoutError("second")),
+        TransportResponse(200, b'{"device":"X4","version":"1.4.1"}'),
+    )
+    target = DeliveryTarget("x4.local", "x4.local", 80, ("192.168.1.20",), 3.0)
+
+    result = CrossPointClient(target, transport).status()
+
+    assert isinstance(result.value, DeliveryRefusal)
+    assert len(result.exchanges) == 2
+    assert len(transport.responses) == 1
+
+
+def test_upload_changes_address_only_after_a_proven_not_started_failure(tmp_path: Path) -> None:
+    """A second write is safe only when the first adapter proves no request began."""
+
+    artifact = tmp_path / "Book.epub"
+    _ = artifact.write_bytes(b"book")
+    transport = ControlledTransport(
+        TransportFailure(ConnectionRefusedError("pre-connect"), request_began=False),
+        TransportResponse(200),
+    )
+    target = DeliveryTarget(
+        "x4.local", "x4.local", 80, ("192.168.1.20", "192.168.1.21"), 3.0
+    )
+
+    result = CrossPointClient(target, transport).upload("/", artifact)
+
+    assert result.value == Transfer(200)
+    assert transport.addresses == ["192.168.1.20", "192.168.1.21"]
+    assert [exchange.outcome for exchange in result.exchanges] == ["not-started", "response"]
+
+
+def test_upload_never_retries_after_a_request_may_have_begun(tmp_path: Path) -> None:
+    """An uncertain write stops even when another validated address exists."""
+
+    artifact = tmp_path / "Book.epub"
+    _ = artifact.write_bytes(b"book")
+    transport = ControlledTransport(
+        TransportFailure(TimeoutError("uncertain"), request_began=True), TransportResponse(200)
+    )
+    target = DeliveryTarget(
+        "x4.local", "x4.local", 80, ("192.168.1.20", "192.168.1.21"), 3.0
+    )
+
+    result = CrossPointClient(target, transport).upload("/", artifact)
+
+    assert isinstance(result.value, Transfer)
+    assert result.value.status is None
+    assert transport.addresses == ["192.168.1.20"]
+    assert len(transport.responses) == 1

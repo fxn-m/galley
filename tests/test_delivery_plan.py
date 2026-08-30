@@ -99,6 +99,33 @@ socket.getaddrinfo = _once
             assert marker.is_file()
 
 
+def test_a_transient_preflight_read_recovers_once_and_retains_both_exchanges(
+    tmp_path: Path,
+) -> None:
+    """The installed CLI retries one disconnected safe listing and records both attempts."""
+
+    _workspace, artifact, environment = published(tmp_path)
+    with crosspoint(Device(listing_disconnects=1)) as (host, device):
+        result = run_command(
+            public_cli_commands()[0],
+            "deliver",
+            str(artifact),
+            "--plan",
+            "--json",
+            "--host",
+            host,
+            environment=environment,
+        )
+        assert device.listing_requests == 2
+    assert result.returncode == COMPLETED, result.stderr
+    exchanges = entries(command_document(result), "exchanges")
+    assert [(item["stage"], item["outcome"]) for item in exchanges] == [
+        ("device-status", "response"),
+        ("preflight-listing", "failed"),
+        ("preflight-listing", "response"),
+    ]
+
+
 def test_the_plan_references_the_artifact_and_its_preparation_evidence(tmp_path: Path) -> None:
     """A record references preparation evidence by path and hash, copying none of it."""
 

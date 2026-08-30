@@ -44,7 +44,11 @@ class Transport(Protocol):
     name: str
 
     def exchange(
-        self, target: DeliveryTarget, address: str, request: TransportRequest
+        self,
+        target: DeliveryTarget,
+        address: str,
+        request: TransportRequest,
+        timeout_seconds: float,
     ) -> TransportResponse | TransportFailure: ...
 
 
@@ -57,7 +61,11 @@ class PythonHttpTransport:
         self._opener = opener if opener is not None else no_redirect_opener(direct=True)
 
     def exchange(
-        self, target: DeliveryTarget, address: str, exchange: TransportRequest
+        self,
+        target: DeliveryTarget,
+        address: str,
+        exchange: TransportRequest,
+        timeout_seconds: float,
     ) -> TransportResponse | TransportFailure:
         request = Request(
             f"http://{_authority(address, target.port)}{exchange.path}",
@@ -66,7 +74,7 @@ class PythonHttpTransport:
             headers={"Host": target.host, **exchange.headers},
         )
         try:
-            with self._opener.open(request, timeout=target.timeout_seconds) as response:
+            with self._opener.open(request, timeout=timeout_seconds) as response:
                 body = cast(bytes, response.read(exchange.response_limit + 1))
                 return TransportResponse(int(response.status), body)
         except HTTPError as error:

@@ -5,7 +5,7 @@ from pathlib import Path
 from tests.crosspoint_server import Device, crosspoint
 from tests.delivery_fixtures import REFUSED, plan, published, records
 from tests.public_cli import public_cli_commands, run_command
-from tests.workspace_fixtures import command_document, field, tree
+from tests.workspace_fixtures import command_document, entries, field, tree
 
 COMPLETED = 0
 UNCONFIRMED = 5
@@ -98,6 +98,28 @@ def test_a_malformed_post_write_listing_is_unconfirmed(tmp_path: Path) -> None:
     assert field(document, "destination")["postflight"] is None
 
 
+def test_postflight_confirmation_recovers_once_before_becoming_unconfirmed(
+    tmp_path: Path,
+) -> None:
+    """One temporarily invisible upload is confirmed by one bounded second listing."""
+
+    _workspace, artifact, environment = published(tmp_path)
+    with crosspoint(Device(visibility_delay=1)) as (host, pinned):
+        document = once(artifact, environment, "--host", host)
+        assert pinned.upload_requests == 1
+        assert pinned.listing_requests == 3
+    assert document["exit_code"] == COMPLETED
+    assert document["outcome"] == "delivered"
+    exchanges = entries(document, "exchanges")
+    assert [exchange["stage"] for exchange in exchanges] == [
+        "device-status",
+        "preflight-listing",
+        "upload",
+        "postflight-confirmation",
+        "postflight-confirmation",
+    ]
+
+
 def test_a_redirected_upload_is_unconfirmed_rather_than_followed(tmp_path: Path) -> None:
     """Redirects stay off for the writing request too, and the outcome stays honest."""
 
@@ -113,7 +135,7 @@ def test_an_unconfirmed_delivery_never_guesses_and_stays_retryable(tmp_path: Pat
     """Delayed visibility resolves itself on retry, which is why nothing is inferred."""
 
     workspace, artifact, environment = published(tmp_path)
-    with crosspoint(Device(visibility_delay=1)) as (host, pinned):
+    with crosspoint(Device(visibility_delay=2)) as (host, pinned):
         first = once(artifact, environment, "--host", host)
         assert first["exit_code"] == UNCONFIRMED
         assert "could not be confirmed" in str(field(first, "refusal")["summary"])
