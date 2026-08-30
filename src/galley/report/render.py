@@ -156,9 +156,24 @@ def _preparation_lines(report: Report) -> str:
         f"Preparation: {len(transforms)} transforms, {fired} fired; "
         f"Canonical Document {state}\n"
         f"{named}"
+        f"{_cover_line(group(facts, 'images'))}"
         f"{_figure_line(group(group(facts, 'images'), 'reduction'))}"
         f"{_packaging_line(group(facts, 'packaging'))}"
     )
+
+
+def _cover_line(images: dict[str, object]) -> str:
+    """Name whether the packaged cover is a Default Cover or a source cover-image."""
+
+    cover = group(images, "cover")
+    origin = cover.get("origin")
+    if origin == "default-cover":
+        author = cover.get("author")
+        attribution = "" if author is None else f" by {author}"
+        return f'Cover: Default Cover, "{cover["title"]}"{attribution}\n'
+    if origin == "source-cover-image":
+        return "Cover: source cover-image\n"
+    return ""
 
 
 def _figure_line(reduction: dict[str, object]) -> str:

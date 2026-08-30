@@ -68,8 +68,8 @@ def test_the_digest_names_the_bytes_the_writer_was_handed(tmp_path: Path) -> Non
         # than a tidier-looking one the writer could not resolve.
         with zipfile.ZipFile(artifact) as archive:
             assert [name for name in archive.namelist() if name.startswith("EPUB/media/")]
-        assert report["preparation"]["images"]["totals"]["references"]["value"] == 1
-        assert report["preparation"]["images"]["preservation"]["mapped"]["value"] == 1
+        assert report["preparation"]["images"]["totals"]["references"]["value"] == 2
+        assert report["preparation"]["images"]["preservation"]["mapped"]["value"] == 2
 
 
 def test_a_document_no_transform_changed_reports_it_was_not_transformed(tmp_path: Path) -> None:

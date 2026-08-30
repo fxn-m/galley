@@ -85,11 +85,11 @@ def test_repeated_references_to_one_resource_are_not_duplicated(tmp_path: Path) 
         assert len(repeated) == 2
         assert repeated[0]["reference"] != repeated[1]["reference"]
         assert repeated[0]["artifact"] == repeated[1]["artifact"]
-        assert transform(report)["references"]["value"] == REFERENCES
-        assert transform(report)["resources"]["value"] == 3
-        assert len(media_resources(output)) == 3
-        assert len({src for _, src, _ in image_sources(output)}) == 3
-        assert len(image_sources(output)) == REFERENCES
+        assert transform(report)["references"]["value"] == REFERENCES + 1
+        assert transform(report)["resources"]["value"] == 4
+        assert len(media_resources(output)) == 4
+        assert len({src for _, src, _ in image_sources(output)}) == 4
+        assert len(image_sources(output)) == REFERENCES + 1
 
 
 def test_every_reference_keeps_an_identity_connecting_its_source_to_the_artifact(
@@ -99,7 +99,7 @@ def test_every_reference_keeps_an_identity_connecting_its_source_to_the_artifact
         square, _, _ = illustrated(tmp_path)
         _, report = prepared(tmp_path, index, command, PRESERVED_IMAGES)
 
-        assert [entry["reference"] for entry in records(report)] == [
+        assert [entry["reference"] for entry in records(report) if not entry["cover"]] == [
             f"image-{number}" for number in range(1, REFERENCES + 1)
         ]
         first = records(report)[0]
@@ -136,8 +136,10 @@ def test_audit_measures_the_published_resources_and_agrees_with_preparation(
         _, report = prepared(tmp_path, index, command, PRESERVED_IMAGES)
 
         measured = {entry["sha256"]: entry for entry in report["artifact"]["images"]["resources"]}
-        assert len(measured) == 3
-        for record in records(report):
+        figures = [record for record in records(report) if not record["cover"]]
+        assert len(measured) == 4
+        assert len(figures) == REFERENCES
+        for record in figures:
             resource = measured[record["source"]["sha256"]]
             assert record["artifact"]["path"] == resource["path"]
             assert resource["device_support"] == record["device_support"]
@@ -179,7 +181,7 @@ def test_the_recorded_alt_text_is_the_alt_text_the_book_carries(tmp_path: Path) 
 
         record = records(report)[0]
         assert record["alt"] == "Figure caption note."
-        assert [alt for _, _, alt in image_sources(output)] == [record["alt"]]
+        assert [alt for _, _, alt in image_sources(output) if alt] == [record["alt"]]
         caption = next(text for text in document_texts(output).values() if "Figure caption" in text)
         assert "Figure caption note." in caption
 
@@ -223,7 +225,7 @@ def test_human_output_names_the_images_preparation_carried(tmp_path: Path) -> No
         assert (result.returncode, result.stderr) == (0, "")
         assert "Transform: image-preparation (fired)\n" in result.stdout
         assert (
-            f"Images: {REFERENCES} references to 3 resources, 3 preserved, 0 normalised\n"
+            f"Images: {REFERENCES + 1} references to 4 resources, 3 preserved, 1 normalised\n"
         ) in result.stdout
 
 

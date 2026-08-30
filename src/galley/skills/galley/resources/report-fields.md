@@ -12,8 +12,9 @@ One envelope, five fact categories, and evaluation joined onto them.
   Galley inferred the refusal rather than observing it.
 - `profile` — what was requested and what resolved.
 - `warnings` — construction events that left no recomputable trace. Nothing else appears here.
-- `reading_verdict` — `not_tested` until a human has read the book on the device. Your estimate
-  is a Predicted Verdict and belongs beside the Report, never inside it.
+- `reading_verdict` — `not_tested` until a human has read the book on the device. A Predicted
+  Verdict belongs beside the Report, never inside it, and is written only when a later eval or
+  device-read needs an assessment.
 
 ## The five fact categories
 
@@ -53,6 +54,14 @@ Two Report facts point at a document with footnotes hiding in it:
    `skipped` with the condition that stopped it (the shape was there and could not be paired).
 
 That pair is the trigger. Without it, a successful document needs no inspection from you.
+
+## Which cover the book carries
+
+`preparation.images.cover` states whether the packaged cover is a **Default Cover** or a
+source `cover-image`. A Default Cover is title-and-author presentation produced by preparation
+when the source named no cover; the fact carries the title and author it presents. A source
+`cover-image` stands, and a body image is never promoted to the cover. The same distinction is
+on the cover's own record as `origin`.
 
 ## How far the figures were reduced
 

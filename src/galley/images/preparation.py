@@ -17,12 +17,14 @@ from typing import cast
 
 from galley.document.baseline import inline_text
 from galley.json_reading import mapping, sequence, text
+from galley.images.default_cover import COVER, CoverFailure, plan_cover
 from galley.images.inline import inline_label
 from galley.images.normalisation import ImageRule, image_rule
 from galley.images.resources import (
     PRESERVED,
     PackagedResource,
     ResourceOrigin,
+    packaged_bytes,
     packaged_resource,
 )
 
@@ -32,7 +34,6 @@ IMAGE_STAGE = "image-preparation"
 SRCSET = "srcset"
 SIZES = "sizes"
 RESPONSIVE = (SRCSET, SIZES)
-COVER = "cover-image"
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,9 @@ class ImageReference:
     candidates: list[str] = field(default_factory=list[str])
     """The `srcset` candidates removed after recording them, if the source offered any."""
     cover: bool = False
+    origin: str | None = None
+    presented_title: str | None = None
+    presented_author: str | None = None
 
 
 @dataclass(frozen=True)
@@ -117,19 +121,41 @@ class _Pass:
         held = self.resources.setdefault(resource.digest, resource)
         return held
 
+    def held(self, data: bytes, display: str, name: str) -> PackagedResource | str:
+        """Package bytes already in hand, reusing a resource whose content is already packaged."""
+
+        resource = packaged_bytes(
+            data,
+            display=display,
+            profile=self.profile,
+            rule=self.rule,
+            workspace=self.workspace,
+            name=name,
+        )
+        if isinstance(resource, str):
+            return resource
+        return self.resources.setdefault(resource.digest, resource)
+
 
 def prepare_images(
-    ast: dict[str, object], *, profile: dict[str, object], origin: ResourceOrigin, workspace: Path
+    ast: dict[str, object],
+    *,
+    profile: dict[str, object],
+    origin: ResourceOrigin,
+    workspace: Path,
+    title: str,
+    author: str | None,
 ) -> ImagePreparation:
     """Resolve, measure and package every image this document references, in reading order.
 
-    The cover is prepared through the same path as any other reference, because it is one: the
-    Canonical Document's own metadata names it, with no separate encoding rule.
+    A source `cover-image` is prepared through the same path as any other reference. When the
+    document names none, preparation composes a Default Cover from the work's title and author
+    rather than leaving the book without a cover, or promoting a body image to stand in for one.
     """
 
     state = _Pass(profile=profile, rule=image_rule(profile), origin=origin, workspace=workspace)
     working = cast(dict[str, object], _value(ast, state))
-    cover = _cover(working, state)
+    cover = _cover(working, state, title=title, author=author)
     return ImagePreparation(
         ast=working,
         references=state.references,
@@ -139,39 +165,37 @@ def prepare_images(
     )
 
 
-def _cover(ast: dict[str, object], state: _Pass) -> ImageReference | None:
-    """Prepare the cover image the document's metadata names, if it names one.
-
-    The metadata entry is removed from the working copy once it is resolved. Pandoc reads
-    `cover-image` itself and would resolve the same relative name a second time, against the
-    process it runs in rather than against the document; preparation states the resolved file to
-    the writer instead, so one resolver decides which bytes are the cover.
-    """
-
-    meta = mapping(ast.get("meta"))
-    stated = _metadata_text(meta.get(COVER))
-    if not stated:
+def _cover(
+    ast: dict[str, object], state: _Pass, *, title: str, author: str | None
+) -> ImageReference | None:
+    planned = plan_cover(
+        ast,
+        title=title,
+        author=author,
+        profile=state.profile,
+        resolve=state.resolved,
+        hold=state.held,
+    )
+    if planned is None:
         return None
-    ast["meta"] = {key: value for key, value in meta.items() if key != COVER}
-    resource = state.resolved(stated, COVER)
-    label = inline_label(stated)
-    if isinstance(resource, str):
-        state.failures.append(ImageFailure(identifier=COVER, src=label, reason=resource))
+    if isinstance(planned, CoverFailure):
+        state.failures.append(
+            ImageFailure(identifier=COVER, src=planned.src, reason=planned.reason)
+        )
         return None
     reference = ImageReference(
-        identifier=COVER, src=label, alt=None, title=None, resource=resource, cover=True
+        identifier=COVER,
+        src=planned.src,
+        alt=None,
+        title=None,
+        resource=planned.resource,
+        cover=True,
+        origin=planned.origin,
+        presented_title=planned.presented_title,
+        presented_author=planned.presented_author,
     )
     state.references.append(reference)
     return reference
-
-
-def _metadata_text(value: object) -> str:
-    """Read one metadata value as the plain string it renders to, whatever Pandoc wrapped it in."""
-
-    node = mapping(value)
-    if text(node.get("t")) == "MetaString":
-        return text(node.get("c")) or ""
-    return inline_text(sequence(node.get("c"))).strip()
 
 
 def _value(value: object, state: _Pass) -> object:

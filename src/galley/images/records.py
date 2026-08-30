@@ -12,6 +12,7 @@ from typing import cast
 
 from galley.json_reading import mapping, sequence, text
 from galley.images.normalisation import pillow_versions
+from galley.images.default_cover import DEFAULT_COVER
 from galley.images.preparation import IMAGE_STAGE, ImagePreparation, ImageReference
 from galley.images.resources import NORMALISED, REASONS
 from galley.images.measurement import measurement_facts
@@ -102,6 +103,7 @@ def image_records(
         for reference in preparation.references
     ]
     return {
+        "cover": _cover_facts(preparation),
         "preservation": _preservation(records, artifact),
         "records": records,
         "reduction": _reduction(preparation),
@@ -233,6 +235,7 @@ def _record(
         "alt": reference.alt,
         "artifact": published.get(packaged.digest),
         "cover": reference.cover,
+        **({} if reference.origin is None else {"origin": reference.origin}),
         "device_support": resource.support,
         "fits_panel": resource.fits,
         "packaged": {
@@ -256,6 +259,19 @@ def _record(
         "title": reference.title,
         "transform": resource.transform,
     }
+
+
+def _cover_facts(preparation: ImagePreparation) -> dict[str, object] | None:
+    """State whether the packaged cover is a Default Cover or a source `cover-image`."""
+
+    cover = preparation.cover
+    if cover is None or cover.origin is None:
+        return None
+    facts: dict[str, object] = {"origin": cover.origin}
+    if cover.origin == DEFAULT_COVER:
+        facts["title"] = cover.presented_title
+        facts["author"] = cover.presented_author
+    return facts
 
 
 def _published(artifact: dict[str, object] | None) -> dict[str, dict[str, object]]:

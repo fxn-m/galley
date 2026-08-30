@@ -50,6 +50,7 @@ def test_prepare_publishes_an_epub3_and_its_evidence_bundle(tmp_path: Path) -> N
         assert sorted(entry.name for entry in evidence.iterdir()) == [
             "canonical-document.json",
             "preservation-baseline.txt",
+            "previews",
             "report.json",
         ]
         assert json.loads((evidence / "report.json").read_text(encoding="utf-8")) == report
@@ -238,7 +239,7 @@ def test_human_output_names_every_transform_and_the_published_artifact(tmp_path:
         assert (result.returncode, result.stderr) == (0, "")
         assert result.stdout.startswith("prepare: completed\n")
         assert (
-            "Preparation: 12 transforms, 4 fired; Canonical Document unchanged\n" in result.stdout
+            "Preparation: 12 transforms, 5 fired; Canonical Document unchanged\n" in result.stdout
         )
         assert "Transform: document-title (fired)\n" in result.stdout
         assert "Transform: document-author (fired)\n" in result.stdout
@@ -249,7 +250,8 @@ def test_human_output_names_every_transform_and_the_published_artifact(tmp_path:
         assert "Transform: callout-title-emphasis (no-op)\n" in result.stdout
         assert "Transform: raw-html-balance (no-op)\n" in result.stdout
         assert "Transform: identifier-bounding (no-op)\n" in result.stdout
-        assert "Transform: image-preparation (no-op)\n" in result.stdout
+        assert "Transform: image-preparation (fired)\n" in result.stdout
+        assert 'Cover: Default Cover, "A Plain Book" by Ada Lovelace\n' in result.stdout
         assert "Transform: attribute-namespacing (no-op)\n" in result.stdout
         assert "Transform: navigation-depth (fired)\n" in result.stdout
         assert "Packaging: pandoc 3.10 to epub3 (exit 0)\n" in result.stdout

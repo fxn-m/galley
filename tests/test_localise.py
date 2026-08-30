@@ -72,8 +72,8 @@ def test_localise_writes_a_repair_set_an_ordinary_prepare_accepts(tmp_path: Path
     assert built.returncode == 0, built.stdout
     report = json.loads(built.stdout)
     assert report["outcome"] == "completed"
-    assert report["preparation"]["images"]["totals"]["references"]["value"] == 2
-    assert len(media_resources(tmp_path / "after.epub")) == 2
+    assert report["preparation"]["images"]["totals"]["references"]["value"] == 3
+    assert len(media_resources(tmp_path / "after.epub")) == 3
 
 
 def test_the_rewritten_document_changes_image_locations_and_nothing_else(tmp_path: Path) -> None:
@@ -234,7 +234,7 @@ def test_a_localised_source_publishes_an_illustrated_ready_artifact(tmp_path: Pa
     report = json.loads(published.stdout)
     artifact = Path(str(report["artifact"]["path"]))
     assert artifact == workspace / "ready" / "An Illustrated Clipping.epub"
-    assert len(media_resources(artifact)) == 1
+    assert len(media_resources(artifact)) == 2
 
 
 def test_the_concise_rendering_states_the_repair_set_and_every_reference(tmp_path: Path) -> None:

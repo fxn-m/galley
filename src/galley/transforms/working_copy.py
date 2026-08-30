@@ -64,7 +64,7 @@ class WorkingCopy:
 
     @property
     def cover(self) -> Path | None:
-        """Name the packaged cover image, where the document's metadata named one."""
+        """Name the packaged cover image, a Default Cover or the source cover-image."""
 
         return None if self.images.cover is None else self.images.cover.resource.packaged.path
 
@@ -77,6 +77,7 @@ def working_copy(
     origin: ResourceOrigin,
     workspace: Path,
     title: str,
+    author: str | None,
 ) -> WorkingCopy:
     """Apply every Device Profile transform to a copy of the retained Canonical Document.
 
@@ -126,7 +127,14 @@ def working_copy(
         limit=enforced_limit(profile, FOOTNOTE_HREF_LENGTH),
         title=title,
     )
-    images = prepare_images(bounding.ast, profile=profile, origin=origin, workspace=workspace)
+    images = prepare_images(
+        bounding.ast,
+        profile=profile,
+        origin=origin,
+        workspace=workspace,
+        title=title,
+        author=author,
+    )
     # Last, so that nothing applied before it can put an attribute back on an element the output
     # format will not take one on.
     namespacing = namespace_attributes(images.ast)

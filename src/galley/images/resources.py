@@ -106,7 +106,27 @@ def packaged_resource(
     resolved = _resolved(origin, src)
     if isinstance(resolved, str):
         return resolved
-    data = resolved.data
+    return packaged_bytes(
+        resolved.data,
+        display=resolved.display,
+        profile=profile,
+        rule=rule,
+        workspace=workspace,
+        name=name,
+    )
+
+
+def packaged_bytes(
+    data: bytes,
+    *,
+    display: str,
+    profile: dict[str, object],
+    rule: ImageRule,
+    workspace: Path,
+    name: str,
+) -> PackagedResource | str:
+    """Measure and package bytes already in hand, or name the reason they produced none."""
+
     measurement = measure_image(data)
     if measurement.media_type is None:
         return "unmeasurable-bytes"
@@ -115,7 +135,7 @@ def packaged_resource(
     stated = _stated(rule, measurement, support, fits=fits)
     if stated is not None:
         packaged = _written(data, workspace / f"{name}{stated}", measurement)
-        return _resource(data, resolved.display, measurement, support, fits, PRESERVED, packaged)
+        return _resource(data, display, measurement, support, fits, PRESERVED, packaged)
     transformed = normalise(data, measurement, rule, workspace / name)
     if transformed.data is None or transformed.measurement is None:
         return transformed.reason or "decode-failure"
@@ -127,7 +147,7 @@ def packaged_resource(
         frames=transformed.frames,
         renderer=None if transformed.renderer is None else transformed.renderer.facts,
     )
-    return _resource(data, resolved.display, measurement, support, fits, NORMALISED, packaged)
+    return _resource(data, display, measurement, support, fits, NORMALISED, packaged)
 
 
 def _stated(

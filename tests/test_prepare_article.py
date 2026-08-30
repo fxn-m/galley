@@ -111,15 +111,17 @@ def test_an_illustrated_article_carries_its_images_into_the_book(tmp_path: Path)
             output, report = prepared(tmp_path, index, command)
 
             resources = media_resources(output)
-            assert len(resources) == 1
-            assert list(resources.values()) == [figure]
+            assert len(resources) == 2
+            assert figure in resources.values()
             preservation = report["preparation"]["images"]["preservation"]
             # Image Preservation runs on the shared implementation and finds nothing unmapped.
             assert preservation["claimed"] is True
-            assert preservation["references"]["value"] == 1
-            assert preservation["mapped"]["value"] == 1
+            assert preservation["references"]["value"] == 2
+            assert preservation["mapped"]["value"] == 2
             assert preservation["unmapped"]["value"] == 0
-            record = report["preparation"]["images"]["records"][0]
+            record = next(
+                entry for entry in report["preparation"]["images"]["records"] if not entry["cover"]
+            )
             assert record["alt"] == "a figure the essay explains"
             assert record["source"]["path"].startswith("http://127.0.0.1:")
             assert record["artifact"]["referenced"] is True

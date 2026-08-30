@@ -84,6 +84,7 @@ def packaged(
             origin=origin,
             workspace=Path(workspace) / RESOURCES,
             title=cast(str, document["title"]),
+            author=cast(str | None, document["author"]),
         )
         if copy.images.failures:
             return images_unprepared(inspection, copy)
