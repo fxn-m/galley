@@ -47,6 +47,7 @@ class Transport(Protocol):
     """Internal seam implemented by production and controlled adapters."""
 
     name: str
+    supports_system_curl_fallback: bool
 
     def exchange(
         self,
@@ -61,6 +62,7 @@ class PythonHttpTransport:
     """The normal bounded, redirect-free urllib adapter."""
 
     name = "python-http"
+    supports_system_curl_fallback = True
 
     def __init__(self, opener: OpenerDirector | None = None) -> None:
         self._opener = opener if opener is not None else no_redirect_opener(direct=True)
@@ -92,6 +94,7 @@ class SystemCurlTransport:
     """The absolute macOS curl adapter used only after one eligible Python failure."""
 
     name = "system-curl"
+    supports_system_curl_fallback = False
     executable = Path("/usr/bin/curl")
 
     @classmethod
@@ -189,12 +192,23 @@ def _resolve(target: DeliveryTarget, address: str) -> str:
 
 def _form(artifact: Path) -> str:
     path = _quoted(str(artifact))
-    filename = _quoted(artifact.name)
+    filename = _quoted(multipart_filename(artifact.name))
     return f'file=@"{path}";type=application/epub+zip;filename="{filename}"'
 
 
 def _quoted(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def multipart_filename(value: str) -> str:
+    """Percent-escape characters that can alter a quoted multipart parameter."""
+
+    return "".join(
+        f"%{ord(character):02X}"
+        if character in {'"', "\\"} or ord(character) < 32 or ord(character) == 127
+        else character
+        for character in value
+    )
 
 
 def _status(value: bytes) -> int:

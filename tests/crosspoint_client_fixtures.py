@@ -9,9 +9,13 @@ from galley.delivery.targets import DeliveryTarget
 
 class ControlledTransport:
     def __init__(
-        self, *responses: TransportResponse | TransportFailure, name: str = "controlled"
+        self,
+        *responses: TransportResponse | TransportFailure,
+        name: str = "controlled",
+        supports_fallback: bool = False,
     ) -> None:
         self.name = name
+        self.supports_system_curl_fallback = supports_fallback
         self.responses = list(responses)
         self.requests: list[TransportRequest] = []
         self.addresses: list[str] = []
@@ -36,7 +40,7 @@ class CapturedResponse:
 
     def read(self, limit: int) -> bytes:
         _ = limit
-        return b"{}"
+        return b'{"device":"X4","version":"1.4.1"}'
 
     def __enter__(self) -> "CapturedResponse":
         return self

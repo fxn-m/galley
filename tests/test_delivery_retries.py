@@ -82,6 +82,15 @@ def test_a_timeout_after_the_upload_began_is_unconfirmed(tmp_path: Path) -> None
     assert field(document, "action")["upload_began"] is True
     assert field(document, "action")["transport_status"] is None
     assert field(document, "action")["confirmation"] is None
+    exchanges = entries(document, "exchanges")
+    assert [(exchange["stage"], exchange["outcome"]) for exchange in exchanges] == [
+        ("device-status", "response"),
+        ("preflight-listing", "response"),
+        ("upload", "failed"),
+        ("postflight-confirmation", "response"),
+        ("postflight-confirmation", "response"),
+    ]
+    assert exchanges[2]["request_began"] is True
     assert tree(workspace / "ready") == before
 
 

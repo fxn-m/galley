@@ -10,6 +10,7 @@ observe this server's recorded state, never Galley's transport internals.
 """
 
 import json
+import socket
 import threading
 import time
 from collections.abc import Generator
@@ -96,6 +97,10 @@ class _CrossPointServer(ThreadingHTTPServer):
         A timeout test deliberately abandons the exchange mid-response, and the resulting
         broken pipe is the expected shape of that test rather than a fault to report.
         """
+
+
+class _IPv6CrossPointServer(_CrossPointServer):
+    address_family = socket.AF_INET6
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -205,16 +210,20 @@ def _multipart(body: bytes) -> tuple[str, int] | None:
 
 
 @contextmanager
-def crosspoint(device: Device | None = None) -> Generator[tuple[str, Device]]:
+def crosspoint(
+    device: Device | None = None, *, address: str = "127.0.0.1"
+) -> Generator[tuple[str, Device]]:
     """Serve one pinned CrossPoint on loopback and yield its `HOST:PORT` and its state."""
 
     pinned = device if device is not None else Device()
-    server = _CrossPointServer(("127.0.0.1", 0), _Handler)
+    server_type = _IPv6CrossPointServer if ":" in address else _CrossPointServer
+    server = server_type((address, 0), _Handler)
     server.device = pinned
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield f"127.0.0.1:{server.server_address[1]}", pinned
+        authority = f"[{address}]" if ":" in address else address
+        yield f"{authority}:{server.server_address[1]}", pinned
     finally:
         server.shutdown()
         server.server_close()

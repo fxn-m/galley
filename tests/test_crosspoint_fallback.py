@@ -24,6 +24,7 @@ def test_macos_errno65_before_connection_uses_the_controlled_curl_adapter() -> N
     primary = ControlledTransport(
         TransportFailure(OSError(65, "No route to host"), request_began=False),
         name="python-http",
+        supports_fallback=True,
     )
     fallback = ControlledTransport(
         TransportResponse(200, b'{"device":"X4","version":"1.4.1"}'),
@@ -58,7 +59,9 @@ def test_ineligible_python_failures_never_activate_curl(
     artifact = tmp_path / "Book.epub"
     _ = artifact.write_bytes(b"book")
     primary = ControlledTransport(
-        TransportFailure(error, request_began=request_began), name="python-http"
+        TransportFailure(error, request_began=request_began),
+        name="python-http",
+        supports_fallback=True,
     )
     fallback = ControlledTransport(TransportResponse(200), name="system-curl")
     target = DeliveryTarget("x4.local", "x4.local", 80, ("192.168.1.20",), 3.0)
@@ -79,7 +82,7 @@ def test_http_response_and_missing_absolute_curl_do_not_activate_fallback(
     fallback = ControlledTransport(TransportResponse(200), name="system-curl")
     responded = CrossPointClient(
         target,
-        ControlledTransport(TransportResponse(503), name="python-http"),
+        ControlledTransport(TransportResponse(503), name="python-http", supports_fallback=True),
         fallback,
         "darwin",
     ).upload("/", artifact)
@@ -90,6 +93,7 @@ def test_http_response_and_missing_absolute_curl_do_not_activate_fallback(
     primary = ControlledTransport(
         TransportFailure(OSError(65, "No route to host"), request_began=False),
         name="python-http",
+        supports_fallback=True,
     )
     missing = CrossPointClient(target, primary, platform_name="darwin").upload("/", artifact)
     assert isinstance(missing.value, Transfer)

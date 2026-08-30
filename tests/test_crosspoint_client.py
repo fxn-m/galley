@@ -13,7 +13,6 @@ from galley.delivery.crosspoint import (
     PythonHttpTransport,
     Transfer,
     TransportFailure,
-    TransportRequest,
     TransportResponse,
 )
 from galley.delivery.refusals import DeliveryRefusal
@@ -95,9 +94,9 @@ def test_python_adapter_connects_to_ipv4_or_ipv6_but_keeps_logical_authority(
     transport = PythonHttpTransport(cast(OpenerDirector, cast(object, opener)))
     target = DeliveryTarget("x4.local:8080", "x4.local", 8080, (address,), 3.0)
 
-    response = transport.exchange(target, address, TransportRequest("GET", "/api/status"), 3.0)
+    response = CrossPointClient(target, transport).status()
 
-    assert response == TransportResponse(200, b"{}")
+    assert isinstance(response.value, DeviceStatus)
     assert opener.request is not None
     assert opener.request.full_url == f"http://{authority}/api/status"
     assert opener.request.get_header("Host") == "x4.local:8080"
@@ -172,3 +171,23 @@ def test_upload_never_retries_after_a_request_may_have_begun(tmp_path: Path) -> 
     assert result.value.status is None
     assert transport.addresses == ["192.168.1.20"]
     assert len(transport.responses) == 1
+
+
+def test_upload_serialises_a_hostile_filename_without_injecting_multipart_headers(
+    tmp_path: Path,
+) -> None:
+    """Explicit paths remain safe even though Ready naming normally removes these characters."""
+
+    artifact = tmp_path / 'Proof"\r\nX-Galley-Injected: yes\\book.epub'
+    _ = artifact.write_bytes(b"book")
+    transport = ControlledTransport(TransportResponse(200))
+    target = DeliveryTarget("x4.local", "x4.local", 80, ("192.168.1.20",), 3.0)
+
+    result = CrossPointClient(target, transport).upload("/", artifact)
+
+    assert result.value == Transfer(200)
+    body = transport.requests[0].body
+    assert body is not None
+    header = b"".join(body).partition(b"\r\n\r\n")[0]
+    assert b"\r\nX-Galley-Injected:" not in header
+    assert b'filename="Proof%22%0D%0AX-Galley-Injected: yes%5Cbook.epub"' in header

@@ -1,9 +1,4 @@
-"""Own CrossPoint status, listing and upload behind one deep client interface.
-
-Callers use Delivery concepts and never construct HTTP exchanges. The production Python adapter
-and controlled test adapters share one internal transport seam; redirect refusal, bounded reads,
-JSON interpretation and multipart streaming stay local to this module.
-"""
+"""Own bounded CrossPoint status, listing and upload behind one deep client interface."""
 
 import json
 import sys
@@ -22,6 +17,7 @@ from galley.delivery.crosspoint_transport import (
     TransportRequest,
     TransportResponse,
     errno_code,
+    multipart_filename,
     network_cause,
 )
 from galley.delivery.crosspoint_results import (
@@ -58,7 +54,7 @@ class _MultipartBody:
         self.prefix = (
             f"--{boundary}\r\n"
             f'Content-Disposition: form-data; name="{FIELD_NAME}"; '
-            f'filename="{artifact.name}"\r\n'
+            f'filename="{multipart_filename(artifact.name)}"\r\n'
             f"Content-Type: {CONTENT_TYPE}\r\n\r\n"
         ).encode()
         self.suffix = f"\r\n--{boundary}--\r\n".encode()
@@ -161,7 +157,7 @@ class CrossPointClient:
             request,
             attempts=min(2, len(self._target.addresses)),
             deadline=self._deadline(),
-            safe=False,
+            retry_after_started_failure=False,
         )
         if isinstance(response, TransportFailure):
             transfer = Transfer(None, network_cause(response.error))
@@ -185,7 +181,7 @@ class CrossPointClient:
             TransportRequest("GET", path),
             attempts=attempts,
             deadline=deadline or self._deadline(),
-            safe=True,
+            retry_after_started_failure=True,
         )
         if isinstance(response, TransportFailure):
             cause = network_cause(response.error)
@@ -221,7 +217,7 @@ class CrossPointClient:
         *,
         attempts: int,
         deadline: float,
-        safe: bool,
+        retry_after_started_failure: bool,
     ) -> tuple[TransportResponse | TransportFailure, tuple[Exchange, ...]]:
         recorded: list[Exchange] = []
         response: TransportResponse | TransportFailure = TransportFailure(
@@ -245,7 +241,9 @@ class CrossPointClient:
                 recorded.append(self._exchange(stage, address, self._fallback, response))
             if not isinstance(response, TransportFailure):
                 break
-            if not safe and (response.request_began or index + 1 >= len(self._target.addresses)):
+            if not retry_after_started_failure and (
+                response.request_began or index + 1 >= len(self._target.addresses)
+            ):
                 break
         return response, tuple(recorded)
 
@@ -281,7 +279,7 @@ class CrossPointClient:
     def _eligible_for_fallback(self, response: TransportResponse | TransportFailure) -> bool:
         return (
             self._platform == "darwin"
-            and self._transport.name == "python-http"
+            and self._transport.supports_system_curl_fallback
             and self._fallback is not None
             and isinstance(response, TransportFailure)
             and not response.request_began
