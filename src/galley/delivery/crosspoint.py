@@ -114,8 +114,6 @@ class CrossPointClient:
         return ClientResult(DeviceStatus(model, firmware, mode or None, status), exchanges)
 
     def listing(self, destination: str) -> ClientResult[Listing]:
-        """List one folder without inferring that an empty result proves the folder exists."""
-
         stage = POSTFLIGHT_STAGE if self._upload_attempted else PREFLIGHT_STAGE
         if self._upload_attempted and self._postflight_deadline is None:
             self._postflight_deadline = self._deadline()
