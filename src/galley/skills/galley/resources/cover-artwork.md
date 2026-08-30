@@ -109,21 +109,14 @@ not accepted until its author has viewed a render made after the last edit. Retu
 with its one-line idea and short research trail; the main agent needs provenance but does not repeat
 the creative review.
 
-## Prepare and verify the evidence
+## Verify on the final prepare
 
-Use the ordinary explicit-output interface in the cover author's working area. Keep this preview
-artifact and evidence outside the Workspace's `ready/` directory; final Assisted Preparation
-publishes its own Ready Artifact and evidence after accepting the cover:
+Judge the rendered SVG previews in the previous step; that is the creative acceptance. Raster and
+font facts are checked on the one final `--ready` prepare after the cover is attached, not on a
+throwaway preview book.
 
-```text
-galley prepare SOURCE \
-  --profile PROFILE \
-  --output BOOK.epub \
-  --evidence-dir BOOK.galley \
-  --json
-```
-
-In `preparation.images.records`, find the entry with `cover: true` and verify all of these agree:
+In that final Report's `preparation.images.records`, find the entry with `cover: true` and verify
+all of these agree:
 
 - source media type is SVG; `transform` is `normalised`;
 - packaged and artifact media type is PNG at the profile's exact canvas, 8-bit depth and selected
@@ -137,6 +130,7 @@ In `preparation.images.records`, find the entry with `cover: true` and verify al
   policy (for example, the X4 preview has at most four levels).
 
 Renderer messages are evidence, not harmless stderr. A font warning means the requested text did
-not use the deterministic face: revise it to the profile font or paths and prepare again. A missing
-or malformed requested cover refuses at `image-processing-failure`; fix the SVG or its locator and
-start a fresh preparation. Never remove `cover-image` merely to make the build pass.
+not use the deterministic face: revise it to the profile font or paths and run the final prepare
+again. A missing or malformed requested cover refuses at `image-processing-failure`; fix the SVG or
+its locator and start a fresh `--ready` preparation. Never remove `cover-image` merely to make the
+build pass.

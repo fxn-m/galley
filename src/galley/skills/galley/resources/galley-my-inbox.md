@@ -47,7 +47,9 @@ galley prepare RESOLVED_PATH --profile x4-crosspoint --ready \
 `--expected-source-hash` is the hash Inbox Check observed. Galley re-checks it before and after
 reading the source, so a file edited mid-run refuses, retains its attempt evidence, and publishes
 no Ready Artifact — the routine path stays safe without a per-file prompt. `already-ready`
-candidates are already published; leave them for the Delivery phase.
+candidates are already published; leave them for the Delivery phase. Inbox preparation never
+authors Cover Artwork, regardless of the Workspace setting: each candidate receives a Default
+Cover or keeps a source `cover-image`.
 
 Stop **only the affected candidate**, with its evidence kept, when any of these appears — the
 other candidates keep going:
@@ -67,13 +69,14 @@ One refusal is not a stop. `image-processing-failure` whose references are all `
 [localisation](localisation.md) for that candidate, then prepare it again from the Repair Set,
 inside the same unattended pass. Say what was retrieved and from where when you report the run.
 
-## 4. Keep the three assessments separate
+## 4. Settle outstanding items and say material caveats
 
-The CLI's Report is the deterministic record. Settle each observation whose `fired` is `null`
-from the previews beside it, and record those judgements and any Predicted Verdict in a **separate
-assessment that references the Report's hash** — never inside the Report. The human's Reading
-Verdict is a third artifact again, filled in only after a device read. CLI facts, your assessment
-and the Reading Verdict stay three things, so no layer signs the next one's name.
+The CLI's Report is the deterministic record. Read compact Report facts. Settle each observation
+whose `fired` is `null` from the previews beside it, and say material caveats — including a
+figure-reduction heads-up when the document leans on pictures. Leave an Agent Assessment and
+Predicted Verdict for a later eval or device-read. Do not write a technical report, helper
+script, or extra note on a routine run. The human's Reading Verdict is filled in only after a
+device read.
 
 ## 5. Gather the Delivery Plans
 

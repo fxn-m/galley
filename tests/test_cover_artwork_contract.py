@@ -99,9 +99,7 @@ def test_cover_author_judges_the_whole_render_not_a_motif_checklist(
     installed_guides: tuple[str, ...],
 ) -> None:
     for text in installed_guides:
-        review = section(
-            text, "## Render and judge the whole", "## Prepare and verify the evidence"
-        )
+        review = section(text, "## Render and judge the whole", "## Verify on the final prepare")
         assert all(view in review for view in ("full size", "small library thumbnail", "quantised"))
         assert all(
             whole in review
@@ -111,3 +109,17 @@ def test_cover_author_judges_the_whole_render_not_a_motif_checklist(
         assert "rather than adding another motif" in review
         assert "viewed a render made after the last edit" in review
         assert all(handoff in review for handoff in ("one-line idea", "research trail"))
+
+
+def test_cover_author_checks_raster_facts_on_the_final_ready_prepare(
+    installed_guides: tuple[str, ...],
+) -> None:
+    for text in installed_guides:
+        verify = " ".join(text[text.index("## Verify on the final prepare") :].split())
+        assert "rendered SVG previews" in verify
+        assert "one final `--ready` prepare" in verify
+        assert "not on a throwaway preview book" in verify
+        assert "--output BOOK.epub" not in text
+        assert "--ready" in verify
+        assert "packaged.renderer" in verify
+        assert "bundled font" in verify

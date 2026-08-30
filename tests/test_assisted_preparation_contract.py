@@ -274,3 +274,26 @@ def test_assisted_preparation_adds_no_orchestration_or_timing_system(
         )
         assert "existing cli report timing" in lowered
         assert "success measure" in lowered
+
+
+def test_routine_assisted_preparation_does_the_named_conversion_work(
+    installed_contracts: tuple[str, ...],
+) -> None:
+    """Routine conversion inspects, localises, repairs, prepares once, and continues into
+    Delivery. Paperwork and a preview prepare are not part of that path."""
+
+    for text in installed_contracts:
+        workflow = " ".join(
+            text[
+                text.index("## Work after classification") : text.index(
+                    "## Keep the workflow boundary"
+                )
+            ].split()
+        )
+        assert "inspect, localise, repair when needed, prepare once" in workflow
+        assert "compact Report facts rather than the whole JSON dump" in workflow
+        assert "material caveats" in workflow
+        assert "without rewriting title or author metadata" in workflow
+        assert "later eval or device-read" in workflow
+        assert "Predicted Verdict" not in workflow
+        assert "Do not write a technical report, helper script, or extra note" in workflow

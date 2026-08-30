@@ -79,7 +79,7 @@ When the user chooses one source and wants the complete agent-guided journey to 
 follow [the Assisted Preparation contract](resources/assisted-preparation.md).
 It begins with Workspace validation, then profile confirmation and inspection, and gives the user
 a concise account of meaningful findings, decisions and the finished file while the exact
-classification, repair, cover, Localisation, preparation and assessment evidence stays retained.
+classification, repair, cover, Localisation and preparation evidence stays retained.
 Preparation finishes when the immutable Ready Artifact is published. Kindle submission remains
 user-controlled; X4 Delivery is a separate planned and authorised continuation.
 
@@ -104,9 +104,8 @@ routine candidate, and present a finite set of Delivery Plans for one approval.
 3. **Prepare.** Build every unambiguous `new` or `changed` Markdown candidate with `--ready` and
    its `--expected-source-hash`, without a per-file prompt. Identity ambiguity, a consequential
    repair, or a structured refusal stops that one candidate alone, its evidence kept.
-4. **Assess.** Settle the worklist and record your judgement and Predicted Verdict in a
-   [separate assessment](resources/assessment.md) referencing the Report hash, apart from the
-   CLI's facts and the human's Reading Verdict.
+4. **Settle.** Read compact Report facts, settle flaggable worklist items, and say material
+   caveats. Leave an Agent Assessment for a later eval or device-read.
 5. **Plan.** `galley deliver READY --plan --json` per Ready Artifact, gathering a finite set that
    names the exact device, destination, artifact and action.
 6. **Deliver.** One approval covers the displayed set; then perform each plan as its own
@@ -120,24 +119,30 @@ keep it so. After a book reaches the device, the reader follows
 
 1. `inspect` with `--evidence-dir` when a repair looks likely, otherwise go straight to
    `prepare`. Preparation always writes its own evidence directory.
-2. Read the Report and derive the worklist from it: every observation whose `fired` is `null` and
-   whose `applicability` is not `false`, plus every engaged preparation interlock. The same Report
-   always yields the same list, so it is read off rather than chosen.
+2. Read compact Report facts and derive the worklist from them: every observation whose `fired` is
+   `null` and whose `applicability` is not `false`, plus every engaged preparation interlock. The
+   same Report always yields the same list, so it is read off rather than chosen.
 3. Settle the entries whose `evidence` is `flaggable`, from the previews in the evidence
-   directory. A `device-judged` entry stays outstanding under the reader's name.
-4. Record those judgements and one Predicted Verdict in an assessment referencing the Report's
-   SHA-256, then hand the artifact and what is still outstanding to the human. Where the document
-   leans on figures, `preparation.images.reduction` says how far they shrank to fit the panel, and
-   the reader gets [a plain heads-up](resources/assessment.md) about it before they start.
+   directory. A `device-judged` entry stays outstanding under the reader's name. Say material
+   caveats, including a figure-reduction heads-up when `preparation.images.reduction` shows the
+   document leans on pictures.
+4. Hand the artifact and what is still outstanding to the human. Write an
+   [assessment](resources/assessment.md) only when a later eval or device-read needs one.
+   Do not write a technical report, helper script, or extra note on a routine run.
 
-[The worklist and the assessment record](resources/assessment.md) carry the derivation and the
-decided fields. A completed run with an empty worklist is finished — say so and stop.
+A completed run with an empty worklist is finished — say so and stop.
 
 ## When the work needs a cover
 
-Cover Artwork is creative editorial work, not a CLI-generated decoration. During Assisted
-Preparation, normally delegate its complete creative loop to a focused cover subagent. If
-delegation is unavailable, take that complete role yourself. Whoever owns it uses
+Read `cover_artwork` from the successful `config validate`. Silence follows that setting. An
+explicit “make a nice cover for this one” or “plain cover only” overrides it for this request
+only. A source `cover-image` stands. Cover Artwork runs only when Galley would otherwise publish
+a Default Cover and the setting or override asks for custom covers. Inbox preparation never
+authors Cover Artwork.
+
+When Cover Artwork does run, it is creative editorial work, not a CLI-generated decoration.
+During Assisted Preparation, normally delegate its complete creative loop to a focused cover
+subagent. If delegation is unavailable, take that complete role yourself. Whoever owns it uses
 [the cover guide](resources/cover-artwork.md) to interpret the work, author and preview one SVG, and
 judge the rendered result. A cover for another profile is a new composition under that profile's
 direction, not a recolour preset.
@@ -209,9 +214,9 @@ thing you find enter on its own generality. Record what you learn about a source
 ## What stays out of your hands
 
 Galley reports facts and refuses; it does not recommend, score or grade, and neither should you
-on its behalf. Four artifacts stand side by side and each is written once: the CLI's Report, your
-assessment against its hash, the Delivery Record, and the human's reading record. They can
-disagree — a clean build, your concern, a confirmed Delivery and a reader who finds it fine are
-all true at once — and each stays as its author left it. The Reading Verdict is the human's,
-after a real device read; a mechanically successful build has never been evidence that a book
-reads well.
+on its behalf. The CLI's Report, the Delivery Record, and the human's reading record each stand
+alone. An assessment against a Report hash is written when a later eval or device-read needs one,
+not on the routine conversion path. Those artifacts can disagree — a clean build, a later concern,
+a confirmed Delivery and a reader who finds it fine are all true at once — and each stays as its
+author left it. The Reading Verdict is the human's, after a real device read; a mechanically
+successful build has never been evidence that a book reads well.

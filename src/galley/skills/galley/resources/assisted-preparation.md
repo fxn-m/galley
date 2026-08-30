@@ -2,7 +2,7 @@
 
 Assisted Preparation is the complete agent-guided production of one Ready Artifact from one chosen
 source. It uses Galley's existing public commands and keeps the inspection, any Bespoke Repair,
-Cover Artwork, Localisation, preparation and assessment in one visible journey.
+Cover Artwork, Localisation and one preparation in one visible journey.
 
 Before the first update, read [the user-facing communication contract](user-facing-communication.md).
 The workflow terms below direct internal work; translate them into concrete, ordinary language for
@@ -56,9 +56,26 @@ original source while making one coherent repair pass.
 Ask the user before changing Central Content, choosing between plausible authorship or meaning, or
 making a material editorial interpretation. Keep the source unchanged while that choice is open.
 
+## Follow the Cover Artwork setting
+
+Read `cover_artwork` from the successful `config validate`. `value` is whether custom covers are
+on; `source` is `configured` or `default`. Silence follows that setting.
+
+- Setting off, or omitted: prepare once. Galley publishes a Default Cover or keeps a source
+  `cover-image`. Do not start a cover agent.
+- Setting on, and no source `cover-image`: author Cover Artwork by the existing creative workflow,
+  attach it, then prepare once.
+- A source `cover-image` stands even when the setting is on.
+- “Make a nice cover for this one” or “plain cover only” overrides the setting for this request
+  only.
+
+Then ask “Send it to X4?” about that exact Ready Artifact. Artwork and send are never one question.
+A later cover change publishes a new Ready Artifact; ask “Send it to X4?” about that new file.
+Republishing the same source and hash at the existing Ready path refuses at `output-exists`.
+
 ## Delegate Cover Artwork when possible
 
-Normally delegate Cover Artwork to a focused cover subagent and give it
+When this request calls for Cover Artwork, normally delegate it to a focused cover subagent and give it
 [the cover guide](cover-artwork.md), the source, the selected profile's direction and the relevant
 evidence. It owns interpretation, identity-cue research, SVG creation, rendering, visual judgment
 and revision as one task. It does not compare against recent Galley covers.
@@ -80,11 +97,19 @@ Continue from the retained inspection evidence through the work the classified j
 - Have the active cover author preview the SVG before packaging. A delegated cover returns only
   after its owner has rendered, judged and revised it; the main agent does not repeat that review.
 - Run final preparation with `--ready` once its inputs are settled, then read compact Report facts
-  for the outcome, worklist, cover rasterisation, reference and packaging evidence. The completed
-  Report's `artifact.path` is the path handed to the user.
+  for the outcome, worklist, cover rasterisation, reference and packaging evidence. Raster and font
+  facts for Cover Artwork are checked on that one prepare. The completed Report's `artifact.path`
+  is the path handed to the user.
 
 If later failure is unambiguous, fix it and continue from the new evidence. If it exposes ambiguity
 or a Central Content judgment, stop and ask the user rather than entering repeated blind retries.
+
+Routine conversion is that named work: inspect, localise, repair when needed, prepare once, and
+continue into Delivery. Read compact Report facts rather than the whole JSON dump. Settle flaggable
+worklist items and say material caveats, including a figure-reduction heads-up when the document
+leans on pictures. Attach a cover SVG without rewriting title or author metadata Galley will
+reassert at packaging. Write an Agent Assessment only when a later eval or device-read needs one.
+Do not write a technical report, helper script, or extra note on a routine run.
 
 ## Hand off the published artifact
 

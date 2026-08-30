@@ -1,8 +1,10 @@
 # Your worklist, and the assessment you record
 
-The Report is the CLI's. The Reading Verdict is a human's. Between them is one artifact that is
-yours: an **assessment**, recorded beside the Report and referencing its hash. This is how it is
-derived and what it contains.
+The Report is the CLI's. The Reading Verdict is a human's. Between them, when a later eval or
+device-read needs one, is an **assessment** recorded beside the Report and referencing its hash.
+Routine Assisted Preparation and Inbox conversion settle flaggable items and say material caveats
+without writing that file. This is how the worklist is derived and what an assessment contains
+when one is written.
 
 ## The worklist is derived, not chosen
 
