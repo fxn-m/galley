@@ -19,6 +19,7 @@ HASH_LENGTH = 12
 NAME_LIMIT = 80
 FALLBACK_NAME = "book"
 SEPARATOR = "-"
+PORTABLE_PUNCTUATION = "'’(),[]&-_"
 
 
 @dataclass(frozen=True)
@@ -43,7 +44,9 @@ class ReadyOutput:
             return Publication(preferred)
         if file_digest(preferred) == digest:
             return Publication(preferred, reuse=True)
-        distinct = self.directory / f"{base}{SEPARATOR}{digest[:HASH_LENGTH]}{ARTIFACT_SUFFIX}"
+        digest_suffix = f"{SEPARATOR}{digest[:HASH_LENGTH]}"
+        collision_base = _truncate(base, NAME_LIMIT - len(digest_suffix)).rstrip(" .")
+        distinct = self.directory / f"{collision_base}{digest_suffix}{ARTIFACT_SUFFIX}"
         if not distinct.exists():
             return Publication(distinct)
         existing = file_digest(distinct)
@@ -56,7 +59,8 @@ def artifact_base(title: str) -> str:
     """Take a human-readable file name from the name the Canonical Document already settled.
 
     That name is the document's own title, or its source stem where the document states none, so
-    there is nothing left to invent here. What survives is letters, digits and single separators,
+    there is nothing left to invent here. What survives is letters, numbers and common portable
+    punctuation,
     because the name has to work as a filename on the reading device as well as in a Workspace.
     """
 
@@ -66,6 +70,16 @@ def artifact_base(title: str) -> str:
 def _slug(value: str) -> str:
     normalised = unicodedata.normalize("NFC", value)
     words = "".join(
-        character if character.isalnum() or character in "._" else " " for character in normalised
+        character if character.isalnum() or character in f"{PORTABLE_PUNCTUATION}." else " "
+        for character in normalised
     ).split()
-    return SEPARATOR.join(words)[:NAME_LIMIT].strip("._-")
+    return _truncate(" ".join(words), NAME_LIMIT).strip(" .")
+
+
+def _truncate(value: str, byte_limit: int) -> str:
+    used = 0
+    for index, character in enumerate(value):
+        used += len(character.encode("utf-8"))
+        if used > byte_limit:
+            return value[:index]
+    return value

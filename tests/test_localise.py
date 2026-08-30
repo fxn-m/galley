@@ -233,7 +233,7 @@ def test_a_localised_source_publishes_an_illustrated_ready_artifact(tmp_path: Pa
     assert published.returncode == 0, published.stdout
     report = json.loads(published.stdout)
     artifact = Path(str(report["artifact"]["path"]))
-    assert artifact == workspace / "ready" / "An-Illustrated-Clipping.epub"
+    assert artifact == workspace / "ready" / "An Illustrated Clipping.epub"
     assert len(media_resources(artifact)) == 1
 
 

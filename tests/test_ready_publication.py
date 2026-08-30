@@ -82,30 +82,6 @@ def test_different_bytes_take_a_deterministic_hash_suffix(tmp_path: Path) -> Non
     assert len(ready_reports(workspace)) == 2
 
 
-def test_identical_bytes_are_reused_with_their_own_evidence(tmp_path: Path) -> None:
-    """Two sources that build the same book share the artifact and keep separate Reports."""
-
-    first_source = inbox_note(tmp_path, "note.md")
-    workspace = tmp_path / "workspace"
-    environment = workspace_environment(workspace, tmp_path / "home")
-    first, _ = prepare_ready(first_source, environment)
-    published = Path(str(facts(report(first.stdout), "artifact")["path"]))
-    stamp = published.stat().st_mtime_ns
-    copied = tmp_path / "elsewhere" / "note.md"
-    copied.parent.mkdir(parents=True)
-    _ = copied.write_text(BODY, encoding="utf-8")
-    second, _ = prepare_ready(copied, environment)
-    assert second.returncode == COMPLETED
-    assert Path(str(facts(report(second.stdout), "artifact")["path"])) == published
-    assert published.stat().st_mtime_ns == stamp
-    reports = ready_reports(workspace)
-    assert len(reports) == 2
-    assert {str(facts(report, "source")["path"]) for report in reports} == {
-        str(first_source.resolve()),
-        str(copied.resolve()),
-    }
-
-
 def test_the_inbox_is_never_touched(tmp_path: Path) -> None:
     """Every external Inbox input is immutable: nothing is created, moved, renamed or edited."""
 

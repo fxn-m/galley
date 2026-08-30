@@ -7,7 +7,7 @@ from pathlib import Path
 
 from tests.crosspoint_server import Device, crosspoint
 from tests.delivery_fixtures import UNCONFIRMED, deliver, published, records
-from tests.public_cli import public_cli_commands, run_public_cli
+from tests.public_cli import public_cli_commands, run_command, run_public_cli
 from tests.workspace_fixtures import command_document, field, tree
 
 COMPLETED = 0
@@ -53,6 +53,29 @@ def test_the_upload_is_multipart_and_asks_for_no_optimization(tmp_path: Path) ->
         for query in device.upload_queries:
             assert query == "path=%2F"
             assert "optimi" not in query.lower()
+
+
+def test_the_exact_readable_ready_name_reaches_crosspoint(tmp_path: Path) -> None:
+    """Both entry points serialize and confirm the published Unicode filename unchanged."""
+
+    readable = "Café’s, 2026 (第2版) [A&B] - draft_v1.2.md"
+    _workspace, artifact, environment = published(tmp_path, readable)
+    size = artifact.stat().st_size
+    assert artifact.name == f"{Path(readable).stem}.epub"
+    for command in public_cli_commands():
+        with crosspoint() as (host, device):
+            result = run_command(
+                command,
+                "deliver",
+                str(artifact),
+                "--json",
+                "--host",
+                host,
+                environment=environment,
+            )
+            assert result.returncode == COMPLETED
+            assert device.uploads == [(artifact.name, size)]
+            assert device.files == {artifact.name: size}
 
 
 def test_the_record_references_everything_the_delivery_rested_on(tmp_path: Path) -> None:
