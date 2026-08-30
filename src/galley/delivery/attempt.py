@@ -32,9 +32,7 @@ def perform_delivery(request: DeliveryRequest, run: ReportRun) -> CommandDocumen
     return _confirmed(prepared, prepared.client, prepared.book)
 
 
-def _confirmed(
-    prepared: Preflight, client: CrossPointClient, book: Deliverable
-) -> CommandDocument:
+def _confirmed(prepared: Preflight, client: CrossPointClient, book: Deliverable) -> CommandDocument:
     """Upload once, then ask the device what it now holds and believe only that."""
 
     uploaded = client.upload(prepared.destination, book.path)

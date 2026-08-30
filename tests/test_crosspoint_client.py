@@ -106,7 +106,9 @@ def test_client_exposes_only_the_three_crosspoint_domain_operations(tmp_path: Pa
     assert transfer.value.status == 200
     assert not isinstance(transfer.value, DeliveryRefusal)
     assert device.uploads == [(artifact.name, len(payload))]
-    assert [exchange.stage for result in (status, listing, transfer) for exchange in result.exchanges] == [
+    assert [
+        exchange.stage for result in (status, listing, transfer) for exchange in result.exchanges
+    ] == [
         "device-status",
         "preflight-listing",
         "upload",
@@ -169,9 +171,7 @@ def test_safe_read_recovers_once_on_the_next_validated_address() -> None:
         TransportFailure(ConnectionRefusedError("first address")),
         TransportResponse(200, b'{"device":"X4","version":"1.4.1"}'),
     )
-    target = DeliveryTarget(
-        "x4.local", "x4.local", 80, ("192.168.1.20", "192.168.1.21"), 3.0
-    )
+    target = DeliveryTarget("x4.local", "x4.local", 80, ("192.168.1.20", "192.168.1.21"), 3.0)
 
     result = CrossPointClient(target, transport).status()
 
@@ -208,9 +208,7 @@ def test_upload_changes_address_only_after_a_proven_not_started_failure(tmp_path
         TransportFailure(ConnectionRefusedError("pre-connect"), request_began=False),
         TransportResponse(200),
     )
-    target = DeliveryTarget(
-        "x4.local", "x4.local", 80, ("192.168.1.20", "192.168.1.21"), 3.0
-    )
+    target = DeliveryTarget("x4.local", "x4.local", 80, ("192.168.1.20", "192.168.1.21"), 3.0)
 
     result = CrossPointClient(target, transport).upload("/", artifact)
 
@@ -227,9 +225,7 @@ def test_upload_never_retries_after_a_request_may_have_begun(tmp_path: Path) -> 
     transport = ControlledTransport(
         TransportFailure(TimeoutError("uncertain"), request_began=True), TransportResponse(200)
     )
-    target = DeliveryTarget(
-        "x4.local", "x4.local", 80, ("192.168.1.20", "192.168.1.21"), 3.0
-    )
+    target = DeliveryTarget("x4.local", "x4.local", 80, ("192.168.1.20", "192.168.1.21"), 3.0)
 
     result = CrossPointClient(target, transport).upload("/", artifact)
 

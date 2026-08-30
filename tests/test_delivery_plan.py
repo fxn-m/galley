@@ -90,9 +90,7 @@ socket.getaddrinfo = _once
                 environment={
                     **environment,
                     "GALLEY_TEST_RESOLUTION_MARKER": str(marker),
-                    "PYTHONPATH": os.pathsep.join(
-                        [str(hooks), os.environ.get("PYTHONPATH", "")]
-                    ),
+                    "PYTHONPATH": os.pathsep.join([str(hooks), os.environ.get("PYTHONPATH", "")]),
                 },
             )
             assert result.returncode == COMPLETED, result.stderr

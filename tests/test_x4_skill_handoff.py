@@ -66,10 +66,14 @@ def test_every_documented_x4_command_runs_through_both_installed_entry_points(
     for command in public_cli_commands():
         with crosspoint() as (host, device):
             planned = run_command(
-                command, *_arguments(templates[0], artifact, host, overwrite=False), environment=environment
+                command,
+                *_arguments(templates[0], artifact, host, overwrite=False),
+                environment=environment,
             )
             delivered = run_command(
-                command, *_arguments(templates[1], artifact, host, overwrite=False), environment=environment
+                command,
+                *_arguments(templates[1], artifact, host, overwrite=False),
+                environment=environment,
             )
             assert device.upload_requests == 1
         assert planned.returncode == delivered.returncode == COMPLETED
@@ -79,7 +83,9 @@ def test_every_documented_x4_command_runs_through_both_installed_entry_points(
         collision = Device(files={artifact.name: artifact.stat().st_size + 1})
         with crosspoint(collision) as (host, device):
             overwritten = run_command(
-                command, *_arguments(templates[2], artifact, host, overwrite=True), environment=environment
+                command,
+                *_arguments(templates[2], artifact, host, overwrite=True),
+                environment=environment,
             )
             assert device.upload_requests == 1
         assert overwritten.returncode == COMPLETED

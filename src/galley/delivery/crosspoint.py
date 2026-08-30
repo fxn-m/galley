@@ -48,6 +48,8 @@ RESPONSE_LIMIT = 1_000_000
 FIELD_NAME = "file"
 CONTENT_TYPE = "application/epub+zip"
 CHUNK = 1 << 16
+
+
 class _MultipartBody:
     """A repeatable, length-declaring multipart body streamed from disk."""
 
@@ -84,7 +86,11 @@ class CrossPointClient:
         self._transport = transport if transport is not None else PythonHttpTransport()
         self._platform = platform_name or sys.platform
         self._fallback = fallback_transport
-        if self._fallback is None and self._platform == "darwin" and SystemCurlTransport.available():
+        if (
+            self._fallback is None
+            and self._platform == "darwin"
+            and SystemCurlTransport.available()
+        ):
             self._fallback = SystemCurlTransport()
         self._upload_attempted = False
         self._postflight_deadline: float | None = None
@@ -237,9 +243,7 @@ class CrossPointClient:
             remaining = deadline - monotonic()
             if self._eligible_for_fallback(response) and remaining > 0:
                 assert self._fallback is not None
-                response = self._fallback.exchange(
-                    self._target, address, request, remaining
-                )
+                response = self._fallback.exchange(self._target, address, request, remaining)
                 recorded.append(self._exchange(stage, address, self._fallback, response))
             if not isinstance(response, TransportFailure):
                 break
@@ -276,9 +280,7 @@ class CrossPointClient:
     def _deadline(self) -> float:
         return monotonic() + self._target.timeout_seconds
 
-    def _eligible_for_fallback(
-        self, response: TransportResponse | TransportFailure
-    ) -> bool:
+    def _eligible_for_fallback(self, response: TransportResponse | TransportFailure) -> bool:
         return (
             self._platform == "darwin"
             and self._transport.name == "python-http"
