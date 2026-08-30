@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Generic, TypeVar
 
 from galley.delivery.refusals import DeliveryRefusal
+from galley.json_reading import integer, mapping, text
 
 DETAIL_LIMIT = 1_000
 ResultValue = TypeVar("ResultValue")
@@ -83,3 +84,11 @@ class Listing:
             "entry_count": len(self.entries),
             "matching": None if found is None else found.facts(),
         }
+
+
+def remote_entry(value: object) -> RemoteEntry | None:
+    item = mapping(value)
+    name = text(item.get("name"))
+    if not name or item.get("isDirectory") is True:
+        return None
+    return RemoteEntry(name, integer(item.get("size")))

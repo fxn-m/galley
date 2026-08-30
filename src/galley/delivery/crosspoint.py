@@ -6,33 +6,35 @@ JSON interpretation and multipart streaming stay local to this module.
 """
 
 import json
-import socket
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 from secrets import token_hex
 from time import monotonic
 from typing import cast
-from urllib.error import URLError
 from urllib.parse import urlencode
 
 from galley.delivery.crosspoint_transport import (
     PythonHttpTransport,
+    SystemCurlTransport,
     Transport,
     TransportFailure,
     TransportRequest,
     TransportResponse,
+    errno_code,
+    network_cause,
 )
 from galley.delivery.crosspoint_results import (
     ClientResult,
     DeviceStatus,
     Exchange,
     Listing,
-    RemoteEntry,
     Transfer,
+    remote_entry,
 )
 from galley.delivery.refusals import DeliveryRefusal
 from galley.delivery.targets import DeliveryTarget
-from galley.json_reading import integer, mapping, sequence, text
+from galley.json_reading import mapping, sequence, text
 
 STATUS_STAGE = "device-status"
 LISTING_STAGE = "destination-listing"
@@ -71,9 +73,19 @@ class _MultipartBody:
 class CrossPointClient:
     """Read status, list a destination and upload one artifact to a trusted target."""
 
-    def __init__(self, target: DeliveryTarget, transport: Transport | None = None) -> None:
+    def __init__(
+        self,
+        target: DeliveryTarget,
+        transport: Transport | None = None,
+        fallback_transport: Transport | None = None,
+        platform_name: str | None = None,
+    ) -> None:
         self._target = target
         self._transport = transport if transport is not None else PythonHttpTransport()
+        self._platform = platform_name or sys.platform
+        self._fallback = fallback_transport
+        if self._fallback is None and self._platform == "darwin" and SystemCurlTransport.available():
+            self._fallback = SystemCurlTransport()
         self._upload_attempted = False
         self._postflight_deadline: float | None = None
 
@@ -123,7 +135,7 @@ class CrossPointClient:
                 {"destination": destination, "host": self._target.host},
             )
             return ClientResult(refusal, exchanges)
-        entries = tuple(entry for entry in map(_entry, listed) if entry is not None)
+        entries = tuple(entry for entry in map(remote_entry, listed) if entry is not None)
         return ClientResult(Listing(entries), exchanges)
 
     def upload(self, destination: str, artifact: Path) -> ClientResult[Transfer]:
@@ -138,6 +150,7 @@ class CrossPointClient:
                 "Content-Length": str(body.content_length),
             },
             body,
+            artifact=artifact,
         )
         response, exchanges = self._send(
             UPLOAD_STAGE,
@@ -173,11 +186,6 @@ class CrossPointClient:
         if isinstance(response, TransportFailure):
             cause = network_cause(response.error)
             return self._unavailable(boundary_stage, label, cause, str(response.error)), exchanges
-        if not 200 <= response.status < 300:
-            detail = f"{self._target.host} answered {response.status}"
-            return self._unavailable(
-                boundary_stage, label, detail, status=response.status
-            ), exchanges
         if len(response.body) > RESPONSE_LIMIT:
             refusal = DeliveryRefusal(
                 "oversize-device-response",
@@ -186,6 +194,11 @@ class CrossPointClient:
                 {"host": self._target.host, "limit": RESPONSE_LIMIT},
             )
             return refusal, exchanges
+        if not 200 <= response.status < 300:
+            detail = f"{self._target.host} answered {response.status}"
+            return self._unavailable(
+                boundary_stage, label, detail, status=response.status
+            ), exchanges
         try:
             return cast(object, json.loads(response.body)), exchanges
         except UnicodeDecodeError, ValueError:
@@ -220,7 +233,14 @@ class CrossPointClient:
                     TimeoutError("operation timeout budget exhausted"), request_began=False
                 )
             )
-            recorded.append(self._exchange(stage, address, response))
+            recorded.append(self._exchange(stage, address, self._transport, response))
+            remaining = deadline - monotonic()
+            if self._eligible_for_fallback(response) and remaining > 0:
+                assert self._fallback is not None
+                response = self._fallback.exchange(
+                    self._target, address, request, remaining
+                )
+                recorded.append(self._exchange(stage, address, self._fallback, response))
             if not isinstance(response, TransportFailure):
                 break
             if not safe and (response.request_began or index + 1 >= len(self._target.addresses)):
@@ -231,13 +251,14 @@ class CrossPointClient:
         self,
         stage: str,
         address: str,
+        transport: Transport,
         response: TransportResponse | TransportFailure,
     ) -> Exchange:
         if isinstance(response, TransportFailure):
             return Exchange(
                 stage,
                 address,
-                self._transport.name,
+                transport.name,
                 request_began=response.request_began,
                 outcome="failed" if response.request_began else "not-started",
                 detail=network_cause(response.error),
@@ -245,7 +266,7 @@ class CrossPointClient:
         return Exchange(
             stage,
             address,
-            self._transport.name,
+            transport.name,
             response.status,
             True,
             "response",
@@ -254,6 +275,18 @@ class CrossPointClient:
 
     def _deadline(self) -> float:
         return monotonic() + self._target.timeout_seconds
+
+    def _eligible_for_fallback(
+        self, response: TransportResponse | TransportFailure
+    ) -> bool:
+        return (
+            self._platform == "darwin"
+            and self._transport.name == "python-http"
+            and self._fallback is not None
+            and isinstance(response, TransportFailure)
+            and not response.request_began
+            and errno_code(response.error) == 65
+        )
 
     def _unavailable(
         self, stage: str, label: str, summary: str, detail: str = "", status: int | None = None
@@ -264,24 +297,3 @@ class CrossPointClient:
         else:
             fact["detail"] = detail
         return DeliveryRefusal("device-unavailable", stage, f"could not {label}: {summary}", fact)
-
-
-def _entry(value: object) -> RemoteEntry | None:
-    item = mapping(value)
-    name = text(item.get("name"))
-    if not name or item.get("isDirectory") is True:
-        return None
-    return RemoteEntry(name, integer(item.get("size")))
-
-
-def network_cause(error: BaseException) -> str:
-    """Turn raw network exceptions into the existing actionable summaries."""
-
-    reason = cast(object, error.reason) if isinstance(error, URLError) else error
-    if isinstance(reason, socket.gaierror):
-        return "the host name did not resolve"
-    if isinstance(reason, TimeoutError):
-        return "no response before the timeout"
-    if isinstance(reason, ConnectionRefusedError):
-        return "the connection was refused"
-    return str(error)

@@ -20,8 +20,8 @@ from galley.delivery.crosspoint import (
     CrossPointClient,
     LISTING_STAGE,
     Listing,
-    RemoteEntry,
 )
+from galley.delivery.crosspoint_results import RemoteEntry
 from galley.delivery.probing import probe
 from galley.delivery.records import (
     PLAN,
