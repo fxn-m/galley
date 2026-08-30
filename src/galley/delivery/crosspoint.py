@@ -28,6 +28,8 @@ from galley.json_reading import integer, mapping, sequence, text
 
 STATUS_STAGE = "device-status"
 LISTING_STAGE = "destination-listing"
+PREFLIGHT_STAGE = "preflight-listing"
+POSTFLIGHT_STAGE = "postflight-confirmation"
 UPLOAD_STAGE = "upload"
 STATUS_PATH = "/api/status"
 FILES_PATH = "/api/files"
@@ -36,32 +38,41 @@ RESPONSE_LIMIT = 1_000_000
 FIELD_NAME = "file"
 CONTENT_TYPE = "application/epub+zip"
 CHUNK = 1 << 16
+DETAIL_LIMIT = 1_000
 
 ResultValue = TypeVar("ResultValue")
 
 
 @dataclass(frozen=True)
 class Exchange:
-    """One ordered CrossPoint exchange fact retained inside the client result."""
-
     stage: str
+    address: str
+    transport: str
     status: int | None = None
     request_began: bool = False
+    outcome: str = "failed"
     detail: str = ""
+
+    def facts(self) -> dict[str, object]:
+        return {
+            "stage": self.stage,
+            "address": self.address,
+            "transport": self.transport,
+            "request_began": self.request_began,
+            "status": self.status,
+            "outcome": self.outcome,
+            "detail": self.detail[:DETAIL_LIMIT],
+        }
 
 
 @dataclass(frozen=True)
 class ClientResult(Generic[ResultValue]):
-    """One semantic answer and the exchanges that established it."""
-
     value: ResultValue | DeliveryRefusal
     exchanges: tuple[Exchange, ...] = ()
 
 
 @dataclass(frozen=True)
 class Transfer:
-    """What CrossPoint answered to one upload, without claiming Delivery."""
-
     status: int | None = None
     detail: str = ""
 
@@ -86,8 +97,6 @@ class DeviceStatus:
 
 @dataclass(frozen=True)
 class RemoteEntry:
-    """One listed file, reduced to the facts Delivery can act on."""
-
     name: str
     byte_size: int | None
 
@@ -97,8 +106,6 @@ class RemoteEntry:
 
 @dataclass(frozen=True)
 class Listing:
-    """One destination listing returned in Delivery concepts."""
-
     entries: tuple[RemoteEntry, ...]
 
     def matching(self, filename: str) -> RemoteEntry | None:
@@ -140,6 +147,7 @@ class CrossPointClient:
     def __init__(self, target: DeliveryTarget, transport: Transport | None = None) -> None:
         self._target = target
         self._transport = transport if transport is not None else PythonHttpTransport()
+        self._upload_attempted = False
 
     def status(self) -> ClientResult[DeviceStatus]:
         payload, exchange = self._json(STATUS_PATH, STATUS_STAGE, "read device status")
@@ -162,9 +170,10 @@ class CrossPointClient:
     def listing(self, destination: str) -> ClientResult[Listing]:
         """List one folder without inferring that an empty result proves the folder exists."""
 
+        stage = POSTFLIGHT_STAGE if self._upload_attempted else PREFLIGHT_STAGE
         query = urlencode({"path": destination})
         payload, exchange = self._json(
-            f"{FILES_PATH}?{query}", LISTING_STAGE, f"list {destination}"
+            f"{FILES_PATH}?{query}", stage, f"list {destination}", refusal_stage=LISTING_STAGE
         )
         if isinstance(payload, DeliveryRefusal):
             return ClientResult(payload, (exchange,))
@@ -181,6 +190,7 @@ class CrossPointClient:
         return ClientResult(Listing(entries), (exchange,))
 
     def upload(self, destination: str, artifact: Path) -> ClientResult[Transfer]:
+        self._upload_attempted = True
         boundary = f"galley-{token_hex(16)}"
         body = _MultipartBody(artifact, boundary)
         request = TransportRequest(
@@ -200,19 +210,20 @@ class CrossPointClient:
         return ClientResult(transfer, (exchange,))
 
     def _json(
-        self, path: str, stage: str, label: str
+        self, path: str, stage: str, label: str, *, refusal_stage: str | None = None
     ) -> tuple[object | DeliveryRefusal, Exchange]:
+        boundary_stage = refusal_stage or stage
         response, exchange = self._send(stage, TransportRequest("GET", path))
         if isinstance(response, TransportFailure):
             cause = network_cause(response.error)
-            return self._unavailable(stage, label, cause, str(response.error)), exchange
+            return self._unavailable(boundary_stage, label, cause, str(response.error)), exchange
         if not 200 <= response.status < 300:
             detail = f"{self._target.host} answered {response.status}"
-            return self._unavailable(stage, label, detail, status=response.status), exchange
+            return self._unavailable(boundary_stage, label, detail, status=response.status), exchange
         if len(response.body) > RESPONSE_LIMIT:
             refusal = DeliveryRefusal(
                 "oversize-device-response",
-                stage,
+                boundary_stage,
                 f"could not {label}: the response exceeded {RESPONSE_LIMIT} bytes",
                 {"host": self._target.host, "limit": RESPONSE_LIMIT},
             )
@@ -222,7 +233,7 @@ class CrossPointClient:
         except UnicodeDecodeError, ValueError:
             refusal = DeliveryRefusal(
                 "unusable-device-response",
-                stage,
+                boundary_stage,
                 f"could not {label}: the response was not JSON",
                 {"host": self._target.host},
             )
@@ -231,11 +242,30 @@ class CrossPointClient:
     def _send(
         self, stage: str, request: TransportRequest
     ) -> tuple[TransportResponse | TransportFailure, Exchange]:
-        response = self._transport.exchange(self._target, request)
+        address = self._target.addresses[0]
+        response = self._transport.exchange(self._target, address, request)
         if isinstance(response, TransportFailure):
             detail = network_cause(response.error)
-            return response, Exchange(stage, request_began=response.request_began, detail=detail)
-        return response, Exchange(stage, response.status, True, response.detail)
+            outcome = "failed" if response.request_began else "not-started"
+            exchange = Exchange(
+                stage,
+                address,
+                self._transport.name,
+                request_began=response.request_began,
+                outcome=outcome,
+                detail=detail,
+            )
+            return response, exchange
+        exchange = Exchange(
+            stage,
+            address,
+            self._transport.name,
+            response.status,
+            True,
+            "response",
+            response.detail,
+        )
+        return response, exchange
 
     def _unavailable(
         self, stage: str, label: str, summary: str, detail: str = "", status: int | None = None

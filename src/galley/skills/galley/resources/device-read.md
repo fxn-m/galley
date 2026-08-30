@@ -12,7 +12,7 @@ until all three hold:
 1. **A Ready Artifact.** The book is an artifact `prepare --ready` published: audited, immutable,
    and described by a Report in its evidence bundle. A file rebuilt for the occasion, or edited
    after publication, is a different book from the one any Report describes.
-2. **Its Delivery Record.** The `galley/delivery-record/1` a confirmed Delivery persisted — its
+2. **Its Delivery Record.** The `galley/delivery-record/2` a confirmed Delivery persisted — its
    `record_id`, the resolved device, its firmware and mode, and the destination the bytes landed
    at. That record is what says these bytes reached this device, confirmed by a fresh listing
    rather than by a command that merely exited cleanly.

@@ -1,11 +1,17 @@
 """Exercise the deep CrossPoint client interface against a pinned fake device."""
 
 from pathlib import Path
+from types import TracebackType
+from typing import cast
+from urllib.request import OpenerDirector, Request
+
+import pytest
 
 from galley.delivery.crosspoint import (
     CrossPointClient,
     DeviceStatus,
     Listing,
+    PythonHttpTransport,
     Transfer,
     TransportRequest,
     TransportResponse,
@@ -24,10 +30,46 @@ class ControlledTransport:
         self.responses = list(responses)
         self.requests: list[TransportRequest] = []
 
-    def exchange(self, target: DeliveryTarget, request: TransportRequest) -> TransportResponse:
+    def exchange(
+        self, target: DeliveryTarget, address: str, request: TransportRequest
+    ) -> TransportResponse:
         _ = target
+        _ = address
         self.requests.append(request)
         return self.responses.pop(0)
+
+
+class CapturedResponse:
+    """Behave like one successful urllib response without opening a socket."""
+
+    status = 200
+
+    def read(self, limit: int) -> bytes:
+        _ = limit
+        return b"{}"
+
+    def __enter__(self) -> "CapturedResponse":
+        return self
+
+    def __exit__(
+        self,
+        exception_type: type[BaseException] | None,
+        exception: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        _ = (exception_type, exception, traceback)
+
+
+class CapturingOpener:
+    """Retain the exact urllib request the production adapter would send."""
+
+    def __init__(self) -> None:
+        self.request: Request | None = None
+
+    def open(self, request: Request, *, timeout: float) -> CapturedResponse:
+        _ = timeout
+        self.request = request
+        return CapturedResponse()
 
 
 def test_client_exposes_only_the_three_crosspoint_domain_operations(tmp_path: Path) -> None:
@@ -55,7 +97,7 @@ def test_client_exposes_only_the_three_crosspoint_domain_operations(tmp_path: Pa
     assert device.uploads == [(artifact.name, len(payload))]
     assert [exchange.stage for result in (status, listing, transfer) for exchange in result.exchanges] == [
         "device-status",
-        "destination-listing",
+        "preflight-listing",
         "upload",
     ]
 
@@ -86,3 +128,24 @@ def test_client_owns_http_json_and_multipart_over_one_injected_transport(tmp_pat
     multipart = b"".join(upload.body)
     assert b'filename="A Readable Book.epub"' in multipart
     assert b"raw epub bytes" in multipart
+
+
+@pytest.mark.parametrize(
+    ("address", "authority"),
+    [("192.168.1.20", "192.168.1.20:8080"), ("fe80::20%en0", "[fe80::20%25en0]:8080")],
+)
+def test_python_adapter_connects_to_ipv4_or_ipv6_but_keeps_logical_authority(
+    address: str, authority: str
+) -> None:
+    """Connection routing and HTTP authority are separate, including a scoped IPv6 address."""
+
+    opener = CapturingOpener()
+    transport = PythonHttpTransport(cast(OpenerDirector, cast(object, opener)))
+    target = DeliveryTarget("x4.local:8080", "x4.local", 8080, (address,), 3.0)
+
+    response = transport.exchange(target, address, TransportRequest("GET", "/api/status"))
+
+    assert response == TransportResponse(200, b"{}")
+    assert opener.request is not None
+    assert opener.request.full_url == f"http://{authority}/api/status"
+    assert opener.request.get_header("Host") == "x4.local:8080"

@@ -11,7 +11,7 @@ guess which. The Ready Artifact is untouched throughout, so a retry simply start
 from galley.delivery.artifacts import Deliverable
 from galley.delivery.crosspoint import CrossPointClient, Listing, Transfer
 from galley.delivery.preflight import ALREADY_DELIVERED, DeliveryRequest, Preflight, preflight
-from galley.delivery.records import DELIVER, with_action, with_destination
+from galley.delivery.records import DELIVER, with_action, with_destination, with_exchanges
 from galley.delivery.refusals import DeliveryRefusal
 from galley.report.envelope import ReportRun
 from galley.documents import UNCONFIRMED, CommandDocument, Outcome, with_outcome, with_refusal
@@ -37,11 +37,15 @@ def _confirmed(
 ) -> CommandDocument:
     """Upload once, then ask the device what it now holds and believe only that."""
 
-    transfer = client.upload(prepared.destination, book.path).value
+    uploaded = client.upload(prepared.destination, book.path)
+    transfer = uploaded.value
+    document = with_exchanges(prepared.document, uploaded.exchanges)
     if isinstance(transfer, DeliveryRefusal):
-        return with_refusal(prepared.document, transfer)
-    document = with_action(prepared.document, upload_began=True, transport_status=transfer.status)
-    listing = client.listing(prepared.destination).value
+        return with_refusal(document, transfer)
+    document = with_action(document, upload_began=True, transport_status=transfer.status)
+    confirmed = client.listing(prepared.destination)
+    listing = confirmed.value
+    document = with_exchanges(document, confirmed.exchanges)
     if isinstance(listing, DeliveryRefusal):
         return _unconfirmed(document, book, transfer, listing.summary)
     document = with_destination(document, postflight=listing.facts(book.path.name))

@@ -7,11 +7,8 @@ private or link-local, and a name that resolves to a mixture refuses. `.local` s
 construction, because mDNS answers with link-local or private addresses.
 
 Resolution and the local-address test are `galley.network`'s, which localisation also uses with
-the verdict the other way up. Resolution happens here, before any request is made, and
-the addresses it produced are retained as evidence. The connection itself is still made by name,
-so a name that answers differently a moment later is not caught — the check is a policy boundary
-against a misconfigured or hostile *configuration*, not a defence against an attacker who already
-controls the network's DNS.
+the verdict the other way up. Resolution happens here, before any request is made, and the
+addresses it produced are both retained as evidence and used directly by the CrossPoint client.
 """
 
 from dataclasses import dataclass
@@ -33,12 +30,6 @@ class DeliveryTarget:
     port: int
     addresses: tuple[str, ...]
     timeout_seconds: float
-
-    @property
-    def base_url(self) -> str:
-        """Name the http origin every CrossPoint request for this target is built on."""
-
-        return f"http://{self.host}"
 
     def facts(self) -> dict[str, object]:
         """State the target and the exact addresses that were allowed before anything was sent.

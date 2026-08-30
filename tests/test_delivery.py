@@ -8,7 +8,7 @@ from pathlib import Path
 from tests.crosspoint_server import Device, crosspoint
 from tests.delivery_fixtures import UNCONFIRMED, deliver, published, records
 from tests.public_cli import public_cli_commands, run_command, run_public_cli
-from tests.workspace_fixtures import command_document, field, tree
+from tests.workspace_fixtures import command_document, entries, field, tree
 
 COMPLETED = 0
 
@@ -34,6 +34,12 @@ def test_a_new_book_is_uploaded_once_and_confirmed(tmp_path: Path) -> None:
     assert action["transport_status"] == 200
     assert field(action, "confirmation") == {"name": artifact.name, "byte_size": size}
     assert field(field(first, "destination"), "postflight")["matching"] is not None
+    assert [exchange["stage"] for exchange in entries(first, "exchanges")] == [
+        "device-status",
+        "preflight-listing",
+        "upload",
+        "postflight-confirmation",
+    ]
     assert len(records(workspace)) == len(results)
 
 

@@ -98,7 +98,7 @@ invocation:
 galley deliver READY_ARTIFACT --json
 ```
 
-Each Delivery persists an immutable `galley/delivery-record/1`. Read every record: a `delivered`
+Each Delivery persists an immutable `galley/delivery-record/2`. Read every record: a `delivered`
 outcome is confirmed by a fresh destination listing, `already-delivered` uploaded nothing, and
 `unconfirmed` at exit `5` means the bytes may or may not have landed — retry from a fresh plan,
 which re-runs the preflight and reports `already-delivered` if the first upload in fact completed.

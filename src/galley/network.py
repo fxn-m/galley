@@ -8,17 +8,15 @@ older than either — how a host is resolved before a socket is opened, whether 
 answered with is on a local network, and an opener that treats a redirect as an error instead of
 following it. Only those primitives live here; each policy stays with the package that holds it.
 
-Resolution happens before the request and the request is still made by name, so a host that
-answers differently a moment later is not caught. Both callers state that limit where they apply
-the rule: this is a boundary against a hostile or careless configuration or document, not against
-an attacker who already controls the network's DNS.
+Each caller decides whether the approved address or the logical name is used for its eventual
+connection; that transport policy does not belong in these shared resolution primitives.
 """
 
 import socket
 from email.message import Message
 from ipaddress import ip_address
 from typing import IO
-from urllib.request import HTTPRedirectHandler, OpenerDirector, Request, build_opener
+from urllib.request import HTTPRedirectHandler, OpenerDirector, ProxyHandler, Request, build_opener
 
 
 def resolved_addresses(hostname: str, port: int) -> tuple[str, ...]:
@@ -50,10 +48,10 @@ def local_address(address: str) -> bool:
     return parsed.is_loopback or parsed.is_private or parsed.is_link_local
 
 
-def no_redirect_opener() -> OpenerDirector:
-    """Build an opener with redirect following removed rather than trusted."""
+def no_redirect_opener(*, direct: bool = False) -> OpenerDirector:
+    """Build a redirect-free opener, optionally bypassing configured HTTP proxies."""
 
-    return build_opener(_NoRedirects)
+    return build_opener(ProxyHandler({}), _NoRedirects) if direct else build_opener(_NoRedirects)
 
 
 class _NoRedirects(HTTPRedirectHandler):

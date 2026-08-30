@@ -1,12 +1,14 @@
 """Produce read-only Delivery Plans against a pinned loopback CrossPoint."""
 
 import json
+import os
 from pathlib import Path
 
 from tests.crosspoint_server import Device, crosspoint
 from tests.delivery_fixtures import REFUSED, deliver, plan, published, records
 from tests.public_cli import run_public_cli
-from tests.workspace_fixtures import command_document, field
+from tests.public_cli import public_cli_commands, run_command
+from tests.workspace_fixtures import command_document, entries, field
 
 COMPLETED = 0
 
@@ -28,7 +30,73 @@ def test_a_new_book_plans_one_upload(tmp_path: Path) -> None:
         assert field(document, "action")["upload_began"] is False
         assert field(document, "destination")["remote_path"] == f"/{artifact.name}"
         assert field(field(document, "destination"), "preflight")["matching"] is None
+        assert field(document, "galley")["document_schema"] == "galley/delivery-record/2"
+        exchanges = entries(document, "exchanges")
+        assert [exchange["stage"] for exchange in exchanges] == [
+            "device-status",
+            "preflight-listing",
+        ]
+        for exchange in exchanges:
+            assert exchange == {
+                "stage": exchange["stage"],
+                "address": "127.0.0.1",
+                "transport": "python-http",
+                "request_began": True,
+                "status": 200,
+                "outcome": "response",
+                "detail": "",
+            }
     assert len(records(workspace)) == len(results)
+
+
+def test_authorised_logical_host_is_never_resolved_again(tmp_path: Path) -> None:
+    """Each installed CLI resolves once, then connects every exchange to the approved address."""
+
+    _workspace, artifact, environment = published(tmp_path)
+    hooks = tmp_path / "resolver-hook"
+    hooks.mkdir()
+    _ = (hooks / "sitecustomize.py").write_text(
+        """import os
+import socket
+from pathlib import Path
+
+_original = socket.getaddrinfo
+
+def _once(host, port, *args, **kwargs):
+    if host != "x4-once.test":
+        return _original(host, port, *args, **kwargs)
+    marker = Path(os.environ["GALLEY_TEST_RESOLUTION_MARKER"])
+    if marker.exists():
+        raise socket.gaierror("logical host was resolved twice")
+    marker.touch()
+    return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("127.0.0.1", port))]
+
+socket.getaddrinfo = _once
+""",
+        encoding="utf-8",
+    )
+    with crosspoint() as (host, _device):
+        port = host.rsplit(":", 1)[1]
+        for index, command in enumerate(public_cli_commands()):
+            marker = tmp_path / f"resolved-{index}"
+            result = run_command(
+                command,
+                "deliver",
+                str(artifact),
+                "--plan",
+                "--json",
+                "--host",
+                f"x4-once.test:{port}",
+                environment={
+                    **environment,
+                    "GALLEY_TEST_RESOLUTION_MARKER": str(marker),
+                    "PYTHONPATH": os.pathsep.join(
+                        [str(hooks), os.environ.get("PYTHONPATH", "")]
+                    ),
+                },
+            )
+            assert result.returncode == COMPLETED, result.stderr
+            assert marker.is_file()
 
 
 def test_the_plan_references_the_artifact_and_its_preparation_evidence(tmp_path: Path) -> None:

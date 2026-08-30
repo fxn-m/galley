@@ -28,14 +28,16 @@ from galley.validation import SchemaValidator, load_schema
 CONFIG_VALIDATION_SCHEMA = "galley/config-validation/1"
 INBOX_CHECK_SCHEMA = "galley/inbox-check/1"
 DEVICE_STATUS_SCHEMA = "galley/device-status/1"
-DELIVERY_RECORD_SCHEMA = "galley/delivery-record/1"
+DELIVERY_RECORD_V1_SCHEMA = "galley/delivery-record/1"
+DELIVERY_RECORD_SCHEMA = "galley/delivery-record/2"
 LOCALISATION_SCHEMA = "galley/localisation/1"
 SKILL_INSTALLATION_SCHEMA = "galley/skill-installation/1"
 SCHEMA_FILES = {
     CONFIG_VALIDATION_SCHEMA: "config-validation.json",
     INBOX_CHECK_SCHEMA: "inbox-check.json",
     DEVICE_STATUS_SCHEMA: "device-status.json",
-    DELIVERY_RECORD_SCHEMA: "delivery-record.json",
+    DELIVERY_RECORD_V1_SCHEMA: "delivery-record.json",
+    DELIVERY_RECORD_SCHEMA: "delivery-record-v2.json",
     LOCALISATION_SCHEMA: "localisation.json",
     SKILL_INSTALLATION_SCHEMA: "skill-installation.json",
 }

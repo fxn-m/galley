@@ -15,10 +15,11 @@ order the attempts happened.
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 from uuid import uuid4
 
 from galley.delivery.connection import ResolvedConnection
+from galley.delivery.crosspoint import Exchange
 from galley.delivery.refusals import DeliveryRefusal
 from galley.json_reading import mapping
 from galley.locations import display_path
@@ -122,6 +123,7 @@ def opened_record(
                 "transport_status": None,
                 "confirmation": None,
             },
+            "exchanges": [],
         },
         outcome="planned",
     )
@@ -151,6 +153,14 @@ def with_destination(document: CommandDocument, **changes: object) -> CommandDoc
     """Replace one part of the destination facts without restating the rest of them."""
 
     return with_facts(document, {"destination": {**mapping(document["destination"]), **changes}})
+
+
+def with_exchanges(document: CommandDocument, exchanges: tuple[Exchange, ...]) -> CommandDocument:
+    """Append bounded transport evidence in execution order without changing Delivery meaning."""
+
+    existing = document.get("exchanges")
+    recorded = list(cast(list[object], existing)) if isinstance(existing, list) else []
+    return with_facts(document, {"exchanges": [*recorded, *(item.facts() for item in exchanges)]})
 
 
 def prepare_storage(workspace: Workspace) -> Storage | DeliveryRefusal:

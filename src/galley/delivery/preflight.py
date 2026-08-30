@@ -31,6 +31,7 @@ from galley.delivery.records import (
     with_action,
     with_connection,
     with_destination,
+    with_exchanges,
 )
 from galley.delivery.refusals import DeliveryRefusal
 from galley.report.envelope import ReportRun
@@ -94,7 +95,7 @@ def preflight(mode: Mode, request: DeliveryRequest, run: ReportRun) -> Preflight
     )
 
     probed = probe(document, connection.host.value, request.timeout_seconds)
-    document = probed.document
+    document = with_exchanges(probed.document, probed.exchanges)
     if not probed.reached or probed.client is None:
         return Preflight(
             document,
@@ -130,7 +131,9 @@ def _listed(
 ) -> Preflight:
     """Read the destination once, and turn what is already there into one exact action."""
 
-    listing = client.listing(destination).value
+    result = client.listing(destination)
+    listing = result.value
+    document = with_exchanges(document, result.exchanges)
     if isinstance(listing, DeliveryRefusal):
         return Preflight(
             with_refusal(document, listing),

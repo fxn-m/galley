@@ -145,6 +145,7 @@ def test_a_public_target_refuses_with_a_record_and_no_traffic(tmp_path: Path) ->
     for result in results:
         assert result.returncode == REFUSED
     assert boundaries(workspace) == {"untrusted-delivery-target"}
+    assert all(record["exchanges"] == [] for record in records(workspace))
     assert len(records(workspace)) == len(results)
 
 

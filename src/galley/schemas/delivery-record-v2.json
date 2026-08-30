@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "galley/delivery-record/2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "galley", "outcome", "refusal", "record_id", "mode", "workspace", "configuration",
+    "connection", "overwrite_requested", "artifact", "device", "destination", "action",
+    "exchanges"
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "outcome": { "enum": ["planned", "delivered", "already-delivered"] },
+        "refusal": { "type": "null" }
+      }
+    },
+    {
+      "properties": {
+        "outcome": { "enum": ["refused", "unconfirmed"] },
+        "refusal": { "$ref": "#/$defs/refusal" }
+      }
+    }
+  ],
+  "properties": {
+    "galley": { "$ref": "#/$defs/galley" },
+    "outcome": {
+      "enum": ["planned", "delivered", "already-delivered", "refused", "unconfirmed"]
+    },
+    "refusal": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/refusal" }] },
+    "record_id": { "type": "string", "minLength": 1 },
+    "mode": { "enum": ["plan", "deliver"] },
+    "workspace": { "$ref": "#/$defs/workspace" },
+    "configuration": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/configuration" }]
+    },
+    "connection": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/connection" }] },
+    "overwrite_requested": { "type": "boolean" },
+    "artifact": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/artifact" }] },
+    "device": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/device" }] },
+    "destination": { "$ref": "#/$defs/destination" },
+    "action": { "$ref": "#/$defs/action" },
+    "exchanges": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/exchange" }
+    }
+  },
+  "$defs": {
+    "galley": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version", "command", "run_id", "started_at", "finished_at", "duration_ms",
+        "document_schema"
+      ],
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "command": { "const": "deliver" },
+        "run_id": { "type": "string", "minLength": 1 },
+        "started_at": { "type": "string", "minLength": 1 },
+        "finished_at": { "type": "string", "minLength": 1 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "document_schema": { "const": "galley/delivery-record/2" }
+      }
+    },
+    "refusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boundary", "authority", "stage", "summary", "fact"],
+      "properties": {
+        "boundary": { "type": "string", "minLength": 1 },
+        "authority": { "const": "deliver" },
+        "stage": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "fact": { "type": "object" }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "path", "configuration_path"],
+      "properties": {
+        "source": { "enum": ["option", "environment", "default"] },
+        "path": { "type": "string", "minLength": 1 },
+        "configuration_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "version"],
+      "properties": {
+        "schema": { "const": "galley/workspace-config/1" },
+        "version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "destination"],
+      "properties": {
+        "host": { "$ref": "#/$defs/setting" },
+        "destination": { "$ref": "#/$defs/setting" }
+      }
+    },
+    "setting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "source"],
+      "properties": {
+        "value": { "type": "string", "minLength": 1 },
+        "source": { "enum": ["configured", "default", "option"] }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path", "sha256", "byte_size", "report_path", "report_sha256", "evidence_path",
+        "profile"
+      ],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "minLength": 64, "maxLength": 64 },
+        "byte_size": { "type": "integer", "minimum": 0 },
+        "report_path": { "type": "string", "minLength": 1 },
+        "report_sha256": { "type": "string", "minLength": 64, "maxLength": 64 },
+        "evidence_path": { "type": "string", "minLength": 1 },
+        "profile": { "$ref": "#/$defs/profile" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "profile_version", "firmware_observed"],
+      "properties": {
+        "id": { "type": "string" },
+        "profile_version": { "type": "string" },
+        "firmware_observed": { "type": "string" }
+      }
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host", "port", "addresses", "timeout_seconds", "model", "firmware", "mode", "status"
+      ],
+      "properties": {
+        "host": { "type": "string", "minLength": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "addresses": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "timeout_seconds": { "type": "number", "exclusiveMinimum": 0 },
+        "model": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] },
+        "firmware": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }]
+        },
+        "mode": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] },
+        "status": { "oneOf": [{ "type": "null" }, { "type": "object" }] }
+      }
+    },
+    "destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "remote_path", "preflight", "postflight"],
+      "properties": {
+        "path": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] },
+        "remote_path": {
+          "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }]
+        },
+        "preflight": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/listing" }] },
+        "postflight": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/listing" }] }
+      }
+    },
+    "listing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entry_count", "matching"],
+      "properties": {
+        "entry_count": { "type": "integer", "minimum": 0 },
+        "matching": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/entry" }] }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "byte_size"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "byte_size": { "oneOf": [{ "type": "null" }, { "type": "integer", "minimum": 0 }] }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planned", "upload_began", "transport_status", "confirmation"],
+      "properties": {
+        "planned": {
+          "oneOf": [
+            { "type": "null" },
+            { "enum": ["upload-new", "already-delivered", "overwrite"] }
+          ]
+        },
+        "upload_began": { "type": "boolean" },
+        "transport_status": { "oneOf": [{ "type": "null" }, { "type": "integer" }] },
+        "confirmation": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/entry" }] }
+      }
+    },
+    "exchange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage", "address", "transport", "request_began", "status", "outcome", "detail"
+      ],
+      "properties": {
+        "stage": {
+          "enum": [
+            "device-status", "preflight-listing", "upload", "postflight-confirmation"
+          ]
+        },
+        "address": { "type": "string", "minLength": 1 },
+        "transport": { "enum": ["python-http", "system-curl"] },
+        "request_began": { "type": "boolean" },
+        "status": { "oneOf": [{ "type": "null" }, { "type": "integer" }] },
+        "outcome": { "enum": ["response", "not-started", "failed"] },
+        "detail": { "type": "string", "maxLength": 1000 }
+      }
+    }
+  }
+}

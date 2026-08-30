@@ -44,7 +44,7 @@ class Transport(Protocol):
     name: str
 
     def exchange(
-        self, target: DeliveryTarget, request: TransportRequest
+        self, target: DeliveryTarget, address: str, request: TransportRequest
     ) -> TransportResponse | TransportFailure: ...
 
 
@@ -54,16 +54,16 @@ class PythonHttpTransport:
     name = "python-http"
 
     def __init__(self, opener: OpenerDirector | None = None) -> None:
-        self._opener = opener if opener is not None else no_redirect_opener()
+        self._opener = opener if opener is not None else no_redirect_opener(direct=True)
 
     def exchange(
-        self, target: DeliveryTarget, exchange: TransportRequest
+        self, target: DeliveryTarget, address: str, exchange: TransportRequest
     ) -> TransportResponse | TransportFailure:
         request = Request(
-            f"{target.base_url}{exchange.path}",
+            f"http://{_authority(address, target.port)}{exchange.path}",
             data=exchange.body,
             method=exchange.method,
-            headers=exchange.headers,
+            headers={"Host": target.host, **exchange.headers},
         )
         try:
             with self._opener.open(request, timeout=target.timeout_seconds) as response:
@@ -73,3 +73,11 @@ class PythonHttpTransport:
             return TransportResponse(int(error.code), detail=f"the device answered {error.code}")
         except (URLError, OSError, ValueError) as error:
             return TransportFailure(error)
+
+
+def _authority(address: str, port: int) -> str:
+    """Render a validated IPv4 or IPv6 address as an HTTP connection authority."""
+
+    escaped = address.replace("%", "%25")
+    bracketed = f"[{escaped}]" if ":" in escaped else escaped
+    return f"{bracketed}:{port}"

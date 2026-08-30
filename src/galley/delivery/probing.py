@@ -9,7 +9,7 @@ device's whole status response before the model is judged.
 
 from dataclasses import dataclass
 
-from galley.delivery.crosspoint import CrossPointClient, DeviceStatus
+from galley.delivery.crosspoint import CrossPointClient, DeviceStatus, Exchange
 from galley.delivery.refusals import DeliveryRefusal
 from galley.delivery.targets import DeliveryTarget, trusted_target
 from galley.documents import CommandDocument, with_facts, with_refusal
@@ -25,6 +25,7 @@ class Probed:
     document: CommandDocument
     client: CrossPointClient | None = None
     status: DeviceStatus | None = None
+    exchanges: tuple[Exchange, ...] = ()
 
     @property
     def reached(self) -> bool:
@@ -41,13 +42,18 @@ def probe(document: CommandDocument, host: str, timeout_seconds: float) -> Probe
         return Probed(with_refusal(document, target))
     document = with_facts(document, {"device": target.facts()})
     client = CrossPointClient(target)
-    status = client.status().value
+    result = client.status()
+    status = result.value
     if isinstance(status, DeliveryRefusal):
-        return Probed(with_refusal(document, status), client)
+        return Probed(with_refusal(document, status), client, exchanges=result.exchanges)
     document = with_facts(document, {"device": {**target.facts(), **status.facts()}})
     if status.model.strip().upper() != REQUIRED_MODEL:
-        return Probed(with_refusal(document, _wrong_model(target, status)), client)
-    return Probed(document, client, status)
+        return Probed(
+            with_refusal(document, _wrong_model(target, status)),
+            client,
+            exchanges=result.exchanges,
+        )
+    return Probed(document, client, status, result.exchanges)
 
 
 def _wrong_model(target: DeliveryTarget, status: DeviceStatus) -> DeliveryRefusal:
