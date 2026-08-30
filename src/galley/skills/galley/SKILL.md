@@ -1,6 +1,6 @@
 ---
 name: galley
-description: Prepare documents for constrained reading environments with the Galley CLI. Use when inspecting, preparing or auditing Markdown or an Article-Like Page for a Device Profile, preparing a Kindle-ready EPUB, reading a Galley Report, or repairing a document Galley's tooling misreads before resubmitting it.
+description: Prepare documents for constrained reading environments with the Galley CLI. Use when inspecting, preparing or auditing Markdown or an Article-Like Page for a Device Profile, handing off a Kindle-ready EPUB, delivering a Ready Artifact to X4, reading a Galley Report, or repairing a misread document before resubmission.
 ---
 
 # Galley
@@ -22,6 +22,7 @@ Detail lives in bounded resources rather than in this file:
 [localising a document's remote images](resources/localisation.md),
 [authoring profile-directed Cover Artwork](resources/cover-artwork.md),
 [handing a Ready Artifact to a Kindle user](resources/kindle-ios-handoff.md),
+[continuing an X4 preparation into separately authorised Delivery](resources/x4-delivery.md),
 [the "Galley my inbox" run](resources/galley-my-inbox.md),
 [your worklist and the assessment you record](resources/assessment.md), and
 [the device-read protocol](resources/device-read.md).
@@ -61,21 +62,16 @@ unselected; profile confirmation follows validation.
 
 ## Confirm the Device Profile before conversion work
 
-For every one-source conversion, run `galley profiles list --json`, show concise reader-facing
-choices, and ask the user to confirm which one this artifact is for. The shipped confirmation
-labels are **Kindle for iOS** for `kindle-ios-personal-documents` and **Xteink X4** for
-`x4-crosspoint`. The `device` and observed-software fields are profile provenance, not confirmation
-copy; in particular, the Kindle choice is simply **Kindle for iOS**, without the observed iPhone
-model. Keep the profile id for commands and Reports rather than making the conversational label
-technical. Do this before `inspect`, profile-directed cover work, Localisation or `prepare`. Even
-when the request names a target, restate that concise label and take one short confirmation so the
-chosen constraints are visible before work begins.
+For every one-source conversion, run `galley profiles list --json` and read the command contract.
+The shipped reader-facing labels are **Kindle for iOS** for `kindle-ios-personal-documents` and
+**Xteink X4** for `x4-crosspoint`. When the request explicitly names Kindle or X4, state that
+concise choice and proceed without another question. When it names no target, show the concise
+choices and ask the user to choose before profile-specific work. Keep the profile id in commands
+and Reports; the Kindle label carries no observed iPhone model.
 
-Never infer the profile from an `[x4-crosspoint]` configuration table, setup answers, available
-hardware, a previous conversion, the source or the order returned by `profiles list`. Workspace
-configuration can make delivery possible; it does not choose what is being prepared. When a
-conversion resumes after setup, retain a profile confirmation already made for that request;
-otherwise ask before resuming profile-specific work.
+Only the current request selects the profile. Workspace configuration, setup answers, available
+hardware, prior runs, source content and list order provide no selection. When setup interrupts a
+conversion, retain a choice already established by that request; otherwise ask before resuming.
 
 ## Assisted Preparation
 
@@ -84,6 +80,8 @@ follow [the Assisted Preparation contract](resources/assisted-preparation.md).
 It begins with Workspace validation, then profile confirmation and inspection, and gives the user
 a concise account of meaningful findings, decisions and the finished file while the exact
 classification, repair, cover, Localisation, preparation and assessment evidence stays retained.
+Preparation finishes when the immutable Ready Artifact is published. Kindle submission remains
+user-controlled; X4 Delivery is a separate planned and authorised continuation.
 
 ## When an external command is unavailable
 
@@ -148,9 +146,15 @@ direction, not a recolour preset.
 
 Galley publishes the EPUB as a Ready Artifact in the Workspace and stops. Do not ask for an iCloud
 Drive folder, copy the EPUB into one or upload it to Kindle. Read
-[the Kindle user handoff guide](resources/kindle-ios-handoff.md), report the Ready Artifact's exact
-local path, and tell the person to upload or share that file through their preferred Send to Kindle
-route.
+[the Kindle user handoff guide](resources/kindle-ios-handoff.md), link the exact published file, and
+give its one user-controlled Send to Kindle instruction.
+
+## When the artifact goes to X4
+
+After successful one-source X4 preparation, follow
+[the X4 Delivery continuation](resources/x4-delivery.md). Read the plan silently, ask only about
+the exact consequential action it supports, and treat the answer as authority for that action
+alone. Direct CLI use and Inbox batching keep their existing authorization contracts.
 
 ## When the pictures are still on the web
 

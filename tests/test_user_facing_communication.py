@@ -73,7 +73,10 @@ def test_success_handoff_leads_with_file_action_and_caveats_not_audit_fields(
 ) -> None:
     for _main, guidance in installed_guidance:
         final = " ".join(guidance[guidance.index("## Finish with") :].split())
-        assert "lead with the clickable file path" in final
+        assert "lead with “It passed Galley's checks.”" in final
+        assert "exact artifact basename as clickable text" in final
+        assert "Report's absolute `artifact.path` as its target" in final
+        assert "raw path again" in final
         assert "next action" in final
         assert "reading caveats that matter" in final
         assert "**Technical report**" in final
@@ -82,3 +85,32 @@ def test_success_handoff_leads_with_file_action_and_caveats_not_audit_fields(
             for detail in ("File size", "SHA-256", "profile identifiers", "checker counts")
         )
         assert "stay out of the primary response" in final
+        assert "one-off request ends after this useful handoff" in final
+        assert "Plural or clearly unfinished work" in final
+
+
+def test_named_profile_is_selected_without_a_second_question(
+    installed_guidance: tuple[tuple[str, str], ...],
+) -> None:
+    """The request selects a named target; only an unnamed target needs concise choices."""
+
+    for main, _guidance in installed_guidance:
+        profile = " ".join(
+            main[
+                main.index("## Confirm the Device Profile") : main.index("## Assisted Preparation")
+            ].split()
+        )
+        assert "run `galley profiles list --json`" in profile
+        assert "explicitly names Kindle or X4" in profile
+        assert "proceed without another question" in profile
+        assert "names no target" in profile
+        assert "ask the user to choose" in profile
+        for forbidden_source in (
+            "Workspace configuration",
+            "setup answers",
+            "available hardware",
+            "prior runs",
+            "source content",
+            "list order",
+        ):
+            assert forbidden_source in profile

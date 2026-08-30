@@ -26,21 +26,18 @@ from the completed Report.
 
 ## Report the local result and stop
 
-Lead with:
-
-- `artifact.path` as the clickable Kindle-ready file;
-- any reading caveat that materially matters; and
-- the retained evidence path, labelled **Technical report**, after the primary handoff.
-
-Routine success needs only “It passed Galley's checks.” Keep `artifact.sha256`,
+Routine success starts with “It passed Galley's checks.” Render the exact artifact basename as
+clickable text and use the absolute `artifact.path` as the link target without printing that path
+again. Add only a reading caveat that materially matters. A routine handoff has no proactive
+**Technical report** link; use one for a material caveat, refusal or ambiguity when helpful, or
+when the user requests the retained details. Keep `artifact.sha256`,
 `artifact.byte_size.value`, `profile.id`, `profile.profile_version`, checker counts and repair
 declarations in the Report unless the person asks for them or they distinguish otherwise ambiguous
 artifacts.
 
 Then give one concise manual continuation:
 
-> Upload or share this EPUB through your preferred Send to Kindle route, confirm the intended title
-> and author, and wait for the library item.
+> Upload or share this EPUB through your preferred Send to Kindle route.
 
 Do not open Files, invoke a share sheet, contact Amazon, inspect sync state or claim that any later
 step occurred. A refusal publishes no Ready Artifact; return its boundary, summary and retained

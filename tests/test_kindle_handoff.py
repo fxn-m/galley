@@ -111,7 +111,7 @@ def test_kindle_guidance_forbids_agent_side_handoff_and_names_the_manual_step(
         assert "CONFIRMED_HANDOFF_FOLDER" not in combined
         assert "Do not ask for an iCloud Drive folder" in combined
         assert "copy the EPUB into one or upload it to Kindle" in combined
-        assert "exact local path" in combined
+        assert "exact artifact basename" in combined
         assert "preferred Send to Kindle route" in combined
         assert "Upload or share this EPUB" in combined
 
@@ -124,9 +124,10 @@ def test_kindle_handoff_leads_with_the_file_and_keeps_audit_fields_in_the_report
     for _skill, handoff in installed_guidance:
         compact = " ".join(handoff.split())
 
-        assert "clickable Kindle-ready file" in compact
-        assert "labelled **Technical report**, after the primary handoff" in compact
-        assert "Routine success needs only “It passed Galley's checks.”" in compact
+        assert "exact artifact basename as clickable text" in compact
+        assert "absolute `artifact.path` as the link target" in compact
+        assert "Routine success starts with “It passed Galley's checks.”" in compact
+        assert "A routine handoff has no proactive **Technical report** link" in compact
         assert all(
             field in compact
             for field in (

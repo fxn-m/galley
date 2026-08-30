@@ -18,17 +18,15 @@ setup's final `galley config validate --json` completes.
 
 ## Confirm the Device Profile first
 
-Before inspection or any other profile-specific work, run `galley profiles list --json`, present
-concise reader-facing choices, and ask the user to confirm the target for this artifact. The shipped
-confirmation labels are **Kindle for iOS** for `kindle-ios-personal-documents` and **Xteink X4** for
-`x4-crosspoint`. The `device` and observed-software fields are profile provenance rather than part
-of those labels: say **Kindle for iOS**, without the observed iPhone model. Keep the profile id for
-commands and Reports. A profile named in the request may be proposed, but it is not active until
-the user confirms it.
+Before profile-specific work, run `galley profiles list --json`. The shipped labels are **Kindle
+for iOS** for `kindle-ios-personal-documents` and **Xteink X4** for `x4-crosspoint`. An explicit
+Kindle or X4 request establishes that profile: state the concise label and continue. With no named
+target, present the concise choices and wait for the user's selection. Keep ids and observed-device
+provenance in commands and Reports.
 
-Do not infer this choice from Workspace configuration, setup answers, available hardware, prior
-runs, source content or list order. If setup interrupts a pending conversion, resume with a target
-that was already confirmed for that request; otherwise ask before continuing.
+The current request is the only selection authority. Workspace configuration, setup answers,
+available hardware, prior runs, source content and list order do not choose. If setup interrupts a
+pending conversion, resume with the target already established by that request; otherwise ask.
 
 ## Inspect and classify first
 
@@ -87,6 +85,20 @@ Continue from the retained inspection evidence through the work the classified j
 
 If later failure is unambiguous, fix it and continue from the new evidence. If it exposes ambiguity
 or a Central Content judgment, stop and ask the user rather than entering repeated blind retries.
+
+## Hand off the published artifact
+
+One completed Report publishes one immutable Ready Artifact and ends Assisted Preparation. Lead
+routine success with “It passed Galley's checks.” Render the exact artifact basename as clickable
+text whose target is the Report's absolute `artifact.path`; do not print that raw path separately.
+Keep hashes, profile ids, evidence directories, report filenames, formal workflow labels and a
+Technical report link out of the routine handoff. Link the Technical report for a material caveat,
+refusal or ambiguity when it helps, and whenever the user asks for retained details.
+
+For Kindle, follow [the user-controlled handoff](kindle-ios-handoff.md). For X4, the separately
+authorised [Delivery continuation](x4-delivery.md) may begin after this preparation boundary. A
+one-off request ends after its useful handoff; plural or clearly unfinished work continues with the
+next item that is already in scope.
 
 ## Keep the workflow boundary
 

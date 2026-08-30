@@ -51,13 +51,18 @@ over a report-style account of classification changes, carriers, baselines and p
 
 ## Finish with the file and the next action
 
-For a successful conversion, lead with the clickable file path. Then state the next action and at
-most the reading caveats that matter, such as a heavily reduced diagram. “It passed Galley's
-checks” is enough for routine success.
+For routine success, lead with “It passed Galley's checks.” Render the exact artifact basename as
+clickable text, using the Report's absolute `artifact.path` as its target without printing the raw
+path again. Then state the next action and at most the reading caveats that matter, such as a
+heavily reduced diagram.
 
-Offer the evidence path as **Technical report** after the primary handoff. File size, SHA-256,
-profile identifiers and versions, individual checker counts and repair declarations stay out of
-the primary response unless requested or needed to distinguish artifacts.
+File size, SHA-256, profile identifiers and versions, evidence directories, report filenames,
+individual checker counts, repair declarations and formal workflow labels stay out of the primary
+response. Link the retained evidence as **Technical report** when a material caveat, refusal or
+ambiguity makes it useful, or when the person requests it.
+
+A one-off request ends after this useful handoff. Plural or clearly unfinished work continues with
+the next item already in scope rather than receiving a universal closing prompt.
 
 For a refusal or blocker, explain the concrete problem and the next decision in plain language;
 link the technical report when one exists. The Report remains complete even when the conversation
