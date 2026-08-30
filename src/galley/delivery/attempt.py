@@ -9,12 +9,10 @@ guess which. The Ready Artifact is untouched throughout, so a retry simply start
 """
 
 from galley.delivery.artifacts import Deliverable
-from galley.delivery.crosspoint import Listing, destination_listing
+from galley.delivery.crosspoint import CrossPointClient, Listing, Transfer
 from galley.delivery.preflight import ALREADY_DELIVERED, DeliveryRequest, Preflight, preflight
 from galley.delivery.records import DELIVER, with_action, with_destination
 from galley.delivery.refusals import DeliveryRefusal
-from galley.delivery.targets import DeliveryTarget
-from galley.delivery.upload import Transfer, upload
 from galley.report.envelope import ReportRun
 from galley.documents import UNCONFIRMED, CommandDocument, Outcome, with_outcome, with_refusal
 
@@ -27,19 +25,23 @@ def perform_delivery(request: DeliveryRequest, run: ReportRun) -> CommandDocumen
     """Deliver one Ready Artifact, or say exactly how far the attempt got."""
 
     prepared = preflight(DELIVER, request, run)
-    if prepared.action is None or prepared.book is None or prepared.target is None:
+    if prepared.action is None or prepared.book is None or prepared.client is None:
         return prepared.document
     if prepared.action == ALREADY_DELIVERED:
         return with_outcome(prepared.document, ALREADY_DELIVERED)
-    return _confirmed(prepared, prepared.target, prepared.book)
+    return _confirmed(prepared, prepared.client, prepared.book)
 
 
-def _confirmed(prepared: Preflight, target: DeliveryTarget, book: Deliverable) -> CommandDocument:
+def _confirmed(
+    prepared: Preflight, client: CrossPointClient, book: Deliverable
+) -> CommandDocument:
     """Upload once, then ask the device what it now holds and believe only that."""
 
-    transfer = upload(target, prepared.destination, book.path)
+    transfer = client.upload(prepared.destination, book.path).value
+    if isinstance(transfer, DeliveryRefusal):
+        return with_refusal(prepared.document, transfer)
     document = with_action(prepared.document, upload_began=True, transport_status=transfer.status)
-    listing = destination_listing(target, prepared.destination)
+    listing = client.listing(prepared.destination).value
     if isinstance(listing, DeliveryRefusal):
         return _unconfirmed(document, book, transfer, listing.summary)
     document = with_destination(document, postflight=listing.facts(book.path.name))

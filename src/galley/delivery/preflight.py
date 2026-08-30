@@ -17,10 +17,10 @@ from typing import Literal
 from galley.delivery.artifacts import Deliverable, deliverable
 from galley.delivery.connection import resolve_connection
 from galley.delivery.crosspoint import (
+    CrossPointClient,
     LISTING_STAGE,
     Listing,
     RemoteEntry,
-    destination_listing,
 )
 from galley.delivery.probing import probe
 from galley.delivery.records import (
@@ -33,7 +33,6 @@ from galley.delivery.records import (
     with_destination,
 )
 from galley.delivery.refusals import DeliveryRefusal
-from galley.delivery.targets import DeliveryTarget
 from galley.report.envelope import ReportRun
 from galley.documents import CommandDocument, with_facts, with_refusal
 from galley.workspace.ready import ReadyWorkspace
@@ -66,7 +65,7 @@ class Preflight:
 
     document: CommandDocument
     workspace: Workspace
-    target: DeliveryTarget | None = None
+    client: CrossPointClient | None = None
     book: Deliverable | None = None
     destination: str = ""
     action: Action | None = None
@@ -96,9 +95,22 @@ def preflight(mode: Mode, request: DeliveryRequest, run: ReportRun) -> Preflight
 
     probed = probe(document, connection.host.value, request.timeout_seconds)
     document = probed.document
-    if not probed.reached or probed.target is None:
-        return Preflight(document, workspace, probed.target, book, destination)
-    return _listed(document, workspace, probed.target, book, destination, request.overwrite)
+    if not probed.reached or probed.client is None:
+        return Preflight(
+            document,
+            workspace,
+            client=probed.client,
+            book=book,
+            destination=destination,
+        )
+    return _listed(
+        document,
+        workspace,
+        probed.client,
+        book,
+        destination,
+        request.overwrite,
+    )
 
 
 def remote_path(destination: str, book: Deliverable) -> str:
@@ -111,22 +123,39 @@ def remote_path(destination: str, book: Deliverable) -> str:
 def _listed(
     document: CommandDocument,
     workspace: Workspace,
-    target: DeliveryTarget,
+    client: CrossPointClient,
     book: Deliverable,
     destination: str,
     overwrite: bool,
 ) -> Preflight:
     """Read the destination once, and turn what is already there into one exact action."""
 
-    listing = destination_listing(target, destination)
+    listing = client.listing(destination).value
     if isinstance(listing, DeliveryRefusal):
-        return Preflight(with_refusal(document, listing), workspace, target, book, destination)
+        return Preflight(
+            with_refusal(document, listing),
+            workspace,
+            client=client,
+            book=book,
+            destination=destination,
+        )
     document = with_destination(document, preflight=listing.facts(book.path.name))
     decided = _action(listing, book, destination, overwrite=overwrite)
     if isinstance(decided, DeliveryRefusal):
-        return Preflight(with_refusal(document, decided), workspace, target, book, destination)
+        return Preflight(
+            with_refusal(document, decided),
+            workspace,
+            client=client,
+            book=book,
+            destination=destination,
+        )
     return Preflight(
-        with_action(document, planned=decided), workspace, target, book, destination, decided
+        with_action(document, planned=decided),
+        workspace,
+        client=client,
+        book=book,
+        destination=destination,
+        action=decided,
     )
 
 

@@ -1,41 +1,74 @@
-"""Speak CrossPoint's own HTTP surface directly, and name every way it can fail to answer.
+"""Own CrossPoint status, listing and upload behind one deep client interface.
 
-CrossPoint exposes an unauthenticated `GET /api/status`, `GET /api/files` and multipart
-`POST /upload` on the device itself. Galley uses those rather than the Optimize action a user has
-to tick by hand. This is the narrowest client that can do it: http only,
-one finite timeout per request, a ceiling on how much of a response is read, and redirects
-switched off so an allowed target cannot hand document bytes to somewhere else.
-
-`tools/fetching.py` is not reused. Its page-resource retrieval follows redirects, judges no
-address and only ever performs a GET — three properties Delivery needs the opposite of. What the
-two clients do share is the handful of primitives in `galley.network`.
+Callers use Delivery concepts and never construct HTTP exchanges. The production Python adapter
+and controlled test adapters share one internal transport seam; redirect refusal, bounded reads,
+JSON interpretation and multipart streaming stay local to this module.
 """
 
 import json
 import socket
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import cast
-from urllib.error import HTTPError, URLError
+from pathlib import Path
+from secrets import token_hex
+from typing import Generic, TypeVar, cast
+from urllib.error import URLError
 from urllib.parse import urlencode
-from urllib.request import OpenerDirector, Request
 
+from galley.delivery.crosspoint_transport import (
+    PythonHttpTransport,
+    Transport,
+    TransportFailure,
+    TransportRequest,
+    TransportResponse,
+)
 from galley.delivery.refusals import DeliveryRefusal
 from galley.delivery.targets import DeliveryTarget
 from galley.json_reading import integer, mapping, sequence, text
-from galley.network import no_redirect_opener
 
 STATUS_STAGE = "device-status"
 LISTING_STAGE = "destination-listing"
-# A CrossPoint status or listing is a short JSON document. Reading past this would let a device
-# on the far end of the socket decide how much memory a Delivery run uses.
-RESPONSE_LIMIT = 1_000_000
+UPLOAD_STAGE = "upload"
 STATUS_PATH = "/api/status"
 FILES_PATH = "/api/files"
+UPLOAD_PATH = "/upload"
+RESPONSE_LIMIT = 1_000_000
+FIELD_NAME = "file"
+CONTENT_TYPE = "application/epub+zip"
+CHUNK = 1 << 16
+
+ResultValue = TypeVar("ResultValue")
+
+
+@dataclass(frozen=True)
+class Exchange:
+    """One ordered CrossPoint exchange fact retained inside the client result."""
+
+    stage: str
+    status: int | None = None
+    request_began: bool = False
+    detail: str = ""
+
+
+@dataclass(frozen=True)
+class ClientResult(Generic[ResultValue]):
+    """One semantic answer and the exchanges that established it."""
+
+    value: ResultValue | DeliveryRefusal
+    exchanges: tuple[Exchange, ...] = ()
+
+
+@dataclass(frozen=True)
+class Transfer:
+    """What CrossPoint answered to one upload, without claiming Delivery."""
+
+    status: int | None = None
+    detail: str = ""
 
 
 @dataclass(frozen=True)
 class DeviceStatus:
-    """What one CrossPoint device said it is, with its whole answer retained as evidence."""
+    """What one CrossPoint device said it is, with its whole answer retained."""
 
     model: str
     firmware: str
@@ -43,8 +76,6 @@ class DeviceStatus:
     status: dict[str, object]
 
     def facts(self) -> dict[str, object]:
-        """State the identified fields and the complete status response behind them."""
-
         return {
             "model": self.model,
             "firmware": self.firmware,
@@ -55,31 +86,25 @@ class DeviceStatus:
 
 @dataclass(frozen=True)
 class RemoteEntry:
-    """One file CrossPoint listed at the destination, as name and byte size alone."""
+    """One listed file, reduced to the facts Delivery can act on."""
 
     name: str
     byte_size: int | None
 
     def facts(self) -> dict[str, object]:
-        """State the two properties a Delivery decision is ever allowed to rest on."""
-
         return {"name": self.name, "byte_size": self.byte_size}
 
 
 @dataclass(frozen=True)
 class Listing:
-    """One destination listing, reported as the entry Delivery asked about and nothing else."""
+    """One destination listing returned in Delivery concepts."""
 
     entries: tuple[RemoteEntry, ...]
 
     def matching(self, filename: str) -> RemoteEntry | None:
-        """Find the listed file with this exact name, which is the only one Delivery acts on."""
-
         return next((entry for entry in self.entries if entry.name == filename), None)
 
     def facts(self, filename: str) -> dict[str, object]:
-        """Record how much was listed and the one entry that matters, never the whole listing."""
-
         found = self.matching(filename)
         return {
             "entry_count": len(self.entries),
@@ -87,56 +112,143 @@ class Listing:
         }
 
 
-def device_status(target: DeliveryTarget) -> DeviceStatus | DeliveryRefusal:
-    """Ask one CrossPoint device what it is, refusing anything that is not a usable answer."""
+class _MultipartBody:
+    """A repeatable, length-declaring multipart body streamed from disk."""
 
-    payload = _request_json(target, STATUS_PATH, STATUS_STAGE, "read device status")
-    if isinstance(payload, DeliveryRefusal):
-        return payload
-    status = mapping(payload)
-    model = text(status.get("device"))
-    firmware = text(status.get("version"))
-    mode = status.get("mode")
-    if not model or not firmware or not isinstance(mode, str | None):
-        return DeliveryRefusal(
-            boundary="unusable-device-status",
-            stage=STATUS_STAGE,
-            summary=f"{target.host} did not report a device type and firmware version",
-            fact={"host": target.host, "status": status},
+    def __init__(self, artifact: Path, boundary: str) -> None:
+        self.artifact = artifact
+        self.prefix = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="{FIELD_NAME}"; '
+            f'filename="{artifact.name}"\r\n'
+            f"Content-Type: {CONTENT_TYPE}\r\n\r\n"
+        ).encode()
+        self.suffix = f"\r\n--{boundary}--\r\n".encode()
+        self.content_length = len(self.prefix) + artifact.stat().st_size + len(self.suffix)
+
+    def __iter__(self) -> Iterator[bytes]:
+        yield self.prefix
+        with self.artifact.open("rb") as book:
+            while chunk := book.read(CHUNK):
+                yield chunk
+        yield self.suffix
+
+
+class CrossPointClient:
+    """Read status, list a destination and upload one artifact to a trusted target."""
+
+    def __init__(self, target: DeliveryTarget, transport: Transport | None = None) -> None:
+        self._target = target
+        self._transport = transport if transport is not None else PythonHttpTransport()
+
+    def status(self) -> ClientResult[DeviceStatus]:
+        payload, exchange = self._json(STATUS_PATH, STATUS_STAGE, "read device status")
+        if isinstance(payload, DeliveryRefusal):
+            return ClientResult(payload, (exchange,))
+        status = mapping(payload)
+        model = text(status.get("device"))
+        firmware = text(status.get("version"))
+        mode = status.get("mode")
+        if not model or not firmware or not isinstance(mode, str | None):
+            refusal = DeliveryRefusal(
+                "unusable-device-status",
+                STATUS_STAGE,
+                f"{self._target.host} did not report a device type and firmware version",
+                {"host": self._target.host, "status": status},
+            )
+            return ClientResult(refusal, (exchange,))
+        return ClientResult(DeviceStatus(model, firmware, mode or None, status), (exchange,))
+
+    def listing(self, destination: str) -> ClientResult[Listing]:
+        """List one folder without inferring that an empty result proves the folder exists."""
+
+        query = urlencode({"path": destination})
+        payload, exchange = self._json(
+            f"{FILES_PATH}?{query}", LISTING_STAGE, f"list {destination}"
         )
-    return DeviceStatus(model, firmware, mode or None, status)
+        if isinstance(payload, DeliveryRefusal):
+            return ClientResult(payload, (exchange,))
+        listed = sequence(payload)
+        if not isinstance(payload, list) or any(not isinstance(item, dict) for item in listed):
+            refusal = DeliveryRefusal(
+                "unusable-destination-listing",
+                LISTING_STAGE,
+                f"{self._target.host} did not return a file listing for {destination}",
+                {"destination": destination, "host": self._target.host},
+            )
+            return ClientResult(refusal, (exchange,))
+        entries = tuple(entry for entry in map(_entry, listed) if entry is not None)
+        return ClientResult(Listing(entries), (exchange,))
 
-
-def destination_listing(target: DeliveryTarget, destination: str) -> Listing | DeliveryRefusal:
-    """Read what the configured destination currently holds, without writing anything.
-
-    **An empty listing does not mean the folder is there.** Measured against a real X4 at firmware
-    1.4.1 on 2026-08-20: CrossPoint answers an empty list for a folder that does not exist, exactly
-    as it does for one that exists and holds nothing. So a Delivery Plan over a missing destination
-    reports `upload-new` — right about the action, and unable to say the folder is absent — and the
-    upload that follows is refused by the device with HTTP 400. That refusal is honest and
-    retryable and leaves the Ready Artifact untouched, so nothing here works around it; what this
-    note prevents is a reader taking a clean plan as proof the destination is ready.
-    """
-
-    query = urlencode({"path": destination})
-    payload = _request_json(target, f"{FILES_PATH}?{query}", LISTING_STAGE, f"list {destination}")
-    if isinstance(payload, DeliveryRefusal):
-        return payload
-    listed = sequence(payload)
-    if not isinstance(payload, list) or any(not isinstance(item, dict) for item in listed):
-        return DeliveryRefusal(
-            boundary="unusable-destination-listing",
-            stage=LISTING_STAGE,
-            summary=f"{target.host} did not return a file listing for {destination}",
-            fact={"destination": destination, "host": target.host},
+    def upload(self, destination: str, artifact: Path) -> ClientResult[Transfer]:
+        boundary = f"galley-{token_hex(16)}"
+        body = _MultipartBody(artifact, boundary)
+        request = TransportRequest(
+            "POST",
+            f"{UPLOAD_PATH}?{urlencode({'path': destination})}",
+            {
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(body.content_length),
+            },
+            body,
         )
-    return Listing(tuple(entry for entry in map(_entry, listed) if entry is not None))
+        response, exchange = self._send(UPLOAD_STAGE, request)
+        if isinstance(response, TransportFailure):
+            transfer = Transfer(None, network_cause(response.error))
+        else:
+            transfer = Transfer(response.status, response.detail)
+        return ClientResult(transfer, (exchange,))
+
+    def _json(
+        self, path: str, stage: str, label: str
+    ) -> tuple[object | DeliveryRefusal, Exchange]:
+        response, exchange = self._send(stage, TransportRequest("GET", path))
+        if isinstance(response, TransportFailure):
+            cause = network_cause(response.error)
+            return self._unavailable(stage, label, cause, str(response.error)), exchange
+        if not 200 <= response.status < 300:
+            detail = f"{self._target.host} answered {response.status}"
+            return self._unavailable(stage, label, detail, status=response.status), exchange
+        if len(response.body) > RESPONSE_LIMIT:
+            refusal = DeliveryRefusal(
+                "oversize-device-response",
+                stage,
+                f"could not {label}: the response exceeded {RESPONSE_LIMIT} bytes",
+                {"host": self._target.host, "limit": RESPONSE_LIMIT},
+            )
+            return refusal, exchange
+        try:
+            return cast(object, json.loads(response.body)), exchange
+        except UnicodeDecodeError, ValueError:
+            refusal = DeliveryRefusal(
+                "unusable-device-response",
+                stage,
+                f"could not {label}: the response was not JSON",
+                {"host": self._target.host},
+            )
+            return refusal, exchange
+
+    def _send(
+        self, stage: str, request: TransportRequest
+    ) -> tuple[TransportResponse | TransportFailure, Exchange]:
+        response = self._transport.exchange(self._target, request)
+        if isinstance(response, TransportFailure):
+            detail = network_cause(response.error)
+            return response, Exchange(stage, request_began=response.request_began, detail=detail)
+        return response, Exchange(stage, response.status, True, response.detail)
+
+    def _unavailable(
+        self, stage: str, label: str, summary: str, detail: str = "", status: int | None = None
+    ) -> DeliveryRefusal:
+        fact: dict[str, object] = {"host": self._target.host}
+        if status is not None:
+            fact["status"] = status
+        else:
+            fact["detail"] = detail
+        return DeliveryRefusal("device-unavailable", stage, f"could not {label}: {summary}", fact)
 
 
 def _entry(value: object) -> RemoteEntry | None:
-    """Read one listed file, ignoring directories and anything without a usable name."""
-
     item = mapping(value)
     name = text(item.get("name"))
     if not name or item.get("isDirectory") is True:
@@ -144,53 +256,8 @@ def _entry(value: object) -> RemoteEntry | None:
     return RemoteEntry(name, integer(item.get("size")))
 
 
-def _request_json(
-    target: DeliveryTarget, path: str, stage: str, label: str
-) -> object | DeliveryRefusal:
-    """Perform one bounded, redirect-free GET and read its body as JSON, or say why not."""
-
-    request = Request(f"{target.base_url}{path}", method="GET")
-    try:
-        with opener().open(request, timeout=target.timeout_seconds) as response:
-            body = cast(bytes, response.read(RESPONSE_LIMIT + 1))
-    except HTTPError as error:
-        return DeliveryRefusal(
-            boundary="device-unavailable",
-            stage=stage,
-            summary=f"could not {label}: {target.host} answered {error.code}",
-            fact={"host": target.host, "status": error.code},
-        )
-    except (URLError, OSError, ValueError) as error:
-        return DeliveryRefusal(
-            boundary="device-unavailable",
-            stage=stage,
-            summary=f"could not {label}: {network_cause(error)}",
-            fact={"host": target.host, "detail": str(error)},
-        )
-    if len(body) > RESPONSE_LIMIT:
-        return DeliveryRefusal(
-            boundary="oversize-device-response",
-            stage=stage,
-            summary=f"could not {label}: the response exceeded {RESPONSE_LIMIT} bytes",
-            fact={"host": target.host, "limit": RESPONSE_LIMIT},
-        )
-    try:
-        return cast(object, json.loads(body))
-    except UnicodeDecodeError, ValueError:
-        return DeliveryRefusal(
-            boundary="unusable-device-response",
-            stage=stage,
-            summary=f"could not {label}: the response was not JSON",
-            fact={"host": target.host},
-        )
-
-
 def network_cause(error: BaseException) -> str:
-    """Say what actually went wrong on the wire, in words a reader can act on.
-
-    `<urlopen error [Errno 8] nodename nor servname provided>` tells a user nothing about what
-    to do next; "the host name did not resolve" tells them the device is not on this network.
-    """
+    """Turn raw network exceptions into the existing actionable summaries."""
 
     reason = cast(object, error.reason) if isinstance(error, URLError) else error
     if isinstance(reason, socket.gaierror):
@@ -200,9 +267,3 @@ def network_cause(error: BaseException) -> str:
     if isinstance(reason, ConnectionRefusedError):
         return "the connection was refused"
     return str(error)
-
-
-def opener() -> OpenerDirector:
-    """Build the one opener Delivery uses, with redirect following removed rather than trusted."""
-
-    return no_redirect_opener()
