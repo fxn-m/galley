@@ -27,9 +27,16 @@ from tests.workspace_fixtures import (
 SKILL = Path("src/galley/skills/galley-setup")
 CONFIGURATION = SKILL / "resources/workspace-config.md"
 MAIN_SKILL = Path("src/galley/skills/galley/SKILL.md")
-# The six persisted configuration decisions setup may need from the user, in their supported
-# order. Reader scope controls which apply but is deliberately not a configuration key.
-REQUIRED_SUBJECTS = ("workspace", "inboxes", "recursion", "host", "destination", "probe")
+# Persisted configuration decisions, in supported order. Reader scope is not a key.
+REQUIRED_SUBJECTS = (
+    "workspace",
+    "inboxes",
+    "recursion",
+    "covers",
+    "host",
+    "destination",
+    "probe",
+)
 COMMAND_GROUPS = (("config", "validate"), ("device", "status"))
 OWNED_DIRECTORIES = ("work", "ready", "ready/evidence", "delivery")
 UNUSED_LOOPBACK_PORT = "127.0.0.1:9"
@@ -80,7 +87,7 @@ def _help(*arguments: str) -> str:
     return result.stdout
 
 
-def test_the_decision_set_is_exactly_the_six_subjects_the_specification_permits() -> None:
+def test_the_decision_set_is_exactly_the_subjects_the_specification_permits() -> None:
     """An extra decision would offer a choice that Galley does not support."""
 
     assert _subjects() == list(REQUIRED_SUBJECTS)

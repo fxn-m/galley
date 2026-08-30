@@ -53,6 +53,7 @@ def validate_workspace_configuration(chosen: Path | None, *, run: ReportRun) -> 
             "inboxes": [],
             "locations": [location.facts() for location in locations],
             "connection": None,
+            "cover_artwork": None,
         },
     )
     configuration = read_configuration(workspace)
@@ -74,6 +75,7 @@ def _described(document: CommandDocument, configuration: WorkspaceConfiguration)
                 for inbox in configuration.inboxes
             ],
             "connection": configuration.connection.facts(),
+            "cover_artwork": configuration.cover_artwork.facts(),
         },
     )
 

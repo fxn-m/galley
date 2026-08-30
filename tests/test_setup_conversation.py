@@ -19,6 +19,17 @@ def test_setup_uses_native_questions_without_requiring_a_particular_harness() ->
     assert "native structured-question tool" in skill
     assert "Do not change modes merely to obtain a picker" in skill
     assert "ordinary chat" in skill
+    collapsed = " ".join(skill.split())
+    assert "Do you want custom covers?" in collapsed
+    assert "Write `cover-artwork = true` only when the reader asked for custom covers" in collapsed
+    assert "Leaving a device value or the Cover Artwork key out is meaningful" in collapsed
+    assert "All recommended defaults" in skill
+    reconfiguration = " ".join(
+        Path("src/galley/skills/galley-setup/resources/reconfiguration.md")
+        .read_text(encoding="utf-8")
+        .split()
+    )
+    assert "Turning custom covers on or off edits that key alone" in reconfiguration
 
 
 def test_setup_scopes_x4_questions_without_creating_a_default_conversion_target() -> None:

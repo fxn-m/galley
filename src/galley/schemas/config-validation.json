@@ -5,7 +5,7 @@
   "additionalProperties": false,
   "required": [
     "galley", "outcome", "refusal", "workspace", "configuration", "inboxes", "locations",
-    "connection"
+    "connection", "cover_artwork"
   ],
   "oneOf": [
     {
@@ -35,6 +35,9 @@
     },
     "connection": {
       "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/connection" }]
+    },
+    "cover_artwork": {
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/booleanSetting" }]
     }
   },
   "$defs": {
@@ -126,6 +129,15 @@
       "required": ["value", "source"],
       "properties": {
         "value": { "type": "string", "minLength": 1 },
+        "source": { "enum": ["configured", "default"] }
+      }
+    },
+    "booleanSetting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "source"],
+      "properties": {
+        "value": { "type": "boolean" },
         "source": { "enum": ["configured", "default"] }
       }
     },

@@ -73,11 +73,12 @@ route or ordinary chat.
 | `workspace` | Where should the Galley Workspace live? | `~/Documents/Galley` |
 | `inboxes` | Which directories hold the documents you want to read? | one Inbox at `inbox` inside the Workspace |
 | `recursion` | For each Inbox, descend into subdirectories? | `false` |
+| `covers` | Do you want custom covers? | no |
 | `host` | What is the X4's CrossPoint host? | `crosspoint.local` |
 | `destination` | Which folder on the device receives books? | `/` |
 | `probe` | May I ask the device for its status once, read-only? | no probe |
 
-Those six subjects are the whole configuration decision set, not a requirement to produce six
+Those seven subjects are the whole configuration decision set, not a requirement to produce seven
 prompts. The final three apply only when setup includes X4. Reader scope is onboarding context, not
 another configuration key. Everything else Galley needs is either fixed release data or a
 Galley-owned path, so asking about it would offer a choice that does not exist.
@@ -106,8 +107,9 @@ Show the complete proposed state in one concise message:
 - every proposed dependency change, including the exact command or immutable download, digest,
   destination and any PATH or shell-profile edit;
 - the selected readers, without explaining internal persistence unless the user asks;
-- the Workspace path, every Inbox with its name, written path and recursion, any applicable X4
-  host and destination, and the directories and settings you will create.
+- the Workspace path, every Inbox with its name, written path and recursion, whether custom
+  covers are on, any applicable X4 host and destination, and the directories and settings you
+  will create.
 
 Show the complete TOML under **Technical details** only for customised first-run settings or when
 the user asks to see it. Recommended defaults are fully described by the concise proposal.
@@ -149,8 +151,9 @@ run of this skill.
 ## Writing the TOML
 
 Author the file directly. `version = 1` comes first, then one `[[inbox]]` table per Inbox in the
-order the user gave them. Add `[x4-crosspoint]` only when setup includes X4 and the user chose a
-host or destination different from its default. Leaving a device value out is meaningful: the
+order the user gave them. Write `cover-artwork = true` only when the reader asked for custom
+covers. Add `[x4-crosspoint]` only when setup includes X4 and the user chose a host or destination
+different from its default. Leaving a device value or the Cover Artwork key out is meaningful: the
 validator reports it as `default` rather than `configured`, which keeps the file a record of
 decisions instead of a copy of Galley's defaults.
 

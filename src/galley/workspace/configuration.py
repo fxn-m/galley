@@ -20,11 +20,13 @@ SUPPORTED_VERSION = 1
 VERSION_KEY = "version"
 INBOX_KEY = "inbox"
 CONNECTION_KEY = "x4-crosspoint"
-TOP_LEVEL_KEYS = (VERSION_KEY, INBOX_KEY, CONNECTION_KEY)
+COVER_ARTWORK_KEY = "cover-artwork"
+TOP_LEVEL_KEYS = (VERSION_KEY, INBOX_KEY, CONNECTION_KEY, COVER_ARTWORK_KEY)
 INBOX_KEYS = ("name", "path", "recursive")
 CONNECTION_KEYS = ("host", "destination")
 DEFAULT_HOST = "crosspoint.local"
 DEFAULT_DESTINATION = "/"
+DEFAULT_COVER_ARTWORK = False
 
 PARSE_STAGE = "configuration-parse"
 SCHEMA_STAGE = "configuration-schema"
@@ -74,12 +76,26 @@ class Connection:
 
 
 @dataclass(frozen=True)
+class CoverArtworkSetting:
+    """Whether the reader asked for custom covers, which is configuration, never a per-book ask."""
+
+    enabled: bool = DEFAULT_COVER_ARTWORK
+    source: ValueSource = "default"
+
+    def facts(self) -> dict[str, object]:
+        """State the setting with where it came from, so a default is never read as a choice."""
+
+        return {"value": self.enabled, "source": self.source}
+
+
+@dataclass(frozen=True)
 class WorkspaceConfiguration:
     """One validated Workspace Configuration, resolved against its own Galley Workspace."""
 
     workspace: Workspace
     inboxes: tuple[InboxDefinition, ...]
     connection: Connection
+    cover_artwork: CoverArtworkSetting = CoverArtworkSetting()
 
 
 @dataclass(frozen=True)
@@ -109,7 +125,10 @@ def read_configuration(workspace: Workspace) -> WorkspaceConfiguration | Configu
     connection = _connection(workspace, document.get(CONNECTION_KEY))
     if isinstance(connection, ConfigurationRefusal):
         return connection
-    return WorkspaceConfiguration(workspace, inboxes, connection)
+    cover_artwork = _cover_artwork(workspace, document)
+    if isinstance(cover_artwork, ConfigurationRefusal):
+        return cover_artwork
+    return WorkspaceConfiguration(workspace, inboxes, connection, cover_artwork)
 
 
 def _parsed(workspace: Workspace) -> dict[str, object] | ConfigurationRefusal:
@@ -215,6 +234,19 @@ def _connection(workspace: Workspace, value: object) -> Connection | Configurati
         host_source=settings["host"][1],
         destination_source=settings["destination"][1],
     )
+
+
+def _cover_artwork(
+    workspace: Workspace, document: dict[str, object]
+) -> CoverArtworkSetting | ConfigurationRefusal:
+    """Read the optional Cover Artwork choice, or the off default when the key is absent."""
+
+    if COVER_ARTWORK_KEY not in document:
+        return CoverArtworkSetting()
+    value = document[COVER_ARTWORK_KEY]
+    if not isinstance(value, bool):
+        return _invalid(workspace, f"`{COVER_ARTWORK_KEY}` must be a boolean")
+    return CoverArtworkSetting(enabled=value, source="configured")
 
 
 def _required_text(entry: dict[str, object], key: str) -> str | None:

@@ -52,7 +52,12 @@ def _body(document: CommandDocument, command: str) -> list[str]:
 
     if command == INBOX_CHECK_COMMAND:
         return _coverage_lines(document) + _candidate_lines(document) + _problem_lines(document)
-    return _inbox_lines(document) + _location_lines(document) + _connection_lines(document)
+    return (
+        _inbox_lines(document)
+        + _location_lines(document)
+        + _connection_lines(document)
+        + _cover_artwork_lines(document)
+    )
 
 
 def _inbox_lines(document: CommandDocument) -> list[str]:
@@ -82,6 +87,15 @@ def _connection_lines(document: CommandDocument) -> list[str]:
         f"CrossPoint: {host['value']} ({host['source']}) "
         f"-> {destination['value']} ({destination['source']})"
     ]
+
+
+def _cover_artwork_lines(document: CommandDocument) -> list[str]:
+    setting = document.get("cover_artwork")
+    if not isinstance(setting, dict):
+        return []
+    stated = cast(dict[str, object], setting)
+    state = "on" if stated["value"] is True else "off"
+    return [f"Cover artwork: {state} ({stated['source']})"]
 
 
 def _coverage_lines(document: CommandDocument) -> list[str]:

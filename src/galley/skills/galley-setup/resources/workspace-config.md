@@ -19,6 +19,7 @@ validated whatever the environment says.
 | Table | Key | Type | Meaning |
 |---|---|---|---|
 | top level | `version` | integer | `1` is the only supported version. |
+| top level | `cover-artwork` | boolean | Optional. Custom covers when `true`. Absence or `false` means off. |
 | `[[inbox]]` | `name` | non-empty string | How this Inbox is reported. Unique across the file. |
 | `[[inbox]]` | `path` | non-empty string | Where the Inbox is. See resolution below. |
 | `[[inbox]]` | `recursive` | boolean | Required, with no default: `true` descends ordinary subdirectories, `false` reads direct children. |

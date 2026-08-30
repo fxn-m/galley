@@ -20,11 +20,12 @@ Read the existing `galley.toml` first and work from what is there.
 ## The shape of the conversation
 
 1. Read the current file and report what it says now — Workspace, each Inbox with its recursion,
-   and any configured X4 host and destination. The presence or absence of `[x4-crosspoint]` is not
-   evidence of which Device Profile the user wants for a conversion.
-2. Ask only about what the user came to change. The six subjects in the first-run table are the
-   complete decision set, not six mandatory prompts; a user changing one Inbox path answers one
-   question. Follow the entry skill's native-question rule and ordinary-chat fallback.
+   the Cover Artwork setting, and any configured X4 host and destination. The presence or absence
+   of `[x4-crosspoint]` is not evidence of which Device Profile the user wants for a conversion.
+2. Ask only about what the user came to change. The seven subjects in the first-run table are the
+   complete decision set, not seven mandatory prompts; a user changing one Inbox path answers one
+   question. Turning custom covers on or off edits that key alone. Follow the entry skill's
+   native-question rule and ordinary-chat fallback.
 3. Show a **diff** of the file rather than a summary of the new state, so the user sees exactly
    which lines move.
 4. Take one confirmation, apply the edit, and validate.
