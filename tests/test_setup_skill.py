@@ -1,7 +1,7 @@
 """Hold the Setup Skill to the CLI it teaches and the configuration it authors.
 
-The skill is the only author of Workspace Configuration, which makes its annotated template and
-decision set product surface rather than documentation: a template the validator refuses would be
+The skill authors Workspace setup, which makes its annotated template and decision set product
+surface rather than documentation: a template the validator refuses would be
 a first-run conversation that ends in a refusal, and a boundary it tells an agent to read would be
 advice about a string Galley never emits.
 """

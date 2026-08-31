@@ -20,6 +20,7 @@ validated whatever the environment says.
 |---|---|---|---|
 | top level | `version` | integer | `1` is the only supported version. |
 | top level | `cover-artwork` | boolean | Optional. Custom covers when `true`. Absence or `false` means off. |
+| `[customisation]` | `instructions` | string | User-authored reading preferences. Required when the optional table is present; empty clears preferences. |
 | `[[inbox]]` | `name` | non-empty string | How this Inbox is reported. Unique across the file. |
 | `[[inbox]]` | `path` | non-empty string | Where the Inbox is. See resolution below. |
 | `[[inbox]]` | `recursive` | boolean | Required, with no default: `true` descends ordinary subdirectories, `false` reads direct children. |
@@ -59,6 +60,23 @@ host = "crosspoint.local"
 destination = "/Books"
 ```
 
+## Customisation
+
+Keep recurring preferences in this optional section, for example:
+
+```toml
+[customisation]
+instructions = """
+Use restrained geometric artwork for custom covers.
+"""
+```
+
+The validator exposes the text unchanged as `customisation.instructions`, with `source` set to
+`configured`. Omitting the table yields an empty string with source `default`. A present table
+needs a string `instructions`; other keys refuse. The CLI neither interprets nor executes this
+text. Agent behaviour, saving authority and current-request overrides are defined in
+[the customisation guide](../../galley/resources/customisation.md).
+
 ## Galley-owned locations
 
 `work/`, `ready/`, `ready/evidence/` and `delivery/` beneath the Workspace have fixed roles and
@@ -80,7 +98,7 @@ Each refusal names a boundary, and every fact gathered before it stopped is stil
 | `workspace-configuration-missing` | No `galley.toml` in the resolved Workspace. |
 | `unreadable-workspace-configuration` | The file exists and could not be read. |
 | `invalid-workspace-configuration` | Not valid TOML, or a table with a missing or wrongly typed value. |
-| `unknown-configuration-key` | A key the schema does not define, at the top level or in either table. The refusal lists the accepted keys. |
+| `unknown-configuration-key` | A key the schema does not define, at the top level or in any table. The refusal lists the accepted keys. |
 | `unsupported-configuration-version` | `version` is absent or is not `1`. |
 | `duplicate-inbox-name` | Two `[[inbox]]` tables share a `name`. |
 | `inbox-unavailable` | A configured Inbox is absent, a regular file, or unreadable. The configured order decides which one is named. |

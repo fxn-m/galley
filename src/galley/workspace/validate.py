@@ -54,6 +54,7 @@ def validate_workspace_configuration(chosen: Path | None, *, run: ReportRun) -> 
             "locations": [location.facts() for location in locations],
             "connection": None,
             "cover_artwork": None,
+            "customisation": None,
         },
     )
     configuration = read_configuration(workspace)
@@ -76,6 +77,7 @@ def _described(document: CommandDocument, configuration: WorkspaceConfiguration)
             ],
             "connection": configuration.connection.facts(),
             "cover_artwork": configuration.cover_artwork.facts(),
+            "customisation": configuration.customisation.facts(),
         },
     )
 

@@ -3,6 +3,10 @@
 A second run of setup edits a file the user already owns, so it is an edit rather than a rewrite.
 Read the existing `galley.toml` first and work from what is there.
 
+For a preference-only edit, follow [the customisation guide](../../galley/resources/customisation.md)
+instead of the structural setup conversation below. An explicit request to remember a preference
+already authorises that edit; preserve other settings and validate without another confirmation.
+
 ## What survives an edit
 
 - **Comments and blank lines**, including ones the user wrote themselves. Edit the lines that
@@ -20,10 +24,10 @@ Read the existing `galley.toml` first and work from what is there.
 ## The shape of the conversation
 
 1. Read the current file and report what it says now — Workspace, each Inbox with its recursion,
-   the Cover Artwork setting, and any configured X4 host and destination. The presence or absence
+   the Cover Artwork setting, customisation, and any configured X4 host and destination. The presence or absence
    of `[x4-crosspoint]` is not evidence of which Device Profile the user wants for a conversion.
 2. Ask only about what the user came to change. The seven subjects in the first-run table are the
-   complete decision set, not seven mandatory prompts; a user changing one Inbox path answers one
+   structural setup decision set, not seven mandatory prompts; a user changing one Inbox path answers one
    question. Turning custom covers on or off edits that key alone. Follow the entry skill's
    native-question rule and ordinary-chat fallback.
 3. Show a **diff** of the file rather than a summary of the new state, so the user sees exactly

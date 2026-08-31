@@ -101,7 +101,7 @@ def test_the_installed_skill_command_publishes_the_public_kindle_ready_artifact(
         assert retained[0] == report
 
 
-def test_kindle_guidance_forbids_agent_side_handoff_and_names_the_manual_step(
+def test_kindle_guidance_allows_authorised_transfer_and_keeps_submission_manual(
     installed_guidance: tuple[tuple[str, str], ...],
 ) -> None:
     for skill, handoff in installed_guidance:
@@ -109,8 +109,10 @@ def test_kindle_guidance_forbids_agent_side_handoff_and_names_the_manual_step(
 
         assert "user-confirmed iCloud Drive Handoff Folder" not in combined
         assert "CONFIRMED_HANDOFF_FOLDER" not in combined
-        assert "Do not ask for an iCloud Drive folder" in combined
-        assert "copy the EPUB into one or upload it to Kindle" in combined
+        assert "By default, hand over the file in the Workspace's `ready/` directory" in combined
+        assert "current request or saved customisation specifies a transfer" in combined
+        assert "final checked EPUB after requested cover work is complete" in combined
+        assert "Submission to Kindle remains user-controlled" in combined
         assert "exact artifact basename" in combined
         assert "preferred Send to Kindle route" in combined
         assert "Upload or share this EPUB" in combined

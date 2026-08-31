@@ -83,6 +83,25 @@ galley prepare the-silmarillion.md --profile x4-crosspoint --output the-silmaril
 galley prepare https://mitchellh.com/writing/my-ai-adoption-journey --profile kindle-ios-personal-documents --output my-ai-adoption-journey.epub
 ```
 
+## Reading preferences
+
+Ask your agent to remember recurring choices, such as a cover style or a handoff destination.
+It saves them in your Workspace's `galley.toml` and applies them on later runs:
+
+```toml
+[customisation]
+instructions = """
+Use restrained geometric artwork for custom covers.
+"""
+```
+
+The agent may offer to remember useful repeatable requests; one-off requests stay one-off until
+you agree. Explicit requests to remember a preference save it directly. Instructions for the
+current document override saved preferences without changing them.
+
+`galley config validate --json` exposes this text for the agent to read. The CLI validates the
+section but does not execute instructions or perform transfers itself.
+
 ## How it works
 
 Your agent starts by inspecting the source. If the conversion is routine, it prepares the book. If

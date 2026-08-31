@@ -15,9 +15,10 @@ Exit `0` means the Workspace reads. A refusal at a configuration boundary —
 `workspace-configuration-missing`, `invalid-workspace-configuration`,
 `unknown-configuration-key`, `unsupported-configuration-version`, `duplicate-inbox-name`,
 `inbox-unavailable` or `workspace-location-unusable` — means configuration is what stopped the
-run. Hand that user to the `galley-setup` skill, which owns the question set and authors the
-file, and resume here once it validates. Authoring `galley.toml` from this skill would put
-configuration the user has never seen behind everything Galley later reports.
+run. Use the `galley-setup` skill for structural configuration repair, and resume here once it
+validates. Read `customisation.instructions` from successful validation and apply the preferences
+relevant to this run, following [the customisation guide](customisation.md). The current request
+takes precedence. Inbox preparation and Delivery retain the constraints described below.
 
 ## 2. Run one Inbox Check
 

@@ -1,7 +1,7 @@
 """Read the strict TOML Workspace Configuration, or say exactly why it cannot be read.
 
 This module parses and validates; it never writes, and it never touches the directories the
-configuration names. Configuration authorship belongs to the Setup Skill, so the CLI's
+configuration names. Configuration authorship belongs to the Agent Skills, so the CLI's
 whole contribution here is a deterministic reading of what the user wrote — which means an
 unknown key, an unsupported version and a duplicate name are refusals rather than repairs.
 """
@@ -14,6 +14,14 @@ from typing import Literal, cast
 from galley.json_reading import integer, mapping, sequence, text
 from galley.locations import display_path, resolved
 from galley.workspace.resolution import Workspace
+from galley.workspace.settings import (
+    DEFAULT_DESTINATION,
+    DEFAULT_HOST,
+    Connection,
+    CoverArtworkSetting,
+    Customisation,
+    ValueSource,
+)
 
 CONFIGURATION_SCHEMA = "galley/workspace-config/1"
 SUPPORTED_VERSION = 1
@@ -21,18 +29,16 @@ VERSION_KEY = "version"
 INBOX_KEY = "inbox"
 CONNECTION_KEY = "x4-crosspoint"
 COVER_ARTWORK_KEY = "cover-artwork"
-TOP_LEVEL_KEYS = (VERSION_KEY, INBOX_KEY, CONNECTION_KEY, COVER_ARTWORK_KEY)
+CUSTOMISATION_KEY = "customisation"
+TOP_LEVEL_KEYS = (VERSION_KEY, INBOX_KEY, CONNECTION_KEY, COVER_ARTWORK_KEY, CUSTOMISATION_KEY)
 INBOX_KEYS = ("name", "path", "recursive")
 CONNECTION_KEYS = ("host", "destination")
-DEFAULT_HOST = "crosspoint.local"
-DEFAULT_DESTINATION = "/"
-DEFAULT_COVER_ARTWORK = False
+CUSTOMISATION_KEYS = ("instructions",)
 
 PARSE_STAGE = "configuration-parse"
 SCHEMA_STAGE = "configuration-schema"
 
 PathResolution = Literal["relative", "home-relative", "absolute"]
-ValueSource = Literal["configured", "default"]
 
 
 @dataclass(frozen=True)
@@ -58,37 +64,6 @@ class InboxDefinition:
 
 
 @dataclass(frozen=True)
-class Connection:
-    """The user's CrossPoint host and destination, which are configuration, never evidence."""
-
-    host: str = DEFAULT_HOST
-    destination: str = DEFAULT_DESTINATION
-    host_source: ValueSource = "default"
-    destination_source: ValueSource = "default"
-
-    def facts(self) -> dict[str, object]:
-        """State each value with where it came from, so a default is never read as a fact."""
-
-        return {
-            "host": {"value": self.host, "source": self.host_source},
-            "destination": {"value": self.destination, "source": self.destination_source},
-        }
-
-
-@dataclass(frozen=True)
-class CoverArtworkSetting:
-    """Whether the reader asked for custom covers, which is configuration, never a per-book ask."""
-
-    enabled: bool = DEFAULT_COVER_ARTWORK
-    source: ValueSource = "default"
-
-    def facts(self) -> dict[str, object]:
-        """State the setting with where it came from, so a default is never read as a choice."""
-
-        return {"value": self.enabled, "source": self.source}
-
-
-@dataclass(frozen=True)
 class WorkspaceConfiguration:
     """One validated Workspace Configuration, resolved against its own Galley Workspace."""
 
@@ -96,6 +71,7 @@ class WorkspaceConfiguration:
     inboxes: tuple[InboxDefinition, ...]
     connection: Connection
     cover_artwork: CoverArtworkSetting = CoverArtworkSetting()
+    customisation: Customisation = Customisation()
 
 
 @dataclass(frozen=True)
@@ -128,7 +104,10 @@ def read_configuration(workspace: Workspace) -> WorkspaceConfiguration | Configu
     cover_artwork = _cover_artwork(workspace, document)
     if isinstance(cover_artwork, ConfigurationRefusal):
         return cover_artwork
-    return WorkspaceConfiguration(workspace, inboxes, connection, cover_artwork)
+    customisation = _customisation(workspace, document.get(CUSTOMISATION_KEY))
+    if isinstance(customisation, ConfigurationRefusal):
+        return customisation
+    return WorkspaceConfiguration(workspace, inboxes, connection, cover_artwork, customisation)
 
 
 def _parsed(workspace: Workspace) -> dict[str, object] | ConfigurationRefusal:
@@ -247,6 +226,23 @@ def _cover_artwork(
     if not isinstance(value, bool):
         return _invalid(workspace, f"`{COVER_ARTWORK_KEY}` must be a boolean")
     return CoverArtworkSetting(enabled=value, source="configured")
+
+
+def _customisation(workspace: Workspace, value: object) -> Customisation | ConfigurationRefusal:
+    """Validate the optional instructions table without interpreting its contents."""
+
+    if value is None:
+        return Customisation()
+    if not isinstance(value, dict):
+        return _invalid(workspace, f"`{CUSTOMISATION_KEY}` must be a table")
+    stated = mapping(cast(object, value))
+    unknown = sorted(key for key in stated if key not in CUSTOMISATION_KEYS)
+    if unknown:
+        return _unknown_keys(workspace, unknown, list(CUSTOMISATION_KEYS), inside=CUSTOMISATION_KEY)
+    instructions = stated.get("instructions")
+    if not isinstance(instructions, str):
+        return _invalid(workspace, f"`{CUSTOMISATION_KEY}.instructions` must be a string")
+    return Customisation(instructions=instructions, source="configured")
 
 
 def _required_text(entry: dict[str, object], key: str) -> str | None:

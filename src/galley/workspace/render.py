@@ -57,6 +57,7 @@ def _body(document: CommandDocument, command: str) -> list[str]:
         + _location_lines(document)
         + _connection_lines(document)
         + _cover_artwork_lines(document)
+        + _customisation_lines(document)
     )
 
 
@@ -96,6 +97,16 @@ def _cover_artwork_lines(document: CommandDocument) -> list[str]:
     stated = cast(dict[str, object], setting)
     state = "on" if stated["value"] is True else "off"
     return [f"Cover artwork: {state} ({stated['source']})"]
+
+
+def _customisation_lines(document: CommandDocument) -> list[str]:
+    setting = mapping(document.get("customisation"))
+    if not setting:
+        return []
+    instructions = str(setting["instructions"])
+    if not instructions:
+        return [f"Customisation: none ({setting['source']})"]
+    return [f"Customisation ({setting['source']}):", *instructions.splitlines()]
 
 
 def _coverage_lines(document: CommandDocument) -> list[str]:

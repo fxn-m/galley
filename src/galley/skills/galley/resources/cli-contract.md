@@ -25,7 +25,7 @@ Its `galley.command` reads `localise`, and `prepare` accepts it exactly as it ac
 | `galley prepare SOURCE --profile PROFILE --output PATH` | Builds an audited EPUB3 and publishes it with its evidence. |
 | `galley audit EPUB --profile PROFILE` | Assesses an existing EPUB read-only, however it was produced. |
 | `galley localise SOURCE --profile PROFILE --evidence-dir DIR` | Retrieves the remote images a Markdown source references, once, into a Repair Set an ordinary agent-assisted `prepare` then consumes. The only command that fetches for a Markdown source. Emits `galley/localisation/1`. |
-| `galley config validate` | Reports what the Workspace Configuration resolves to. Read-only: it writes nothing and inventories no Inbox. Emits `galley/config-validation/1`. |
+| `galley config validate` | Reports what the Workspace Configuration resolves to, including `customisation.instructions` for the agent to read. Read-only: it writes nothing and inventories no Inbox. Emits `galley/config-validation/1`. |
 | `galley inbox check` | Inventories every configured Inbox once and reports each candidate's state. Read-only: it watches nothing and processes no source. Emits `galley/inbox-check/1`. |
 | `galley device status` | Reports what the configured CrossPoint device is, without reading or writing a book. Emits `galley/device-status/1`. |
 | `galley deliver` | Plans or performs one Delivery of one Ready Artifact and persists an immutable Delivery Record. `--plan` reads the device and destination without uploading. Emits `galley/delivery-record/2`; historical v1 records remain valid. |

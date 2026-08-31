@@ -16,6 +16,10 @@ preparation. A configuration refusal hands the request immediately to `galley-se
 work while setup establishes and validates the Workspace. Resume this same request only after
 setup's final `galley config validate --json` completes.
 
+Read `customisation.instructions` from that validation and follow
+[the customisation guide](customisation.md). Carry applicable preferences through preparation,
+cover authorship and the final handoff; an explicit instruction for this document takes precedence.
+
 ## Confirm the Device Profile first
 
 Before profile-specific work, run `galley profiles list --json`. The shipped labels are **Kindle
@@ -76,8 +80,9 @@ Republishing the same source and hash at the existing Ready path refuses at `out
 ## Delegate Cover Artwork when possible
 
 When this request calls for Cover Artwork, normally delegate it to a focused cover subagent and give it
-[the cover guide](cover-artwork.md), the source, the selected profile's direction and the relevant
-evidence. It owns interpretation, identity-cue research, SVG creation, rendering, visual judgment
+[the cover guide](cover-artwork.md), the source, the selected profile's direction, applicable saved
+cover preferences and the relevant evidence. It owns interpretation, identity-cue research,
+SVG creation, rendering, visual judgment
 and revision as one task. It does not compare against recent Galley covers.
 
 When the subagent accepts its SVG, the main agent attaches it and reads only the automated Report

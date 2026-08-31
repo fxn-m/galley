@@ -7,7 +7,12 @@ description: Bootstrap Galley's pinned external tools and author or repair its W
 
 A complete setup leaves Galley's four pinned external commands runnable and its visible
 `galley.toml` valid. Galley's CLI reads and validates Workspace Configuration and never writes it,
-so this skill owns both the dependency bootstrap and that one configuration file.
+so agent skills author the file. This skill owns dependency bootstrap and Workspace setup.
+
+For a preference-only request, such as remembering a destination or cover style, use
+[the customisation guide](../galley/resources/customisation.md) directly. Read and validate the
+existing settings, then make the authorised edit without a dependency inventory or setup interview.
+An explicit request to save a preference needs no second confirmation.
 
 Detail lives in three bounded resources:
 [dependency bootstrap](resources/dependencies.md) for the exact release requirements, probes,
@@ -78,10 +83,10 @@ route or ordinary chat.
 | `destination` | Which folder on the device receives books? | `/` |
 | `probe` | May I ask the device for its status once, read-only? | no probe |
 
-Those seven subjects are the whole configuration decision set, not a requirement to produce seven
+Those seven subjects are the first-run setup decision set, not a requirement to produce seven
 prompts. The final three apply only when setup includes X4. Reader scope is onboarding context, not
-another configuration key. Everything else Galley needs is either fixed release data or a
-Galley-owned path, so asking about it would offer a choice that does not exist.
+another configuration key. Additional reading preferences belong in optional customisation when
+the user asks to remember them, separately from the first-run questions.
 
 ## Naming the Inboxes
 

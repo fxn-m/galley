@@ -1,6 +1,6 @@
 ---
 name: galley
-description: Prepare documents for constrained reading environments with the Galley CLI. Use when inspecting, preparing or auditing Markdown or an Article-Like Page for a Device Profile, handing off a Kindle-ready EPUB, delivering a Ready Artifact to X4, reading a Galley Report, or repairing a misread document before resubmission.
+description: Prepare documents for constrained reading environments with Galley. Use for Markdown or Article-Like Page preparation, inspection, EPUB audits, Kindle handoff, X4 delivery, Galley Reports, document repairs, and remembering recurring reading preferences.
 ---
 
 # Galley
@@ -59,6 +59,11 @@ Workspace is ready. A refusal at `workspace-configuration-missing`,
 Pause the conversion at that boundary and resume the same request only after setup's final
 validator returns exit `0`. Setup answers make the Workspace usable but leave the Device Profile
 unselected; profile confirmation follows validation.
+
+Read `customisation.instructions` from the successful validation and apply the saved preferences
+relevant to this request. Follow [the customisation guide](resources/customisation.md) when applying
+preferences, offering to remember a repeatable request, or saving an explicit “always” or
+“remember this”. A preference-only edit uses that guide directly, without repeating setup.
 
 ## Confirm the Device Profile before conversion work
 
@@ -143,16 +148,17 @@ authors Cover Artwork.
 When Cover Artwork does run, it is creative editorial work, not a CLI-generated decoration.
 During Assisted Preparation, normally delegate its complete creative loop to a focused cover
 subagent. If delegation is unavailable, take that complete role yourself. Whoever owns it uses
-[the cover guide](resources/cover-artwork.md) to interpret the work, author and preview one SVG, and
+[the cover guide](resources/cover-artwork.md), together with applicable saved preferences, to
+interpret the work, author and preview one SVG, and
 judge the rendered result. A cover for another profile is a new composition under that profile's
 direction, not a recolour preset.
 
 ## When the artifact goes to Kindle for iOS
 
-Galley publishes the EPUB as a Ready Artifact in the Workspace and stops. Do not ask for an iCloud
-Drive folder, copy the EPUB into one or upload it to Kindle. Read
-[the Kindle user handoff guide](resources/kindle-ios-handoff.md), link the exact published file, and
-give its one user-controlled Send to Kindle instruction.
+Galley publishes the EPUB as a Ready Artifact in the Workspace. Read
+[the Kindle user handoff guide](resources/kindle-ios-handoff.md), apply any transfer instruction
+from the current request or saved preferences, and link the exact published file. Otherwise, hand
+over the file directly. Submission to Kindle remains user-controlled.
 
 ## When the artifact goes to X4
 
