@@ -146,7 +146,10 @@ def test_no_second_or_mixed_footnote_representation_survives(tmp_path: Path) -> 
         assert markup.count('epub:type="noteref"') == NOTES
         assert report["artifact"]["conformance"]["counts"]["error"]["value"] == 0
         assert not report["artifact"]["problems"]
-        assert len(spine_documents(output)) == NOTES + 2
+        non_cover_documents = [
+            document for document in spine_documents(output) if not document.endswith("cover.xhtml")
+        ]
+        assert len(non_cover_documents) == NOTES + 2
 
 
 def test_human_output_names_the_back_matter_one_file_per_note_produced(tmp_path: Path) -> None:

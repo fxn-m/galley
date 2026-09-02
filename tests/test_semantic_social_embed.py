@@ -61,9 +61,11 @@ def test_a_repaired_social_embed_survives_as_native_reflowable_epub_xhtml(
             (BODY_LINK, "3D-printed brushless motor"),
             (POST, "View original post"),
         }
-        assert [(alt, src) for _, src, alt in image_sources(artifact)] == [
-            ("A 3D-printed brushless motor", "../media/file0.png")
-        ]
+        assert [
+            (alt, src)
+            for document, src, alt in image_sources(artifact)
+            if not document.endswith("cover.xhtml")
+        ] == [("A 3D-printed brushless motor", "../media/file0.png")]
 
         reading = content_text(artifact)
         for chrome in (

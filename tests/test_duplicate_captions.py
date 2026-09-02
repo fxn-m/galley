@@ -69,7 +69,11 @@ def test_the_alt_attribute_itself_is_untouched(tmp_path: Path) -> None:
         artifact, report = prepared(tmp_path, index, command, source(LESSON, LESSON))
 
         assert suppression(report)["fired"] is True
-        assert [alt for _, _, alt in image_sources(artifact)] == [LESSON]
+        assert [
+            alt
+            for document, _, alt in image_sources(artifact)
+            if not document.endswith("cover.xhtml")
+        ] == [LESSON]
 
 
 def test_text_preservation_is_unaffected_by_the_suppression(tmp_path: Path) -> None:
