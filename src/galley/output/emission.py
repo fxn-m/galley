@@ -19,7 +19,7 @@ from galley.output.policy import (
     internal_error_report,
 )
 from galley.output.publication import ARTIFACT_STAGE, Publication, discard, publish
-from galley.report.envelope import Report, ReportRun, finish_report
+from galley.report.envelope import Report, ReportRun
 
 
 class OwnedOutput(Protocol):
@@ -74,7 +74,7 @@ def emit_outputs(
             operation="publish-evidence",
             stage=EVIDENCE_STAGE,
         )
-        return ReportEmission(finish_report(refusal, run), ExitCode.INTERNAL_ERROR)
+        return ReportEmission(refusal.finish(), ExitCode.INTERNAL_ERROR)
     if artifact is None:
         return emission
     try:
@@ -88,7 +88,7 @@ def emit_outputs(
             operation="publish-artifact",
             stage=ARTIFACT_STAGE,
         )
-        return ReportEmission(finish_report(refusal, run), ExitCode.INTERNAL_ERROR)
+        return ReportEmission(refusal.finish(), ExitCode.INTERNAL_ERROR)
     return emission
 
 

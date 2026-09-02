@@ -1,6 +1,7 @@
 """Apply input protection and deterministic report-output policy."""
 
 from collections.abc import Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
@@ -10,9 +11,8 @@ from galley.locations import display_path
 from galley.outcomes import ExitCode
 from galley.report.envelope import (
     Report,
+    ReportAssembly,
     ReportRun,
-    finish_report,
-    replace_refusal,
     report_json,
     validate_report,
 )
@@ -24,7 +24,7 @@ REPORT_STAGE = "report-output"
 class ReportEmission:
     """A canonical Report paired with its public process outcome."""
 
-    report: Report
+    report: ReportAssembly
     exit_code: ExitCode
 
 
@@ -48,21 +48,24 @@ def apply_report_output_policy(
     """
 
     validate_report(report)
-    outcome = cast(str, report["outcome"])
+    assembly = (
+        report if isinstance(report, ReportAssembly) else ReportAssembly(deepcopy(report), run)
+    )
+    outcome = cast(str, assembly["outcome"])
     default_exit = ExitCode.COMPLETED if outcome == "completed" else ExitCode.REFUSED
     owned = _owned(output, evidence) + list(protected)
     inputs = [*additional_inputs]
     if source is not None:
         inputs.insert(0, source)
-    protection = _input_protection(report, inputs, owned, run)
+    protection = _input_protection(assembly, inputs, owned)
     if protection is not None:
         return protection
     if evidence is not None:
         refused = write_evidence(evidence, overwrite=overwrite)
         if refused is not None:
-            return ReportEmission(finish_report(_refused(report, refused), run), refused.exit_code)
+            return ReportEmission(_refused(assembly, refused).finish(), refused.exit_code)
 
-    finalized = finish_report(report, run)
+    finalized = assembly.finish()
     destinations = [(output, REPORT_STAGE, overwrite)]
     if evidence is not None:
         destinations.append((evidence.report, STAGE, overwrite or evidence.replaceable))
@@ -73,12 +76,12 @@ def apply_report_output_policy(
             _write_report(finalized, destination, overwrite=replacing)
         except FileExistsError:
             refusal = _output_exists_report(finalized, destination, stage)
-            return ReportEmission(finish_report(refusal, run), ExitCode.REFUSED)
+            return ReportEmission(refusal.finish(), ExitCode.REFUSED)
         except OSError as error:
             refusal = internal_error_report(
                 finalized, destination, error, operation="write-report", stage=stage
             )
-            return ReportEmission(finish_report(refusal, run), ExitCode.INTERNAL_ERROR)
+            return ReportEmission(refusal.finish(), ExitCode.INTERNAL_ERROR)
     return ReportEmission(finalized, default_exit)
 
 
@@ -91,10 +94,9 @@ def _owned(output: Path | None, evidence: EvidenceBundle | None) -> list[tuple[P
 
 
 def _input_protection(
-    report: Report,
+    report: ReportAssembly,
     inputs: Sequence[Path],
     owned: list[tuple[Path, str]],
-    run: ReportRun,
 ) -> ReportEmission | None:
     """Refuse before writing anything if any output would replace a workflow input.
 
@@ -110,10 +112,10 @@ def _input_protection(
                 refusal = internal_error_report(
                     report, destination, error, operation="identify-report-output", stage=stage
                 )
-                return ReportEmission(finish_report(refusal, run), ExitCode.INTERNAL_ERROR)
+                return ReportEmission(refusal.finish(), ExitCode.INTERNAL_ERROR)
             if targets_input:
                 refusal = output_is_input_report(report, destination, stage)
-                return ReportEmission(finish_report(refusal, run), ExitCode.REFUSED)
+                return ReportEmission(refusal.finish(), ExitCode.REFUSED)
     return None
 
 
@@ -135,9 +137,8 @@ def input_collision(inputs: Sequence[Path], destinations: Sequence[Path]) -> Pat
     return None
 
 
-def _refused(report: Report, refusal: EvidenceRefusal) -> Report:
-    return replace_refusal(
-        report,
+def _refused(report: ReportAssembly, refusal: EvidenceRefusal) -> ReportAssembly:
+    return report.refuse(
         boundary=refusal.boundary,
         stage=STAGE,
         summary=refusal.summary,
@@ -145,10 +146,9 @@ def _refused(report: Report, refusal: EvidenceRefusal) -> Report:
     )
 
 
-def _output_exists_report(report: Report, path: Path, stage: str) -> Report:
+def _output_exists_report(report: ReportAssembly, path: Path, stage: str) -> ReportAssembly:
     display = display_path(path)
-    return replace_refusal(
-        report,
+    return report.refuse(
         boundary="output-exists",
         stage=stage,
         summary=f"report output already exists: {display}",
@@ -156,12 +156,13 @@ def _output_exists_report(report: Report, path: Path, stage: str) -> Report:
     )
 
 
-def output_is_input_report(report: Report, path: Path, stage: str = REPORT_STAGE) -> Report:
+def output_is_input_report(
+    report: ReportAssembly, path: Path, stage: str = REPORT_STAGE
+) -> ReportAssembly:
     """Refuse before writing, because one destination is the very file being read."""
 
     display = display_path(path)
-    return replace_refusal(
-        report,
+    return report.refuse(
         boundary="output-is-input",
         stage=stage,
         summary=f"report output is the workflow input: {display}",
@@ -170,7 +171,7 @@ def output_is_input_report(report: Report, path: Path, stage: str = REPORT_STAGE
 
 
 def internal_error_report(
-    report: Report,
+    report: ReportAssembly,
     path: Path,
     error: OSError,
     *,
@@ -178,7 +179,7 @@ def internal_error_report(
         "identify-report-output", "write-report", "publish-artifact", "publish-evidence"
     ],
     stage: str = REPORT_STAGE,
-) -> Report:
+) -> ReportAssembly:
     error_type = type(error).__name__
     display = display_path(path)
     action = {
@@ -187,8 +188,7 @@ def internal_error_report(
         "publish-artifact": "publishing the prepared EPUB",
         "publish-evidence": "publishing the evidence bundle",
     }[operation]
-    return replace_refusal(
-        report,
+    return report.refuse(
         boundary="internal-error",
         stage=stage,
         summary=f"internal error while {action}: {error_type}",
@@ -196,7 +196,7 @@ def internal_error_report(
     )
 
 
-def _write_report(report: Report, path: Path, *, overwrite: bool) -> None:
+def _write_report(report: ReportAssembly, path: Path, *, overwrite: bool) -> None:
     mode = "w" if overwrite else "x"
     with path.open(mode, encoding="utf-8") as output:
         _ = output.write(f"{report_json(report)}\n")

@@ -7,13 +7,9 @@ from typing import Literal, cast
 from galley.document.canonical import document_author, document_title
 from galley.locations import display_path
 from galley.report.envelope import (
-    Report,
+    ReportAssembly,
     ReportCommand,
     ReportRun,
-    completed_report,
-    replace_refusal,
-    with_dependency,
-    with_facts,
 )
 from galley.report.quantities import quantity
 from galley.sources import ARTICLE_URL, MARKDOWN, SourceKind
@@ -39,10 +35,10 @@ def inspect_source(profile: dict[str, object], source: str, *, run: ReportRun) -
 
     routed = routed_source(profile, source, run=run, command="inspect")
     if not isinstance(routed, SourceKind):
-        return Inspection(routed)
+        return Inspection(routed).complete()
     if routed.id == ARTICLE_URL:
-        return inspect_article(profile, source, run=run)
-    return inspect_markdown(profile, Path(source), run=run)
+        return inspect_article(profile, source, run=run).complete()
+    return inspect_markdown(profile, Path(source), run=run).complete()
 
 
 def inspect_markdown(profile: dict[str, object], source: Path, *, run: ReportRun) -> Inspection:
@@ -63,7 +59,7 @@ def read_markdown(
 
     display = display_path(source)
     facts: dict[str, object] = {"kind": MARKDOWN, "path": display}
-    report = with_facts(completed_report(command, profile, run=run), "source", facts)
+    report = ReportAssembly.completed(command, profile, run=run).add_facts("source", facts)
     try:
         raw = source.read_bytes()
     except OSError as error:
@@ -73,7 +69,7 @@ def read_markdown(
         "byte_size": quantity(len(raw), "bytes"),
         "sha256": sha256(raw).hexdigest(),
     }
-    report = with_facts(report, "source", facts)
+    report.add_facts("source", facts)
     try:
         _ = raw.decode(ENCODING)
     except UnicodeDecodeError as error:
@@ -82,15 +78,18 @@ def read_markdown(
 
 
 def _parsed(
-    report: Report, facts: dict[str, object], source: Path, display: str, profile: dict[str, object]
+    report: ReportAssembly,
+    facts: dict[str, object],
+    source: Path,
+    display: str,
+    profile: dict[str, object],
 ) -> Inspection:
     parse = parse_source(source, reader=MARKDOWN_READER)
     if parse.version is not None:
-        report = with_dependency(report, "pandoc", parse.version)
+        report.add_dependency("pandoc", parse.version)
     if parse.ast is None:
         return Inspection(
-            replace_refusal(
-                report,
+            report.refuse(
                 boundary="dependency-unavailable",
                 stage=PARSE_STAGE,
                 summary=f"cannot parse source with Pandoc: {display}",
@@ -99,7 +98,7 @@ def _parsed(
         )
     title, title_source = document_title(parse.ast, fallback=source.stem)
     parsed = {**facts, "encoding": ENCODING, "parser": parser_facts(parse)}
-    report = with_facts(report, "source", parsed)
+    report.add_facts("source", parsed)
     return parsed_inspection(
         report,
         profile,
@@ -111,7 +110,7 @@ def _parsed(
     )
 
 
-def source_digest(report: Report) -> str | None:
+def source_digest(report: ReportAssembly) -> str | None:
     """Read the digest of the source bytes a Report already recorded when it acquired them."""
 
     facts = report["source"]
@@ -121,9 +120,10 @@ def source_digest(report: Report) -> str | None:
     return stated if isinstance(stated, str) else None
 
 
-def _unreadable(report: Report, path: str, reason: UnreadableReason, detail: str) -> Report:
-    return replace_refusal(
-        report,
+def _unreadable(
+    report: ReportAssembly, path: str, reason: UnreadableReason, detail: str
+) -> ReportAssembly:
+    return report.refuse(
         boundary="unreadable-source",
         stage=ACQUISITION_STAGE,
         summary=f"cannot read source: {path}",

@@ -28,7 +28,6 @@ from galley.images.resources import ResourceOrigin
 from galley.locations import display_path
 from galley.observations import merged_observations
 from galley.output.publication import Collision, Destination, stage
-from galley.report.envelope import with_facts
 from galley.document.canonical import canonical_digest
 from galley.tools.packaging import BookMetadata, artifact_identifier, package_epub3
 from galley.transforms.raw_html import malformed_documents
@@ -131,8 +130,7 @@ def packaged(
             expected_missing,
             discarded=inspection.discards,
         )
-        report = with_facts(
-            report,
+        report = report.add_facts(
             "artifact",
             {**artifact, "text_preservation": preservation.facts},
         )

@@ -15,13 +15,9 @@ from galley.document.canonical import EXTRACTION_TITLE
 from galley.document.extraction import assess_extraction
 from galley.document.preservation import count_words
 from galley.report.envelope import (
-    Report,
+    ReportAssembly,
     ReportCommand,
     ReportRun,
-    completed_report,
-    replace_refusal,
-    with_dependency,
-    with_facts,
 )
 from galley.report.quantities import quantity
 from galley.sources import ARTICLE_URL
@@ -63,8 +59,8 @@ def read_article(
     so retrieval and extraction happen exactly once per run.
     """
 
-    report = with_facts(
-        completed_report(command, profile, run=run), "source", {"kind": ARTICLE_URL, "url": url}
+    report = ReportAssembly.completed(command, profile, run=run).add_facts(
+        "source", {"kind": ARTICLE_URL, "url": url}
     )
     with TemporaryDirectory() as workspace:
         extraction = extract_url(url, Path(workspace))
@@ -73,7 +69,7 @@ def read_article(
             return Inspection(_unextractable(report, extraction))
         recovery = recover_apparatus(extraction.content)
         recovery, parse = _settled(recovery, extraction.content, Path(workspace))
-        report = with_facts(report, "extraction", _extraction_facts(extraction, recovery))
+        report.add_facts("extraction", _extraction_facts(extraction, recovery))
         return _parsed(report, profile, extraction, recovery, parse)
 
 
@@ -117,7 +113,7 @@ def _extraction_facts(
 
 
 def _parsed(
-    report: Report,
+    report: ReportAssembly,
     profile: dict[str, object],
     extraction: Extraction,
     recovery: Recovery,
@@ -131,11 +127,10 @@ def _parsed(
     """
 
     if parse.version is not None:
-        report = with_dependency(report, "pandoc", parse.version)
+        report.add_dependency("pandoc", parse.version)
     if parse.ast is None:
         return Inspection(
-            replace_refusal(
-                report,
+            report.refuse(
                 boundary=UNAVAILABLE,
                 stage=PARSE_STAGE,
                 summary=f"cannot parse extracted content with Pandoc: {extraction.url}",
@@ -149,7 +144,7 @@ def _parsed(
         "parser": parser_facts(parse),
     }
     inspection = parsed_inspection(
-        with_facts(report, "source", source),
+        report.add_facts("source", source),
         profile,
         parse,
         title=extraction.title or UNTITLED,
@@ -178,15 +173,13 @@ def _assessed(inspection: Inspection, extraction: Extraction, recovery: Recovery
     """
 
     words = count_words(inspection.baseline or "")
-    report = with_facts(
-        inspection.report,
+    report = inspection.report.add_facts(
         "extraction",
         _extraction_facts(extraction, recovery, words, inspection.baseline),
     )
     failure = assess_extraction(words, cast(str, extraction.extractor["status"]))
     if failure.inferred:
-        report = replace_refusal(
-            report,
+        report = report.refuse(
             boundary="extraction-failure",
             stage=ASSESSMENT_STAGE,
             summary=f"{failure.summary}: {extraction.url}",
@@ -207,13 +200,13 @@ def _parse_content(content: str, workspace: Path) -> Parse:
     return parse_source(destination, reader=HTML_READER)
 
 
-def _with_extractor_version(report: Report, extraction: Extraction) -> Report:
+def _with_extractor_version(report: ReportAssembly, extraction: Extraction) -> ReportAssembly:
     if extraction.version is None:
         return report
-    return with_dependency(report, "defuddle", extraction.version)
+    return report.add_dependency("defuddle", extraction.version)
 
 
-def _unextractable(report: Report, extraction: Extraction) -> Report:
+def _unextractable(report: ReportAssembly, extraction: Extraction) -> ReportAssembly:
     """Refuse a retrieval or process failure as the kind of tool failure it actually is.
 
     These two boundaries answer different questions. A dependency that is absent or not runnable
@@ -225,8 +218,7 @@ def _unextractable(report: Report, extraction: Extraction) -> Report:
     differently and reaches the parse as an empty extraction, so neither boundary absorbs it.
     """
 
-    return replace_refusal(
-        report,
+    return report.refuse(
         boundary=_boundary(extraction),
         stage=EXTRACTION_STAGE,
         summary=f"cannot extract Article-Like Page with Defuddle: {extraction.url}",

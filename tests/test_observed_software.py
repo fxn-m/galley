@@ -2,12 +2,12 @@ from copy import deepcopy
 from typing import cast
 
 from galley.profile.loading import load_profile
-from galley.report.envelope import completed_report
+from galley.report.envelope import ReportAssembly
 from galley.report.render import render_report
 
 
 def test_a_resolved_report_names_observed_reader_software_generically() -> None:
-    report = completed_report("inspect", load_profile("x4-crosspoint"))
+    report = ReportAssembly.completed("inspect", load_profile("x4-crosspoint"))
 
     assert report["profile"] == {
         "id": "x4-crosspoint",
@@ -35,7 +35,7 @@ def test_an_application_report_carries_its_operating_system_without_firmware_lan
         "queued_changes": [],
     }
 
-    report = completed_report("inspect", profile)
+    report = ReportAssembly.completed("inspect", profile)
 
     observed = cast(
         dict[str, object], cast(dict[str, object], report["profile"])["observed_software"]

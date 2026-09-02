@@ -17,7 +17,7 @@ from galley.output.evidence import evidence_destinations
 from galley.locations import display_path
 from galley.output.publication import ARTIFACT_STAGE, candidate_path, occupied_fact
 from galley.output.policy import input_collision, output_is_input_report
-from galley.report.envelope import Report, replace_refusal
+from galley.report.envelope import ReportAssembly
 
 EVIDENCE_SUFFIX = ".galley"
 
@@ -35,14 +35,14 @@ def artifact_destinations(output: Path | None) -> list[Path]:
 
 
 def destination_refusal(
-    report: Report,
+    report: ReportAssembly,
     source: Path | None,
     artifact: Sequence[Path],
     evidence: Path | None,
     *,
     overwrite: bool,
     additional_inputs: Sequence[Path] = (),
-) -> Report | None:
+) -> ReportAssembly | None:
     """Refuse an unusable artifact or evidence destination before any expensive work.
 
     Input protection is asked first, so naming an input as the output is refused as exactly
@@ -66,8 +66,7 @@ def destination_refusal(
     taken = next((path for path in owned if path.exists()), None)
     if taken is None:
         return None
-    return replace_refusal(
-        report,
+    return report.refuse(
         boundary="output-exists",
         stage=ARTIFACT_STAGE,
         summary=f"prepared output already exists: {display_path(taken)}",

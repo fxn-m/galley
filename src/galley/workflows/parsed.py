@@ -8,7 +8,7 @@ author and source URL each route establishes for itself are handed in.
 
 from dataclasses import dataclass, field
 from hashlib import sha256
-from typing import cast
+from typing import Self, cast
 
 from galley.document.ast_reading import SourceMeasurement
 from galley.document.baseline import preservation_baseline
@@ -33,7 +33,7 @@ from galley.document.facts import (
 from galley.json_reading import sequence
 from galley.release_data import pinned_pandoc_version
 from galley.profile.compatibility import evaluate_requirements
-from galley.report.envelope import Report, with_evaluation, with_facts, with_warnings
+from galley.report.envelope import ReportAssembly
 from galley.report.quantities import quantity
 from galley.tools.pandoc import DEFAULT_COMMAND, Parse, api_version
 
@@ -46,7 +46,7 @@ WARNING_EVENT = "pandoc-message"
 class Inspection:
     """One inspection: its Report, the evidence a later command may be handed, and its reading."""
 
-    report: Report
+    report: ReportAssembly
     document: dict[str, object] | None = None
     baseline: str | None = None
     reading: SourceMeasurement | None = None
@@ -62,9 +62,15 @@ class Inspection:
     language: DocumentLanguage = DocumentLanguage(UNDETERMINED, DEFAULT_LANGUAGE_SOURCE)
     """The language the artifact will declare, and which of the four places decided it."""
 
+    def complete(self) -> Self:
+        """Validate the final Report when this inspection crosses its workflow seam."""
+
+        self.report.complete()
+        return self
+
 
 def parsed_inspection(
-    report: Report,
+    report: ReportAssembly,
     profile: dict[str, object],
     parse: Parse,
     *,
@@ -93,7 +99,7 @@ def parsed_inspection(
 
 
 def document_inspection(
-    report: Report,
+    report: ReportAssembly,
     profile: dict[str, object],
     document: dict[str, object],
     *,
@@ -122,16 +128,16 @@ def document_inspection(
     # is made, in `artifact.text_preservation`, and that claim only exists once a book is built.
     discards = reader_discards([str(warning.get("detail")) for warning in warnings])
     declared = document_language(ast, stated=language)
-    facts = with_facts(
-        report,
+    report.add_facts(
         "canonical_document",
         {
             **canonical_facts(document, ast, title_source, baseline, segments),
             "reading": reading_facts(reading),
         },
     )
+    report.add_warnings(warnings)
     return Inspection(
-        with_warnings(facts, warnings),
+        report,
         document,
         baseline,
         reading,
@@ -205,12 +211,12 @@ def projected(profile: dict[str, object], inspection: Inspection) -> Inspection:
         return inspection
     ast = cast(dict[str, object], inspection.document["pandoc"])
     reading = inspection.reading
+    inspection.report.add_evaluation(
+        compatibility=evaluate_requirements(profile, source_instruments(profile, reading)),
+        observations=source_observations(profile, ast, reading),
+    )
     return Inspection(
-        with_evaluation(
-            inspection.report,
-            compatibility=evaluate_requirements(profile, source_instruments(profile, reading)),
-            observations=source_observations(profile, ast, reading),
-        ),
+        inspection.report,
         inspection.document,
         inspection.baseline,
         reading,

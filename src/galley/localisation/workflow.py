@@ -29,7 +29,7 @@ from galley.localisation.repair_set import RepairSet, unusable_directory, write_
 from galley.localisation.retrieval import retrieval, unretrieved
 from galley.locations import display_path
 from galley.profile.loading import list_profiles
-from galley.report.envelope import Report, ReportRun, finish_report
+from galley.report.envelope import ReportAssembly, ReportRun
 from galley.sources import MARKDOWN, accepted_routes, classify
 from galley.tools.fetching import PUBLIC_ONLY, Addresses
 from galley.workflows.inspect import read_markdown, source_digest
@@ -180,7 +180,7 @@ def _retrieved(
     localising: _Localising,
     selected: list[Reference],
     *,
-    inspection: Report,
+    inspection: ReportAssembly,
     document: dict[str, object],
     baseline: str,
 ) -> CommandDocument:
@@ -199,14 +199,17 @@ def _retrieved(
 
 
 def _repair_set(
-    localising: _Localising, inspection: Report, document: dict[str, object], baseline: str
+    localising: _Localising,
+    inspection: ReportAssembly,
+    document: dict[str, object],
+    baseline: str,
 ) -> RepairSet:
     """Assemble the Repair Inputs and the images, each locator pointing at its own bytes."""
 
     retrieved = [attempt for attempt in localising.retrievals if attempt.retrieved]
     return RepairSet(
         directory=localising.evidence,
-        report=finish_report(inspection, localising.run),
+        report=inspection.finish(),
         document=localised_document(
             document,
             {attempt.reference.locator: attempt.path(localising.evidence) for attempt in retrieved},
@@ -216,7 +219,7 @@ def _repair_set(
     )
 
 
-def _inherited(report: Report) -> LocalisationRefusal:
+def _inherited(report: ReportAssembly) -> LocalisationRefusal:
     """Restate the boundary the source read stopped at, rather than inventing one of its own."""
 
     stated = mapping(report.get("refusal"))

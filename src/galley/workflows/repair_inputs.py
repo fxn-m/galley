@@ -18,7 +18,7 @@ from jsonschema.exceptions import ValidationError
 from galley.document.canonical import TitleSource, validate_canonical_document
 from galley.json_reading import mapping, text
 from galley.locations import display_path
-from galley.report.envelope import Report, replace_refusal, validate_report
+from galley.report.envelope import ReportAssembly, validate_report
 from galley.sources import MARKDOWN
 from galley.tools.pandoc import api_version
 
@@ -92,12 +92,12 @@ def command_inputs(
 class Refusal:
     """One refusal on its way out of a helper that otherwise returns a parsed JSON object."""
 
-    report: Report
+    report: ReportAssembly
 
 
 def read_inputs(
-    report: Report, inputs: RepairInputs
-) -> tuple[dict[str, object], dict[str, object], str] | Report:
+    report: ReportAssembly, inputs: RepairInputs
+) -> tuple[dict[str, object], dict[str, object], str] | ReportAssembly:
     """Read and schema-validate all three inputs before any of them is used for anything."""
 
     texts: list[str] = []
@@ -122,7 +122,7 @@ def read_inputs(
 
 
 def _document(
-    report: Report,
+    report: ReportAssembly,
     path: Path,
     name: str,
     payload: str,
@@ -225,8 +225,8 @@ def mismatch_reason(
 
 
 def accepted_title_source(
-    report: Report, inputs: RepairInputs, inspection: dict[str, object]
-) -> TitleSource | Report:
+    report: ReportAssembly, inputs: RepairInputs, inspection: dict[str, object]
+) -> TitleSource | ReportAssembly:
     """Take the inspection's title source, or refuse a value Galley would never have written.
 
     Nothing downstream reads it, which is exactly why it needs checking here: an unread string
@@ -267,19 +267,28 @@ def file_digest(path: Path) -> str:
     return sha256(path.read_bytes()).hexdigest()
 
 
-def _unreadable(report: Report, path: Path, name: str, reason: str, detail: str) -> Report:
+def _unreadable(
+    report: ReportAssembly, path: Path, name: str, reason: str, detail: str
+) -> ReportAssembly:
     return _refused(report, UNREADABLE, path, name, reason, detail, "cannot read")
 
 
-def _invalid(report: Report, path: Path, name: str, reason: str, detail: str) -> Report:
+def _invalid(
+    report: ReportAssembly, path: Path, name: str, reason: str, detail: str
+) -> ReportAssembly:
     return _refused(report, INVALID, path, name, reason, detail, "cannot use")
 
 
 def _refused(
-    report: Report, boundary: str, path: Path, name: str, reason: str, detail: str, verb: str
-) -> Report:
-    return replace_refusal(
-        report,
+    report: ReportAssembly,
+    boundary: str,
+    path: Path,
+    name: str,
+    reason: str,
+    detail: str,
+    verb: str,
+) -> ReportAssembly:
+    return report.refuse(
         boundary=boundary,
         stage=REPAIR_STAGE,
         summary=f"{verb} the supplied {name}: {detail}",

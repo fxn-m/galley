@@ -15,7 +15,7 @@ from galley.workflows.inspect import Inspection
 from galley.locations import display_path
 from galley.tools.packaging import PACKAGING_STAGE, Packaging
 from galley.output.publication import ARTIFACT_STAGE, Collision, Publication
-from galley.report.envelope import Report, replace_refusal
+from galley.report.envelope import ReportAssembly
 from galley.document.preservation import TextPreservation
 from galley.transforms.working_copy import WorkingCopy
 
@@ -29,7 +29,7 @@ WELL_FORMEDNESS_STAGE = "artifact-well-formedness"
 class Preparation:
     """One preparation: its Report, the evidence it retained, and the EPUB it may publish."""
 
-    report: Report
+    report: ReportAssembly
     document: dict[str, object] | None = None
     baseline: str | None = None
     extraction: str | None = None
@@ -45,13 +45,19 @@ class Preparation:
     previews: dict[str, bytes] = field(default_factory=dict[str, bytes])
     """Deterministic image previews, which a refused run retains as diagnostic evidence too."""
 
+    def __post_init__(self) -> None:
+        """Validate the final Report when a preparation crosses its workflow seam."""
 
-def packaging_refused(report: Report, inspection: Inspection, packaging: Packaging) -> Preparation:
+        self.report.complete()
+
+
+def packaging_refused(
+    report: ReportAssembly, inspection: Inspection, packaging: Packaging
+) -> Preparation:
     """Refuse a candidate Pandoc never produced, keeping every fact gathered before it."""
 
     return Preparation(
-        replace_refusal(
-            report,
+        report.refuse(
             boundary="packaging-failure",
             stage=PACKAGING_STAGE,
             summary=f"cannot package the Canonical Document as EPUB3: {packaging.detail}",
@@ -86,7 +92,7 @@ def images_unprepared(inspection: Inspection, copy: WorkingCopy) -> Preparation:
 
 
 def images_unpreserved(
-    report: Report,
+    report: ReportAssembly,
     inspection: Inspection,
     lost: dict[str, object],
     previews: dict[str, bytes],
@@ -104,7 +110,7 @@ def images_unpreserved(
 
 
 def compatibility_refused(
-    report: Report,
+    report: ReportAssembly,
     inspection: Inspection,
     previews: dict[str, bytes],
 ) -> Preparation | None:
@@ -120,8 +126,7 @@ def compatibility_refused(
         return None
     identifiers = ", ".join(str(verdict["requirement_id"]) for verdict in refusing_verdicts)
     return Preparation(
-        replace_refusal(
-            report,
+        report.refuse(
             boundary="compatibility",
             stage=COMPATIBILITY_STAGE,
             summary=f"the built artifact does not meet Compatibility Requirements: {identifiers}",
@@ -136,7 +141,7 @@ def compatibility_refused(
 
 
 def content_malformed(
-    report: Report,
+    report: ReportAssembly,
     inspection: Inspection,
     malformed: list[str],
     previews: dict[str, bytes],
@@ -151,8 +156,7 @@ def content_malformed(
     """
 
     return Preparation(
-        replace_refusal(
-            report,
+        report.refuse(
             boundary="malformed-content-document",
             stage=WELL_FORMEDNESS_STAGE,
             summary=(
@@ -170,7 +174,7 @@ def content_malformed(
 
 
 def text_unpreserved(
-    report: Report,
+    report: ReportAssembly,
     inspection: Inspection,
     preservation: TextPreservation,
     previews: dict[str, bytes],
@@ -180,8 +184,7 @@ def text_unpreserved(
     missing = preservation.unexpected_facts
     identifiers = ", ".join(str(entry["token"]) for entry in missing)
     return Preparation(
-        replace_refusal(
-            report,
+        report.refuse(
             boundary="text-preservation",
             stage=TEXT_PRESERVATION_STAGE,
             summary=f"the built artifact unexpectedly lost baseline tokens: {identifiers}",
@@ -196,7 +199,7 @@ def text_unpreserved(
 
 
 def notes_mismatched(
-    report: Report,
+    report: ReportAssembly,
     inspection: Inspection,
     mismatch: dict[str, object],
     previews: dict[str, bytes],
@@ -209,8 +212,7 @@ def notes_mismatched(
     """
 
     return Preparation(
-        replace_refusal(
-            report,
+        report.refuse(
             boundary="note-representation-mismatch",
             stage=NOTE_STAGE,
             summary=(
@@ -228,7 +230,10 @@ def notes_mismatched(
 
 
 def candidate_unreadable(
-    report: Report, inspection: Inspection, publication: Publication, assessed: Unreadable
+    report: ReportAssembly,
+    inspection: Inspection,
+    publication: Publication,
+    assessed: Unreadable,
 ) -> Preparation:
     """Refuse a candidate the audit workflow could not read, and publish nothing."""
 
@@ -241,7 +246,9 @@ def candidate_unreadable(
     )
 
 
-def artifact_collided(report: Report, inspection: Inspection, collision: Collision) -> Preparation:
+def artifact_collided(
+    report: ReportAssembly, inspection: Inspection, collision: Collision
+) -> Preparation:
     """Refuse rather than replace a published Ready Artifact holding different bytes.
 
     A Ready Artifact is immutable, and the hash-suffixed name is the last name available, so a
@@ -251,8 +258,7 @@ def artifact_collided(report: Report, inspection: Inspection, collision: Collisi
     """
 
     return Preparation(
-        replace_refusal(
-            report,
+        report.refuse(
             boundary="ready-artifact-collision",
             stage=ARTIFACT_STAGE,
             summary=(

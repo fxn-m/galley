@@ -36,16 +36,101 @@ class ReportRun:
 REPORT_SCHEMA, REPORT_VALIDATOR = load_schema("report.json")
 
 
-def with_dependency(report: Report, name: str, version: str) -> Report:
-    """Return the Report with one dependency version recorded in its envelope."""
+class ReportAssembly(dict[str, object]):
+    """Accumulate one run's Report behind a small construction interface."""
 
-    validate_report(report)
-    updated = deepcopy(report)
-    galley = cast(dict[str, object], updated["galley"])
-    dependencies = cast(dict[str, str], galley["dependencies"])
-    dependencies[name] = version
-    validate_report(updated)
-    return updated
+    def __init__(self, report: Report, run: ReportRun) -> None:
+        super().__init__(report)
+        self._run = run
+        self._validated_payload: str | None = None
+
+    @classmethod
+    def completed(
+        cls,
+        command: ReportCommand,
+        profile: dict[str, object],
+        *,
+        run: ReportRun | None = None,
+    ) -> Self:
+        """Begin a Report for a workflow whose Device Profile resolved."""
+
+        active_run = run or ReportRun.start()
+        return cls(_envelope(command, resolved_profile_facts(profile), active_run), active_run)
+
+    def add_facts(self, category: FactCategory, facts: dict[str, object]) -> Self:
+        """Replace one fact category without validating an intentionally partial Report."""
+
+        self[category] = deepcopy(facts)
+        return self
+
+    def add_dependency(self, name: str, version: str) -> Self:
+        """Record one dependency version in insertion order."""
+
+        galley = cast(dict[str, object], self["galley"])
+        dependencies = cast(dict[str, str], galley["dependencies"])
+        dependencies[name] = version
+        return self
+
+    def add_evaluation(
+        self,
+        *,
+        compatibility: list[dict[str, object]],
+        observations: list[dict[str, object]],
+    ) -> Self:
+        """Replace the profile joins as one ordered observation."""
+
+        self["compatibility"] = deepcopy(compatibility)
+        self["observations"] = deepcopy(observations)
+        return self
+
+    def add_warnings(self, warnings: list[dict[str, object]]) -> Self:
+        """Replace construction events while preserving their observed order."""
+
+        self["warnings"] = deepcopy(warnings)
+        return self
+
+    def complete(self) -> Self:
+        """Validate the complete Report at a workflow's public seam."""
+
+        validate_report(self)
+        return self
+
+    def finish(self) -> Self:
+        """Update timing and validate immediately before public emission."""
+
+        self.complete()
+        finished = type(self)(deepcopy(dict(self)), self._run)
+        _set_timing(finished, self._run)
+        return finished.complete()
+
+    def validation_is_current(self, payload: str) -> bool:
+        """Say whether this exact nested state already passed the complete schema."""
+
+        return self._validated_payload == payload
+
+    def remember_validation(self, payload: str | None) -> None:
+        """Remember the exact nested state accepted by the complete schema."""
+
+        self._validated_payload = payload
+
+    def refuse(
+        self,
+        *,
+        boundary: str,
+        stage: str,
+        summary: str,
+        fact: dict[str, object],
+        basis: dict[str, object] | None = None,
+    ) -> Self:
+        """Return a validated refusal without changing the accumulated completed path."""
+
+        refused = type(self)(deepcopy(dict(self)), self._run)
+        command = cast(str, cast(dict[str, object], refused["galley"])["command"])
+        refused["outcome"] = "refused"
+        refused["refusal"] = _refusal(
+            command, boundary, stage, summary, deepcopy(fact), deepcopy(basis)
+        )
+        return refused.complete()
 
 
 def resolved_profile_facts(profile: dict[str, object]) -> dict[str, object]:
@@ -72,117 +157,25 @@ def unresolved_profile_facts(requested: str) -> dict[str, object]:
     }
 
 
-def completed_report(
-    command: ReportCommand,
-    profile: dict[str, object],
-    *,
-    run: ReportRun | None = None,
-) -> Report:
-    """Create the canonical envelope for a workflow that reached its end."""
-
-    report = _envelope(command, resolved_profile_facts(profile), run or ReportRun.start())
-    validate_report(report)
-    return report
-
-
 def unknown_profile_report(
     command: ReportCommand,
     requested: str,
     known_profiles: list[str],
     *,
     run: ReportRun | None = None,
-) -> Report:
+) -> ReportAssembly:
     """Create a refused Report without reading the workflow subject."""
 
-    return refused_report(
-        command,
-        requested,
+    active_run = run or ReportRun.start()
+    report = ReportAssembly(
+        _envelope(command, unresolved_profile_facts(requested), active_run), active_run
+    )
+    return report.refuse(
         boundary="unknown-profile",
         stage="profile-resolution",
         summary=f"unknown Device Profile: {requested}",
         fact={"requested": requested, "known_profiles": known_profiles},
-        run=run,
     )
-
-
-def refused_report(
-    command: ReportCommand,
-    requested: str,
-    *,
-    boundary: str,
-    stage: str,
-    summary: str,
-    fact: dict[str, object],
-    run: ReportRun | None = None,
-) -> Report:
-    """Create the complete canonical envelope for an early refusal."""
-
-    report = _envelope(command, unresolved_profile_facts(requested), run or ReportRun.start())
-    report["outcome"] = "refused"
-    report["refusal"] = _refusal(command, boundary, stage, summary, fact)
-    validate_report(report)
-    return report
-
-
-def with_evaluation(
-    report: Report,
-    *,
-    compatibility: list[dict[str, object]],
-    observations: list[dict[str, object]],
-) -> Report:
-    """Return the Report with profile Requirement Verdicts and observations joined in."""
-
-    validate_report(report)
-    updated = deepcopy(report)
-    updated["compatibility"] = compatibility
-    updated["observations"] = observations
-    validate_report(updated)
-    return updated
-
-
-def with_warnings(report: Report, warnings: list[dict[str, object]]) -> Report:
-    """Return the Report carrying only construction events that left no recomputable trace."""
-
-    validate_report(report)
-    updated = deepcopy(report)
-    updated["warnings"] = warnings
-    validate_report(updated)
-    return updated
-
-
-def with_facts(report: Report, category: FactCategory, facts: dict[str, object]) -> Report:
-    """Return the Report with one fact category replaced by measured facts."""
-
-    validate_report(report)
-    updated = deepcopy(report)
-    updated[category] = facts
-    validate_report(updated)
-    return updated
-
-
-def replace_refusal(
-    report: Report,
-    *,
-    boundary: str,
-    stage: str,
-    summary: str,
-    fact: dict[str, object],
-    basis: dict[str, object] | None = None,
-) -> Report:
-    """Replace only refusal state while retaining every accumulated fact.
-
-    A refusal Galley inferred rather than observed carries its basis. The threshold and the
-    documents behind it travel with the refusal, so an agent can weigh an inference without
-    reading Galley's source.
-    """
-
-    validate_report(report)
-    command = cast(str, cast(dict[str, object], report["galley"])["command"])
-    refused = deepcopy(report)
-    refused["outcome"] = "refused"
-    refused["refusal"] = _refusal(command, boundary, stage, summary, fact, basis)
-    validate_report(refused)
-    return refused
 
 
 def _refusal(
@@ -207,7 +200,25 @@ def _refusal(
 def validate_report(report: Report) -> None:
     """Reject any object outside the canonical Report schema."""
 
+    payload = _validation_payload(report)
+    if (
+        payload is not None
+        and isinstance(report, ReportAssembly)
+        and report.validation_is_current(payload)
+    ):
+        return
     REPORT_VALIDATOR.validate(report)
+    if isinstance(report, ReportAssembly):
+        report.remember_validation(payload)
+
+
+def _validation_payload(report: Report) -> str | None:
+    """Fingerprint nested Report state so unchanged public crossings reuse validation."""
+
+    try:
+        return json.dumps(report, sort_keys=True, separators=(",", ":"))
+    except TypeError, ValueError:
+        return None
 
 
 def report_json(report: Report) -> str:
@@ -217,14 +228,11 @@ def report_json(report: Report) -> str:
     return json.dumps(report, indent=2, sort_keys=True)
 
 
-def finish_report(report: Report, run: ReportRun) -> Report:
-    finalized = deepcopy(report)
-    galley = cast(dict[str, object], finalized["galley"])
+def _set_timing(report: Report, run: ReportRun) -> None:
+    galley = cast(dict[str, object], report["galley"])
     finished_at, duration_ms = _finish_timing(run)
     galley["finished_at"] = timestamp(finished_at)
     galley["duration_ms"] = duration_ms
-    validate_report(finalized)
-    return finalized
 
 
 def _envelope(command: ReportCommand, profile: dict[str, object], run: ReportRun) -> Report:

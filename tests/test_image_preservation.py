@@ -12,7 +12,7 @@ from galley.images.preparation import ImagePreparation, ImageReference
 from galley.images.records import image_mismatch, preservation_refusal
 from galley.images.resources import NORMALISED, Packaged, PackagedResource
 from galley.images.measurement import ImageMeasurement
-from galley.report.envelope import completed_report
+from galley.report.envelope import ReportAssembly
 from galley.profile.loading import load_profile
 
 PROFILE = load_profile("x4-crosspoint")
@@ -102,7 +102,7 @@ def test_the_refusal_names_every_reference_the_book_does_not_carry() -> None:
     )
     mismatch: Any = image_mismatch(artifact(resource("one")), preparation)
 
-    refused = preservation_refusal(completed_report("prepare", PROFILE), mismatch)
+    refused = preservation_refusal(ReportAssembly.completed("prepare", PROFILE), mismatch)
 
     refusal: Any = refused["refusal"]
     assert refused["outcome"] == "refused"

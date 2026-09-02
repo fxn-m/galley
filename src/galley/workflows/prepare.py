@@ -20,7 +20,7 @@ from galley.images.resources import ResourceOrigin
 from galley.locations import display_path
 from galley.output.destinations import destination_refusal
 from galley.output.publication import Destination
-from galley.report.envelope import Report, ReportRun, completed_report, replace_refusal, with_facts
+from galley.report.envelope import ReportAssembly, ReportRun
 from galley.sources import ARTICLE_URL, MARKDOWN, SourceKind, local_path
 from galley.workflows.article import read_article
 from galley.workflows.inspect import ACQUISITION_STAGE, read_markdown, source_digest
@@ -57,7 +57,7 @@ def prepare_source(
     routed = routed_source(profile, source, run=run, command="prepare")
     if not isinstance(routed, SourceKind):
         return Preparation(routed)
-    report = completed_report("prepare", profile, run=run)
+    report = ReportAssembly.completed("prepare", profile, run=run)
     refusal = destination_refusal(
         report,
         local_path(source),
@@ -71,8 +71,7 @@ def prepare_source(
     expected = read_expected_missing(expected_missing_tokens)
     if expected.tokens is None:
         return Preparation(
-            replace_refusal(
-                report,
+            report.refuse(
                 boundary="invalid-text-preservation-input",
                 stage="text-preservation",
                 summary=f"cannot read expected missing tokens: {expected.detail}",
@@ -131,7 +130,7 @@ def prepare_repaired(
     made to prove it came from this source — so this route has nothing of its own to decide.
     """
 
-    report = completed_report("prepare", profile, run=run)
+    report = ReportAssembly.completed("prepare", profile, run=run)
     accepted = accepted_repair(report, repair, profile=profile, source=source, kind=kind)
     if not isinstance(accepted, Repair):
         return Preparation(accepted)
@@ -222,7 +221,7 @@ def prepare_markdown(
 
 def _expected(
     profile: dict[str, object], source: Path, expected: str | None, *, run: ReportRun
-) -> Report | None:
+) -> ReportAssembly | None:
     """Refuse before reading when the source no longer holds the bytes the agent observed.
 
     A source that cannot be hashed at all is passed through rather than refused here. It has no
@@ -237,13 +236,11 @@ def _expected(
     if observed is None or observed == expected:
         return None
     display = display_path(source)
-    report = with_facts(
-        completed_report("prepare", profile, run=run),
+    report = ReportAssembly.completed("prepare", profile, run=run).add_facts(
         "source",
         {"kind": MARKDOWN, "path": display, "sha256": observed},
     )
-    return replace_refusal(
-        report,
+    return report.refuse(
         boundary="source-hash-mismatch",
         stage=ACQUISITION_STAGE,
         summary=f"source no longer matches the observed hash: {display}",
@@ -251,12 +248,13 @@ def _expected(
     )
 
 
-def _changed(report: Report, source: Path, acquired: str | None, current: str | None) -> Report:
+def _changed(
+    report: ReportAssembly, source: Path, acquired: str | None, current: str | None
+) -> ReportAssembly:
     """Refuse a source whose bytes changed while Galley was reading them."""
 
     display = display_path(source)
-    return replace_refusal(
-        report,
+    return report.refuse(
         boundary="source-changed-during-read",
         stage=ACQUISITION_STAGE,
         summary=f"source bytes changed while they were being read: {display}",
@@ -268,11 +266,12 @@ def _changed(report: Report, source: Path, acquired: str | None, current: str | 
     )
 
 
-def _no_source_bytes(report: Report, source: str, kind: SourceKind, expected: str | None) -> Report:
+def _no_source_bytes(
+    report: ReportAssembly, source: str, kind: SourceKind, expected: str | None
+) -> ReportAssembly:
     """Refuse an expected source hash for a source that has no local bytes to compare."""
 
-    return replace_refusal(
-        report,
+    return report.refuse(
         boundary="expected-hash-unavailable",
         stage=ACQUISITION_STAGE,
         summary=f"an expected source hash needs local source bytes: {kind.statement}",

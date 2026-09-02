@@ -8,11 +8,9 @@ classification itself.
 
 from galley.profile.loading import list_profiles
 from galley.report.envelope import (
-    Report,
+    ReportAssembly,
     ReportCommand,
     ReportRun,
-    completed_report,
-    replace_refusal,
     unknown_profile_report,
 )
 from galley.sources import SourceKind, accepted_routes, classify
@@ -22,7 +20,7 @@ CLASSIFICATION_STAGE = "source-classification"
 
 def routed_source(
     profile: dict[str, object], source: str, *, run: ReportRun, command: ReportCommand
-) -> SourceKind | Report:
+) -> SourceKind | ReportAssembly:
     """Classify one named source, or return the refusal Report for a kind 0.1.0 does not read."""
 
     kind = classify(source)
@@ -31,7 +29,7 @@ def routed_source(
     return kind
 
 
-def unknown_profile(command: ReportCommand, requested: str, *, run: ReportRun) -> Report:
+def unknown_profile(command: ReportCommand, requested: str, *, run: ReportRun) -> ReportAssembly:
     """Refuse an unknown Device Profile, naming the profiles that exist."""
 
     known = [str(profile["id"]) for profile in list_profiles()]
@@ -45,15 +43,14 @@ def unsupported_report(
     *,
     run: ReportRun,
     command: ReportCommand,
-) -> Report:
+) -> ReportAssembly:
     """Refuse a source kind 0.1.0 does not read, naming the routes it does.
 
     The Device Profile resolved; only the source did not. Its facts stay in the Report so an
     agent can tell this refusal from an unknown profile without reading the boundary.
     """
 
-    return replace_refusal(
-        completed_report(command, profile, run=run),
+    return ReportAssembly.completed(command, profile, run=run).refuse(
         boundary="unsupported-source-kind",
         stage=CLASSIFICATION_STAGE,
         summary=f"unsupported source kind: {kind.statement} ({source})",

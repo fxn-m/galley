@@ -43,7 +43,7 @@ from galley.tools.packaging import (
     ast_digest,
 )
 from galley.profile.loading import activation, enforced_limit
-from galley.report.envelope import Report, with_facts
+from galley.report.envelope import ReportAssembly
 from galley.report.quantities import quantity
 from galley.document.canonical import DocumentLanguage
 from galley.transforms.metadata import TOC_DEPTH, metadata_transforms, navigation_transform
@@ -217,20 +217,19 @@ def toc_depth(profile: dict[str, object]) -> int | None:
 
 
 def preparation_facts(
-    report: Report,
+    report: ReportAssembly,
     document: dict[str, object],
     packaging: Packaging,
     profile: dict[str, object],
     depth: int | None,
     copy: WorkingCopy,
     language: DocumentLanguage,
-) -> Report:
+) -> ReportAssembly:
     """Record what preparation did to the Canonical Document, and what packaged it."""
 
     canonical = cast(dict[str, object], report["canonical_document"])
     retained = ast_digest(cast(dict[str, object], document["pandoc"]))
-    return with_facts(
-        image_dependencies(report, copy.images),
+    return image_dependencies(report, copy.images).add_facts(
         "preparation",
         {
             "canonical_document": {
@@ -256,11 +255,11 @@ def preparation_facts(
 
 
 def published_images(
-    report: Report,
+    report: ReportAssembly,
     copy: WorkingCopy,
     facts: dict[str, object],
     previews: dict[str, dict[str, str]],
-) -> Report:
+) -> ReportAssembly:
     """Join each prepared image to the resource the measured book actually carries.
 
     Preparation states what it packaged and `audit` states what the archive holds; neither is
@@ -270,4 +269,4 @@ def published_images(
 
     preparation = cast(dict[str, object], report["preparation"])
     joined = image_records(copy.images, facts, previews)
-    return with_facts(report, "preparation", {**preparation, "images": joined})
+    return report.add_facts("preparation", {**preparation, "images": joined})

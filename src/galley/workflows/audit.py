@@ -24,13 +24,8 @@ from galley.epub.text import visible_spine_segments
 from galley.locations import display_path
 from galley.observations import merged_observations
 from galley.report.envelope import (
-    Report,
+    ReportAssembly,
     ReportRun,
-    completed_report,
-    replace_refusal,
-    with_dependency,
-    with_evaluation,
-    with_facts,
 )
 from galley.report.quantities import quantity
 
@@ -58,30 +53,36 @@ class ArtifactAssessment:
     epubcheck_version: str | None = None
 
 
-def audit_report(profile: dict[str, object], subject: Path, *, run: ReportRun) -> Report:
+def audit_report(profile: dict[str, object], subject: Path, *, run: ReportRun) -> ReportAssembly:
     """Assess one EPUB read-only and return the canonical audit Report."""
 
     display = display_path(subject)
-    report = with_facts(completed_report("audit", profile, run=run), "artifact", {"path": display})
+    report = ReportAssembly.completed("audit", profile, run=run).add_facts(
+        "artifact", {"path": display}
+    )
     assessed = assess_artifact(profile, subject, display=display)
     if isinstance(assessed, Unreadable):
         return unreadable_artifact(report, display, assessed)
-    return with_assessment(report, assessed)
+    return with_assessment(report, assessed).complete()
 
 
-def unreadable_artifact(report: Report, display: str, unreadable: Unreadable) -> Report:
+def unreadable_artifact(
+    report: ReportAssembly, display: str, unreadable: Unreadable
+) -> ReportAssembly:
     """Refuse an EPUB that could not be read, keeping whatever was measured before it stopped."""
 
-    kept = report if unreadable.facts is None else with_facts(report, "artifact", unreadable.facts)
+    kept = report
+    if unreadable.facts is not None:
+        kept.add_facts("artifact", unreadable.facts)
     return _unreadable(kept, display, unreadable.reason, unreadable.detail)
 
 
 def with_assessment(
-    report: Report,
+    report: ReportAssembly,
     assessment: ArtifactAssessment,
     *,
     observations: list[dict[str, object]] | None = None,
-) -> Report:
+) -> ReportAssembly:
     """Join one artifact assessment into whichever command's Report measured it.
 
     `prepare` measures its own candidate through this same workflow, so the artifact facts and
@@ -91,15 +92,14 @@ def with_assessment(
     has only a book, so it keeps the ones the assessment reached.
     """
 
-    joined = with_facts(report, "artifact", assessment.facts)
-    joined = with_evaluation(
-        joined,
+    joined = report.add_facts("artifact", assessment.facts)
+    joined.add_evaluation(
         compatibility=assessment.compatibility,
         observations=assessment.observations if observations is None else observations,
     )
     if assessment.epubcheck_version is None:
         return joined
-    return with_dependency(joined, "epubcheck", assessment.epubcheck_version)
+    return joined.add_dependency("epubcheck", assessment.epubcheck_version)
 
 
 def assess_artifact(
@@ -199,9 +199,10 @@ def _measure(subject: Path) -> tuple[int, str]:
     return byte_size, digest.hexdigest()
 
 
-def _unreadable(report: Report, path: str, reason: UnreadableReason, detail: str) -> Report:
-    return replace_refusal(
-        report,
+def _unreadable(
+    report: ReportAssembly, path: str, reason: UnreadableReason, detail: str
+) -> ReportAssembly:
+    return report.refuse(
         boundary="unreadable-artifact",
         stage="artifact-acquisition",
         summary=f"cannot read EPUB: {path}",

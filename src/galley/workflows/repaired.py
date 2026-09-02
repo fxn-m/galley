@@ -14,7 +14,7 @@ from typing import cast
 from galley.document.canonical import TitleSource, canonical_digest
 from galley.json_reading import integer, mapping, text
 from galley.locations import display_path
-from galley.report.envelope import Report, replace_refusal, with_facts
+from galley.report.envelope import ReportAssembly
 from galley.report.quantities import amount, reported
 from galley.sources import MARKDOWN
 from galley.workflows.parsed import Inspection, document_inspection
@@ -45,13 +45,13 @@ class Repair:
 
 
 def accepted_repair(
-    report: Report,
+    report: ReportAssembly,
     inputs: RepairInputs,
     *,
     profile: dict[str, object],
     source: str,
     kind: str,
-) -> Repair | Report:
+) -> Repair | ReportAssembly:
     """Validate all three Repair Inputs and tie them to this preparation, or refuse saying why.
 
     Every check happens before the document reaches any transform, because a repair that does not
@@ -74,8 +74,7 @@ def accepted_repair(
         observed=observed,
     )
     if mismatch is not None:
-        return replace_refusal(
-            report,
+        return report.refuse(
             boundary=MISMATCH,
             stage=REPAIR_STAGE,
             summary=f"the repair inputs do not describe this preparation: {mismatch['detail']}",
@@ -183,7 +182,9 @@ def _lineage(
     }
 
 
-def repaired_inspection(report: Report, profile: dict[str, object], repair: Repair) -> Inspection:
+def repaired_inspection(
+    report: ReportAssembly, profile: dict[str, object], repair: Repair
+) -> Inspection:
     """Describe one accepted repair the way every other source is described, plus its lineage.
 
     What this run did not do it inherits and marks `reported`; what it did do — reading the
@@ -192,9 +193,9 @@ def repaired_inspection(report: Report, profile: dict[str, object], repair: Repa
     was handed in, and it lands before any transform runs so every later refusal carries it too.
     """
 
-    carried = with_facts(report, "source", {**repair.source, "repair": repair.lineage})
+    carried = report.add_facts("source", {**repair.source, "repair": repair.lineage})
     if repair.extraction is not None:
-        carried = with_facts(carried, "extraction", repair.extraction)
+        carried.add_facts("extraction", repair.extraction)
     return document_inspection(
         carried,
         profile,

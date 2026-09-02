@@ -16,7 +16,7 @@ from galley.images.default_cover import DEFAULT_COVER
 from galley.images.preparation import IMAGE_STAGE, ImagePreparation, ImageReference
 from galley.images.resources import NORMALISED, REASONS
 from galley.images.measurement import measurement_facts
-from galley.report.envelope import Report, replace_refusal, with_dependency
+from galley.report.envelope import ReportAssembly
 from galley.report.quantities import quantity
 
 PRESERVATION_BOUNDARY = "image-preservation"
@@ -34,7 +34,7 @@ UNMAPPED = (
 )
 
 
-def image_refusal(report: Report, preparation: ImagePreparation) -> Report:
+def image_refusal(report: ReportAssembly, preparation: ImagePreparation) -> ReportAssembly:
     """Refuse a book whose images preparation could not carry, naming each one.
 
     Galley refuses rather than dropping the reference: an image the reader cannot see is a silent
@@ -46,8 +46,7 @@ def image_refusal(report: Report, preparation: ImagePreparation) -> Report:
         f"{failure.src} ({REASONS.get(failure.reason, failure.reason)})"
         for failure in preparation.failures
     )
-    return replace_refusal(
-        report,
+    return report.refuse(
         boundary="image-processing-failure",
         stage=IMAGE_STAGE,
         summary=f"cannot prepare every referenced image: {summary}",
@@ -64,7 +63,7 @@ def image_refusal(report: Report, preparation: ImagePreparation) -> Report:
     )
 
 
-def image_dependencies(report: Report, preparation: ImagePreparation) -> Report:
+def image_dependencies(report: ReportAssembly, preparation: ImagePreparation) -> ReportAssembly:
     """Record the exact tools whose output the book carries, and only the ones that ran.
 
     A run that preserved every image ran no encoder, so naming one in the envelope would say
@@ -80,7 +79,7 @@ def image_dependencies(report: Report, preparation: ImagePreparation) -> Report:
         if version is not None:
             versions[str(rendered.get("tool"))] = version
     for name, version in sorted(versions.items()):
-        report = with_dependency(report, name, version)
+        report.add_dependency(name, version)
     return report
 
 
@@ -140,13 +139,12 @@ def image_mismatch(facts: dict[str, object], preparation: ImagePreparation) -> d
     }
 
 
-def preservation_refusal(report: Report, mismatch: dict[str, object]) -> Report:
+def preservation_refusal(report: ReportAssembly, mismatch: dict[str, object]) -> ReportAssembly:
     """Refuse a book that lost an image, naming every reference the archive does not carry."""
 
     unmapped = cast(list[dict[str, object]], mismatch["unmapped"])
     summary = "; ".join(f"{entry['src']} ({entry['reason']})" for entry in unmapped)
-    return replace_refusal(
-        report,
+    return report.refuse(
         boundary=PRESERVATION_BOUNDARY,
         stage=IMAGE_STAGE,
         summary=f"the built book does not carry every image it references: {summary}",
