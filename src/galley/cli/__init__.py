@@ -16,6 +16,7 @@ from galley.cli.profiles import register as register_profiles
 from galley.cli.skills import register as register_skills
 from galley.cli.sources import register as register_sources
 from galley.cli.workspace import register as register_workspace
+from galley.tools.dependencies import invocation
 
 app = typer.Typer(
     help="Prepare content for constrained reading environments.",
@@ -33,6 +34,7 @@ def version_callback(value: bool) -> None:
 
 @app.callback()
 def root(
+    context: typer.Context,
     _version: Annotated[
         bool,
         typer.Option(
@@ -42,7 +44,9 @@ def root(
         ),
     ] = False,
 ) -> None:
-    """Configure the top-level CLI options."""
+    """Own dependency identity for this command and release it when its context closes."""
+
+    context.with_resource(invocation())
 
 
 def main() -> None:

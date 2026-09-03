@@ -6,7 +6,13 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Literal, cast
 
-from galley.tools.dependencies import Execution, diagnostic, run_dependency, selected_command
+from galley.tools.dependencies import (
+    Execution,
+    diagnostic,
+    run_dependency,
+    selected_command,
+    version_probe,
+)
 from galley.json_reading import sequence
 from galley.release_data import pinned_pandoc_version
 
@@ -116,6 +122,7 @@ def _read_ast(destination: Path) -> dict[str, object] | None:
     return document
 
 
+@version_probe
 def installed_version(command: str) -> str | None:
     """Name the Pandoc that is actually on PATH, or nothing where none answered."""
 

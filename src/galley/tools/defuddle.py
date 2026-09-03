@@ -13,7 +13,7 @@ from typing import Literal, cast
 
 from galley.json_reading import integer, mapping, sequence, text
 from galley.report.quantities import reported
-from galley.tools.dependencies import diagnostic, run_dependency, selected_command
+from galley.tools.dependencies import diagnostic, run_dependency, selected_command, version_probe
 
 COMMAND_VARIABLE = "GALLEY_DEFUDDLE"
 DEFAULT_COMMAND = "defuddle"
@@ -144,6 +144,7 @@ def extract_url(url: str, workspace: Path) -> Extraction:
     return Extraction(document, version, command, url)
 
 
+@version_probe
 def installed_version(command: str) -> str | None:
     """Name the Defuddle that is actually on PATH, or nothing where none answered."""
 

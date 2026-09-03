@@ -21,6 +21,7 @@ units:
       reader_software,
       report,
       sources,
+      tools,
       workflows,
       workspace,
     ]

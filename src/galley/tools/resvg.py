@@ -15,7 +15,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Literal
 
-from galley.tools.dependencies import diagnostic, run_dependency, selected_command
+from galley.tools.dependencies import diagnostic, run_dependency, selected_command, version_probe
 
 COMMAND_VARIABLE = "GALLEY_RESVG"
 DEFAULT_COMMAND = "resvg"
@@ -151,6 +151,7 @@ def _install_fonts(directory: Path) -> tuple[tuple[dict[str, object], ...], str 
     return facts, None
 
 
+@version_probe
 def installed_version(command: str) -> str | None:
     """Name the resvg that is actually on PATH, or nothing where none answered."""
 
