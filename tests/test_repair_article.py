@@ -8,7 +8,7 @@ from typing import Any, cast
 
 from tests.article_fixtures import ARTICLE
 from tests.article_server import served
-from tests.prepared_epub import content_text, navigation_entries
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli, NO_DEFUDDLE
 from tests.repair_fixtures import RepairInputs, inspected, repaired_document
 
@@ -61,8 +61,9 @@ def test_a_repaired_article_is_prepared_without_extracting_the_page_again(
         # The extracted document lists only the essay title at this depth; the section
         # heading appears because the repaired structure is what was packaged.
         assert report["source"]["repair"]["changed"] is True
-        assert navigation_entries(output) == ["A Small Essay", "A section inside it"]
-        assert "Enginewise" in content_text(output)
+        book = PreparedEpub(output)
+        assert book.navigation_entries() == ["A Small Essay", "A section inside it"]
+        assert "Enginewise" in book.content_text()
         assert report["artifact"]["text_preservation"]["tokens"]["unexpected_missing"] == []
 
 

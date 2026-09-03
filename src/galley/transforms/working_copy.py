@@ -62,12 +62,6 @@ class WorkingCopy:
     images: ImagePreparation
     """Every image reference this copy resolved, and every one it could not."""
 
-    @property
-    def cover(self) -> Path | None:
-        """Name the packaged cover image, a Default Cover or the source cover-image."""
-
-        return None if self.images.cover is None else self.images.cover.resource.packaged.path
-
 
 def working_copy(
     profile: dict[str, object],

@@ -11,7 +11,7 @@ from typing import Any
 
 from tests.image_fixtures import grayscale_png
 from tests.markdown_fixtures import CAPTIONED_FIGURE, write_markdown
-from tests.prepared_epub import content_text
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
@@ -24,7 +24,8 @@ def test_an_image_alone_on_a_line_keeps_the_caption_its_author_wrote(tmp_path: P
     output = tmp_path / "book-0.epub"
     result = run_cli("prepare", str(source), "--output", str(output), *ARGUMENTS)
     report: Any = json.loads(result.stdout)
-    text = content_text(output)
+    book = PreparedEpub(output)
+    text = book.content_text()
 
     assert (result.returncode, report["outcome"]) == (0, "completed")
     # The words in the brackets are printed, and the note inside them survives with them.

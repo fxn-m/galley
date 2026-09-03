@@ -4,7 +4,7 @@ import json
 from hashlib import sha256
 from pathlib import Path
 
-from tests.prepared_epub import document_texts, navigation_entries
+from tests.prepared_epub import PreparedEpub
 from tests.test_prepare_notes import note_documents
 from tests.public_cli import run_cli, prepare
 from tests.repair_fixtures import CONSUMED_TOKENS, declarations, hand_rolled_repair
@@ -65,9 +65,10 @@ def test_a_repaired_document_reaches_the_same_pipeline_a_parsed_one_does(tmp_pat
 
     assert (code, report["outcome"]) == (0, "completed")
     assert output.is_file()
-    assert navigation_entries(output) == ["Great Work", "Footnotes"]
-    texts = document_texts(output)
-    bodies = [texts[document] for document in note_documents(output)]
+    book = PreparedEpub(output)
+    assert book.navigation_entries() == ["Great Work", "Footnotes"]
+    texts = book.document_texts()
+    bodies = [texts[document] for document in note_documents(book)]
     assert bodies[0].removeprefix("Footnotes ").startswith("Footnote 1.")
     assert "Curiosity is the engine." in bodies[0]
     assert "Persistence keeps it running." in bodies[1]

@@ -13,7 +13,7 @@ from tests.article_fixtures import ARTICLE
 from tests.article_server import served
 from tests.image_fixtures import grayscale_png
 from tests.markdown_fixtures import PLAIN_BOOK, write_markdown
-from tests.prepared_epub import media_resources
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli, prepare
 from tests.test_cover_artwork import DIRECTIONS, FONT
 
@@ -105,7 +105,11 @@ def test_public_prepare_publishes_a_default_cover_when_the_source_has_no_cover_i
         assert record["artifact"]["cover"] is True
         assert record["artifact"]["referenced"] is True
         member = record["artifact"]["path"].removeprefix("EPUB/")
-        payload = media_resources(output)[member]
+        book = PreparedEpub(output)
+        assert book.cover_resource() == member
+        ((cover_document, image_src, _),) = book.image_sources(role="cover")
+        assert book.resource_for(cover_document, image_src) == member
+        payload = book.media_resources()[member]
         assert hashlib.sha256(payload).hexdigest() == record["packaged"]["sha256"]
         payloads.append(payload)
 
@@ -135,7 +139,8 @@ def test_a_source_cover_image_is_kept(tmp_path: Path) -> None:
     (output, _, report) = journey.output, journey.evidence, journey.report
 
     record = _cover(report)
-    published = media_resources(output)[record["artifact"]["path"].removeprefix("EPUB/")]
+    book = PreparedEpub(output)
+    published = book.media_resources()[record["artifact"]["path"].removeprefix("EPUB/")]
     assert report["preparation"]["images"]["cover"] == {"origin": "source-cover-image"}
     assert record["origin"] == "source-cover-image"
     assert record["src"] == "cover.png"
@@ -161,7 +166,8 @@ def test_a_body_image_is_not_promoted_to_the_cover(tmp_path: Path) -> None:
     (output, _, report) = journey.output, journey.evidence, journey.report
 
     record = _cover(report)
-    published = media_resources(output)
+    book = PreparedEpub(output)
+    published = book.media_resources()
     cover_bytes = published[record["artifact"]["path"].removeprefix("EPUB/")]
     body = next(entry for entry in report["preparation"]["images"]["records"] if not entry["cover"])
     assert report["preparation"]["images"]["cover"]["origin"] == "default-cover"
@@ -220,4 +226,5 @@ def test_an_article_source_without_a_cover_receives_a_default_cover(tmp_path: Pa
         }
         assert record["artifact"]["cover"] is True
         member = record["artifact"]["path"].removeprefix("EPUB/")
-        assert member in media_resources(output)
+        book = PreparedEpub(output)
+        assert member in book.media_resources()

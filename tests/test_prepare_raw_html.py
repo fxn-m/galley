@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from tests.markdown_fixtures import write_markdown
-from tests.prepared_epub import content_text
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli, prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
@@ -45,7 +45,8 @@ def test_a_closing_tag_with_no_partner_is_dropped_and_the_book_builds(tmp_path: 
     assert balance(report)["payloads"] == ["</div>"]
     assert balance(report)["dropped"]["value"] == 1
     assert report["artifact"]["problems"] == []
-    assert PROSE in content_text(artifact)
+    book = PreparedEpub(artifact)
+    assert PROSE in book.content_text()
 
 
 def test_an_opening_tag_with_no_partner_goes_the_same_way(tmp_path: Path) -> None:

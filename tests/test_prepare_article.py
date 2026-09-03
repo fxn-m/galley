@@ -19,16 +19,7 @@ from tests.article_server import (
     write_html,
 )
 from tests.image_fixtures import grayscale_png
-from tests.prepared_epub import (
-    content_anchors,
-    content_text,
-    epub_version,
-    media_resources,
-    metadata,
-    names,
-    navigation_entries,
-    spine_documents,
-)
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli, prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
@@ -42,10 +33,11 @@ def test_a_live_url_is_prepared_without_any_intermediate_file(tmp_path: Path) ->
         output, report = journey.output, journey.report
 
         assert output.is_file()
-        assert epub_version(output) == "3.0"
-        assert names(output)[0] == "mimetype"
-        assert metadata(output, "title") == ["A Small Essay"]
-        assert metadata(output, "creator") == ["Ada Lovelace"]
+        book = PreparedEpub(output)
+        assert book.epub_version() == "3.0"
+        assert book.names()[0] == "mimetype"
+        assert book.metadata("title") == ["A Small Essay"]
+        assert book.metadata("creator") == ["Ada Lovelace"]
         assert report["outcome"] == "completed"
         # The isolated journey contains only the artifact and its evidence, with no authored input.
         assert set(journey.output.parent.iterdir()) == {journey.output, journey.evidence}
@@ -73,11 +65,12 @@ def test_recovered_notes_become_the_same_one_file_per_note_structure(tmp_path: P
         output, report = journey.output, journey.report
 
         assert report["extraction"]["footnote_recovery"]["recovered_notes"]["value"] == 2
-        documents = spine_documents(output)
+        book = PreparedEpub(output)
+        documents = book.spine_documents()
         # One spine item per note, beyond the prose documents.
         assert len(documents) >= 3
         # Exactly one listed Footnotes entry, however many notes there are.
-        assert navigation_entries(output).count("Footnotes") == 1
+        assert book.navigation_entries().count("Footnotes") == 1
 
 
 def test_an_illustrated_article_carries_its_images_into_the_book(tmp_path: Path) -> None:
@@ -90,7 +83,8 @@ def test_an_illustrated_article_carries_its_images_into_the_book(tmp_path: Path)
         journey = prepare(tmp_path, url)
         output, report = journey.output, journey.report
 
-        resources = media_resources(output)
+        book = PreparedEpub(output)
+        resources = book.media_resources()
         assert len(resources) == 2
         assert figure in resources.values()
         preservation = report["preparation"]["images"]["preservation"]
@@ -136,7 +130,7 @@ def test_a_resource_that_cannot_be_fetched_refuses_and_publishes_no_book(tmp_pat
         assert report["extraction"]["extractor"]["status"] == "ok"
 
 
-def _treatment(report: Any, output: Path) -> dict[str, object]:
+def _treatment(report: Any, book: PreparedEpub) -> dict[str, object]:
     """Describe how the pipeline treated one document, independently of what the document was."""
 
     transforms = {entry["name"]: entry for entry in report["preparation"]["transforms"]}
@@ -152,8 +146,8 @@ def _treatment(report: Any, output: Path) -> dict[str, object]:
         "unexpected_missing": report["artifact"]["text_preservation"]["tokens"][
             "unexpected_missing"
         ],
-        "footnotes_entries": navigation_entries(output).count("Footnotes"),
-        "spine_documents": len(spine_documents(output)),
+        "footnotes_entries": book.navigation_entries().count("Footnotes"),
+        "spine_documents": len(book.spine_documents()),
     }
 
 
@@ -178,8 +172,10 @@ def test_equivalent_markdown_and_article_content_get_the_same_downstream_treatme
         article_result = run_cli("prepare", url, "--output", str(article_output), *ARGUMENTS)
         assert (article_result.returncode, article_result.stderr) == (0, "")
 
-    from_markdown = _treatment(json.loads(markdown_result.stdout), markdown_output)
-    from_article = _treatment(json.loads(article_result.stdout), article_output)
+    markdown_book = PreparedEpub(markdown_output)
+    article_book = PreparedEpub(article_output)
+    from_markdown = _treatment(json.loads(markdown_result.stdout), markdown_book)
+    from_article = _treatment(json.loads(article_result.stdout), article_book)
 
     assert from_markdown == from_article
     assert cast(Any, from_article["notes_converted"])["value"] == 1
@@ -187,9 +183,9 @@ def test_equivalent_markdown_and_article_content_get_the_same_downstream_treatme
     assert from_article["apparatus_recognised"] is True
     assert from_article["unexpected_missing"] == []
     # The link's visible text survives in both books while its href does not.
-    for output in (markdown_output, article_output):
-        assert PAIRED_LINK_TEXT in content_text(output)
-        assert PAIRED_LINK_HREF not in "".join(href for href, _, _ in content_anchors(output))
+    for book in (markdown_book, article_book):
+        assert PAIRED_LINK_TEXT in book.content_text()
+        assert PAIRED_LINK_HREF not in "".join(href for _, href, _ in book.content_anchors())
 
 
 def test_local_html_still_refuses_at_prepare_and_writes_nothing(tmp_path: Path) -> None:

@@ -12,8 +12,9 @@ from typing import cast
 
 from galley.json_reading import mapping, sequence, text
 from galley.images.normalisation import pillow_versions
-from galley.images.default_cover import DEFAULT_COVER
-from galley.images.preparation import IMAGE_STAGE, ImagePreparation, ImageReference
+from galley.images.cover import cover_mismatch
+from galley.images.preparation import IMAGE_STAGE, ImagePreparation
+from galley.images.references import ImageReference
 from galley.images.resources import NORMALISED, REASONS
 from galley.images.measurement import measurement_facts
 from galley.report.envelope import ReportAssembly
@@ -102,7 +103,7 @@ def image_records(
         for reference in preparation.references
     ]
     return {
-        "cover": _cover_facts(preparation),
+        "cover": preparation.cover.facts,
         "preservation": _preservation(records, artifact),
         "records": records,
         "reduction": _reduction(preparation),
@@ -159,7 +160,7 @@ def _unmapped_reason(
     if resource is None:
         return "absent-resource"
     if reference.cover:
-        return None if resource.get("cover") is True else "cover-not-declared"
+        return cover_mismatch(resource)
     return None if resource.get("referenced") is True else "unreferenced-resource"
 
 
@@ -257,19 +258,6 @@ def _record(
         "title": reference.title,
         "transform": resource.transform,
     }
-
-
-def _cover_facts(preparation: ImagePreparation) -> dict[str, object] | None:
-    """State whether the packaged cover is a Default Cover or a source `cover-image`."""
-
-    cover = preparation.cover
-    if cover is None or cover.origin is None:
-        return None
-    facts: dict[str, object] = {"origin": cover.origin}
-    if cover.origin == DEFAULT_COVER:
-        facts["title"] = cover.presented_title
-        facts["author"] = cover.presented_author
-    return facts
 
 
 def _published(artifact: dict[str, object] | None) -> dict[str, dict[str, object]]:

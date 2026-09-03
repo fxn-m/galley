@@ -5,96 +5,10 @@ uses the Device Profile's cover canvas and the bundled Atkinson Hyperlegible fac
 rasterises the SVG through the same renderer it uses for any other cover.
 """
 
-from collections.abc import Callable
-from dataclasses import dataclass
 from xml.sax.saxutils import escape
 
-from galley.document.baseline import inline_text
-from galley.images.inline import inline_label
-from galley.images.resources import PackagedResource
-from galley.json_reading import integer, mapping, sequence, text
+from galley.json_reading import integer, mapping
 from galley.profile.loading import activation
-
-DEFAULT_COVER = "default-cover"
-SOURCE_COVER = "source-cover-image"
-COVER = "cover-image"
-
-Resolve = Callable[[str, str], PackagedResource | str]
-Hold = Callable[[bytes, str, str], PackagedResource | str]
-
-
-@dataclass(frozen=True)
-class PlannedCover:
-    """The cover bytes to package, and how the Report should name them."""
-
-    src: str
-    origin: str
-    resource: PackagedResource
-    presented_title: str | None = None
-    presented_author: str | None = None
-
-
-@dataclass(frozen=True)
-class CoverFailure:
-    """A cover reference preparation could not carry into the book."""
-
-    src: str
-    reason: str
-
-
-def plan_cover(
-    ast: dict[str, object],
-    *,
-    title: str,
-    author: str | None,
-    profile: dict[str, object],
-    resolve: Resolve,
-    hold: Hold,
-) -> PlannedCover | CoverFailure | None:
-    """Use the source `cover-image` if present, otherwise compose a Default Cover.
-
-    A source `cover-image` is removed from the working copy once it is resolved. Pandoc reads
-    that metadata itself and would resolve the same relative name a second time, against the
-    process it runs in rather than against the document; preparation states the resolved file to
-    the writer instead, so one resolver decides which bytes are the cover.
-
-    A Default Cover never enters the AST. It is composed from the envelope title and author and
-    handed to the writer as `--epub-cover-image`, so a body image cannot become the cover by
-    sitting first in the document.
-    """
-
-    meta = mapping(ast.get("meta"))
-    stated = _metadata_text(meta.get(COVER))
-    if stated:
-        ast["meta"] = {key: value for key, value in meta.items() if key != COVER}
-        label = inline_label(stated)
-        resource = resolve(stated, COVER)
-        if isinstance(resource, str):
-            return CoverFailure(src=label, reason=resource)
-        return PlannedCover(src=label, origin=SOURCE_COVER, resource=resource)
-    composed = default_cover_svg(title, author, profile)
-    if composed is None:
-        return None
-    resource = hold(composed, DEFAULT_COVER, COVER)
-    if isinstance(resource, str):
-        return CoverFailure(src=DEFAULT_COVER, reason=resource)
-    return PlannedCover(
-        src=DEFAULT_COVER,
-        origin=DEFAULT_COVER,
-        resource=resource,
-        presented_title=title,
-        presented_author=author,
-    )
-
-
-def _metadata_text(value: object) -> str:
-    """Read one metadata value as the plain string it renders to, whatever Pandoc wrapped it in."""
-
-    node = mapping(value)
-    if text(node.get("t")) == "MetaString":
-        return text(node.get("c")) or ""
-    return inline_text(sequence(node.get("c"))).strip()
-
 
 FONT_FAMILY = "Atkinson Hyperlegible"
 BACKGROUND = "#ffffff"

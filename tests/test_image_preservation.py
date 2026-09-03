@@ -8,7 +8,8 @@ here — the same approach `test_note_conversion` takes to the note mismatch it 
 from pathlib import Path
 from typing import Any
 
-from galley.images.preparation import ImagePreparation, ImageReference
+from galley.images.preparation import ImagePreparation
+from galley.images.references import ImageReference
 from galley.images.records import image_mismatch, preservation_refusal
 from galley.images.resources import NORMALISED, Packaged, PackagedResource
 from galley.images.measurement import ImageMeasurement

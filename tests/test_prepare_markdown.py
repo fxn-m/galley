@@ -11,13 +11,7 @@ from tests.markdown_fixtures import (
     native_ast,
     write_markdown,
 )
-from tests.prepared_epub import (
-    epub_version,
-    metadata,
-    names,
-    navigation_entries,
-    spine_documents,
-)
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli, prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
@@ -34,11 +28,12 @@ def test_prepare_publishes_a_conformant_book_with_navigation_and_measured_eviden
     output, report = journey.output, journey.report
 
     assert output.is_file()
-    assert epub_version(output) == "3.0"
-    assert names(output)[0] == "mimetype"
-    assert metadata(output, "title") == ["A Plain Book"]
-    assert metadata(output, "creator") == ["Ada Lovelace"]
-    assert len(spine_documents(output)) >= 2
+    book = PreparedEpub(output)
+    assert book.epub_version() == "3.0"
+    assert book.names()[0] == "mimetype"
+    assert book.metadata("title") == ["A Plain Book"]
+    assert book.metadata("creator") == ["Ada Lovelace"]
+    assert len(book.spine_documents()) >= 2
     evidence = journey.evidence
     assert sorted(entry.name for entry in evidence.iterdir()) == [
         "canonical-document.json",
@@ -54,7 +49,7 @@ def test_prepare_publishes_a_conformant_book_with_navigation_and_measured_eviden
     # The nested section is listed: at the former depth of one, a book's sections were absent
     # from its navigation, and on
     # this device navigation membership is what page breaks follow.
-    assert navigation_entries(output) == ["Chapter One", "A section inside it", "Chapter Two"]
+    assert book.navigation_entries() == ["Chapter One", "A section inside it", "Chapter Two"]
     depth = next(
         entry
         for entry in report["preparation"]["transforms"]
@@ -156,8 +151,9 @@ def test_a_transform_with_nothing_to_do_says_so_rather_than_going_silent(tmp_pat
     assert "states no author" in transforms["document-author"]["note"]
     assert transforms["document-title"]["fired"] is True
     assert transforms["document-title"]["title_source"] == "filename"
-    assert metadata(output, "title") == ["plain"]
-    assert metadata(output, "creator") == []
+    book = PreparedEpub(output)
+    assert book.metadata("title") == ["plain"]
+    assert book.metadata("creator") == []
 
 
 def test_the_audit_workflow_cannot_be_bypassed(tmp_path: Path) -> None:

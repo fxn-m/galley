@@ -23,7 +23,8 @@ from galley.images.normalisation import (
     PNG_FORMAT,
     ImageRule,
 )
-from galley.images.preparation import ImagePreparation, ImageReference
+from galley.images.preparation import ImagePreparation
+from galley.images.references import ImageReference
 from galley.observations import COLOUR_MEANING, DIAGRAM_TEXT, enabled_observations, observation
 from galley.report.quantities import quantity
 

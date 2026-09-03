@@ -14,7 +14,6 @@ from typing import cast
 from galley.document.ast_reading import SourceMeasurement
 from galley.document.facts import source_observations
 from galley.document.preservation import compare_text
-from galley.images.cover import cover_template
 from galley.images.normalisation import image_rule
 from galley.images.previews import (
     Preview,
@@ -99,8 +98,7 @@ def packaged(
             ),
             resources=Path(workspace) / RESOURCES,
             toc_depth=depth,
-            cover=copy.cover,
-            cover_template=cover_template,
+            cover=copy.images.cover.writer,
         )
         report = preparation_facts(
             inspection.report, document, packaging, profile, depth, copy, inspection.language

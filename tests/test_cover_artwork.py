@@ -11,7 +11,7 @@ from PIL import Image
 from galley.profile.loading import load_profile
 from galley.tools import resvg
 from tests.markdown_fixtures import write_markdown
-from tests.prepared_epub import media_resources
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli, prepare
 
 FONT = {
@@ -143,10 +143,14 @@ def test_public_prepare_makes_distinct_deterministic_evidenced_raster_covers(
         assert record["artifact"]["referenced"] is True
         assert record["artifact"]["sha256"] == record["packaged"]["sha256"]
         member = record["artifact"]["path"].removeprefix("EPUB/")
-        payload = media_resources(output)[member]
+        book = PreparedEpub(output)
+        assert book.cover_resource() == member
+        ((cover_document, image_src, _),) = book.image_sources(role="cover")
+        assert book.resource_for(cover_document, image_src) == member
+        payload = book.media_resources()[member]
         assert hashlib.sha256(payload).hexdigest() == record["packaged"]["sha256"]
         payloads.append(payload)
-        assert not any(path.endswith(".svg") for path in media_resources(output))
+        assert not any(path.endswith(".svg") for path in book.media_resources())
 
         previews = record["previews"]
         with Image.open(evidence / previews["prepared"]) as prepared:

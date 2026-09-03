@@ -7,7 +7,7 @@ import pytest
 
 from tests.crosspoint_server import crosspoint
 from tests.markdown_fixtures import PLAIN_BOOK, write_markdown
-from tests.prepared_epub import metadata
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import public_cli_commands, run_command
 from tests.workspace_fixtures import valid_workspace, workspace_environment
 
@@ -36,7 +36,8 @@ def test_entry_points_prepare_a_default_cover_and_expose_the_same_document_comma
         if item["origin"] == "default-cover"
     )
     assert cover["artifact"]["cover"] is True
-    assert metadata(output, "title") == ["A Plain Book"]
+    book = PreparedEpub(output)
+    assert book.metadata("title") == ["A Plain Book"]
     if json_output:
         assert json.loads(result.stdout) == report
     else:

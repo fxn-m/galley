@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from tests.image_fixtures import grayscale_png
-from tests.prepared_epub import content_anchors, content_text, element_texts, image_sources
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli
 
 POST = "https://x.com/boxcardavid/status/1059347504154595329"
@@ -49,25 +49,24 @@ def test_a_repaired_social_embed_survives_as_native_reflowable_epub_xhtml(
     )
 
     assert result.returncode == 0, result.stderr
-    embeds = element_texts(artifact, "blockquote")
+    book = PreparedEpub(artifact)
+    embeds = book.element_texts("blockquote")
     assert len(embeds) == 1
     assert "Post by David Hansen (@boxcardavid)" in embeds[0]
     assert "found a renaissance in motor drivers" in embeds[0]
     assert "7:31 AM · Nov 5, 2018" in embeds[0]
 
-    anchors = {(href, text) for _, href, text in content_anchors(artifact)}
+    anchors = {(href, text) for _, href, text in book.content_anchors()}
     assert anchors == {
         (MENTION, "@starsandrobots"),
         (BODY_LINK, "3D-printed brushless motor"),
         (POST, "View original post"),
     }
-    assert [
-        (alt, src)
-        for document, src, alt in image_sources(artifact)
-        if not document.endswith("cover.xhtml")
-    ] == [("A 3D-printed brushless motor", "../media/file0.png")]
+    assert [(alt, src) for _, src, alt in book.image_sources()] == [
+        ("A 3D-printed brushless motor", "../media/file0.png")
+    ]
 
-    reading = content_text(artifact)
+    reading = book.content_text()
     for chrome in (
         "X avatar for",
         "Replies",

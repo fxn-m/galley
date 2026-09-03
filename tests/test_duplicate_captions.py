@@ -17,7 +17,7 @@ from typing import Any
 
 from tests.image_fixtures import grayscale_png
 from tests.markdown_fixtures import write_markdown
-from tests.prepared_epub import content_text, image_sources
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli, prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
@@ -52,7 +52,8 @@ def test_a_caption_the_next_paragraph_repeats_is_printed_once(tmp_path: Path) ->
     assert suppression(report)["fired"] is True
     assert suppression(report)["suppressed"]["value"] == 1
     assert suppression(report)["captions"] == [LESSON]
-    assert content_text(artifact).count(LESSON) == 1
+    book = PreparedEpub(artifact)
+    assert book.content_text().count(LESSON) == 1
 
 
 def test_the_alt_attribute_itself_is_untouched(tmp_path: Path) -> None:
@@ -64,9 +65,8 @@ def test_the_alt_attribute_itself_is_untouched(tmp_path: Path) -> None:
     artifact, report = journey.output, journey.report
 
     assert suppression(report)["fired"] is True
-    assert [
-        alt for document, _, alt in image_sources(artifact) if not document.endswith("cover.xhtml")
-    ] == [LESSON]
+    book = PreparedEpub(artifact)
+    assert [alt for _, _, alt in book.image_sources()] == [LESSON]
 
 
 def test_text_preservation_is_unaffected_by_the_suppression(tmp_path: Path) -> None:
@@ -107,7 +107,8 @@ def test_whitespace_the_two_copies_were_spaced_by_does_not_defeat_the_match(
     _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
     journey = prepare(tmp_path, prepared_source, expected_exit=None)
     artifact, report = journey.output, journey.report
-    text = content_text(artifact)
+    book = PreparedEpub(artifact)
+    text = book.content_text()
 
     assert suppression(report)["fired"] is True
     assert text.count("Is GPT part of AGI?") == 1
@@ -125,7 +126,8 @@ def test_a_caption_the_next_paragraph_only_begins_is_still_printed(tmp_path: Pat
     artifact, report = journey.output, journey.report
 
     assert suppression(report)["fired"] is False
-    assert content_text(artifact).count(LESSON) == 2
+    book = PreparedEpub(artifact)
+    assert book.content_text().count(LESSON) == 2
 
 
 def test_a_caption_differing_by_one_word_is_still_printed(tmp_path: Path) -> None:
@@ -135,7 +137,8 @@ def test_a_caption_differing_by_one_word_is_still_printed(tmp_path: Path) -> Non
     _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
     journey = prepare(tmp_path, prepared_source, expected_exit=None)
     artifact, report = journey.output, journey.report
-    text = content_text(artifact)
+    book = PreparedEpub(artifact)
+    text = book.content_text()
 
     assert suppression(report)["fired"] is False
     assert (text.count(LESSON), text.count("A worse GPT-3 lesson.")) == (1, 1)
@@ -159,7 +162,8 @@ def test_a_figure_whose_caption_came_from_its_alt_but_says_something_else_is_lef
     artifact, report = journey.output, journey.report
 
     assert suppression(report)["fired"] is False
-    assert content_text(artifact).count(LESSON) == 1
+    book = PreparedEpub(artifact)
+    assert book.content_text().count(LESSON) == 1
 
 
 def test_a_figure_with_no_paragraph_after_it_is_left_alone(tmp_path: Path) -> None:
@@ -176,7 +180,8 @@ def test_a_figure_with_no_paragraph_after_it_is_left_alone(tmp_path: Path) -> No
     artifact, report = journey.output, journey.report
 
     assert suppression(report)["fired"] is False
-    assert content_text(artifact).count(LESSON) == 1
+    book = PreparedEpub(artifact)
+    assert book.content_text().count(LESSON) == 1
 
 
 def test_the_terminal_says_how_many_captions_stopped_being_printed(tmp_path: Path) -> None:

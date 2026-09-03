@@ -17,15 +17,14 @@ from typing import cast
 
 from galley.document.baseline import inline_text
 from galley.json_reading import mapping, sequence, text
-from galley.images.default_cover import COVER, CoverFailure, plan_cover
+from galley.images.cover import CoverPreparation, prepare_cover
+from galley.images.references import ImageFailure, ImageReference
 from galley.images.inline import inline_label
-from galley.images.normalisation import ImageRule, image_rule
 from galley.images.resources import (
     PRESERVED,
     PackagedResource,
     ResourceOrigin,
-    packaged_bytes,
-    packaged_resource,
+    ResourcePreparation,
 )
 
 IMAGE = "Image"
@@ -37,41 +36,6 @@ RESPONSIVE = (SRCSET, SIZES)
 
 
 @dataclass(frozen=True)
-class ImageReference:
-    """One Canonical Document image reference, with the identity it keeps through the Report.
-
-    `src` is the reference **as reported**, which is the locator itself for everything except an
-    inline `data:` reference, where it is the bounded name `images/inline.py` gives one. The field
-    keeps the Report's own key rather than a truer name, because that key is the schema's; what a
-    reader gets is a line they can act on instead of a thousand characters of base64.
-    """
-
-    identifier: str
-    src: str
-    alt: str | None
-    title: str | None
-    resource: PackagedResource
-    candidates: list[str] = field(default_factory=list[str])
-    """The `srcset` candidates removed after recording them, if the source offered any."""
-    cover: bool = False
-    origin: str | None = None
-    presented_title: str | None = None
-    presented_author: str | None = None
-
-
-@dataclass(frozen=True)
-class ImageFailure:
-    """One reference preparation could not carry into the book, and why.
-
-    `src` is the reference as reported, on the same terms as `ImageReference.src`.
-    """
-
-    identifier: str
-    src: str
-    reason: str
-
-
-@dataclass(frozen=True)
 class ImagePreparation:
     """One image pass: the working copy it produced and every reference it resolved or refused."""
 
@@ -79,7 +43,7 @@ class ImagePreparation:
     references: list[ImageReference] = field(default_factory=list[ImageReference])
     resources: list[PackagedResource] = field(default_factory=list[PackagedResource])
     failures: list[ImageFailure] = field(default_factory=list[ImageFailure])
-    cover: ImageReference | None = None
+    cover: CoverPreparation = field(default_factory=CoverPreparation)
 
     @property
     def preserved(self) -> int:
@@ -94,47 +58,12 @@ class ImagePreparation:
 class _Pass:
     """State one walk accumulates: the profile's rule, where files come from and where they go."""
 
-    profile: dict[str, object]
-    rule: ImageRule
-    origin: ResourceOrigin
-    workspace: Path
+    resources: ResourcePreparation
     references: list[ImageReference] = field(default_factory=list[ImageReference])
     failures: list[ImageFailure] = field(default_factory=list[ImageFailure])
-    resources: dict[str, PackagedResource] = field(default_factory=dict[str, PackagedResource])
 
     def identifier(self) -> str:
         return f"image-{len(self.references) + len(self.failures) + 1}"
-
-    def resolved(self, src: str, name: str) -> PackagedResource | str:
-        """Package one reference's bytes, reusing a resource whose content is already packaged."""
-
-        resource = packaged_resource(
-            src,
-            profile=self.profile,
-            rule=self.rule,
-            origin=self.origin,
-            workspace=self.workspace,
-            name=name,
-        )
-        if isinstance(resource, str):
-            return resource
-        held = self.resources.setdefault(resource.digest, resource)
-        return held
-
-    def held(self, data: bytes, display: str, name: str) -> PackagedResource | str:
-        """Package bytes already in hand, reusing a resource whose content is already packaged."""
-
-        resource = packaged_bytes(
-            data,
-            display=display,
-            profile=self.profile,
-            rule=self.rule,
-            workspace=self.workspace,
-            name=name,
-        )
-        if isinstance(resource, str):
-            return resource
-        return self.resources.setdefault(resource.digest, resource)
 
 
 def prepare_images(
@@ -153,49 +82,21 @@ def prepare_images(
     rather than leaving the book without a cover, or promoting a body image to stand in for one.
     """
 
-    state = _Pass(profile=profile, rule=image_rule(profile), origin=origin, workspace=workspace)
+    resources = ResourcePreparation(profile=profile, origin=origin, workspace=workspace)
+    state = _Pass(resources=resources)
     working = cast(dict[str, object], _value(ast, state))
-    cover = _cover(working, state, title=title, author=author)
+    cover = prepare_cover(working, resources, title=title, author=author)
+    if cover.reference is not None:
+        state.references.append(cover.reference)
+    if cover.failure is not None:
+        state.failures.append(cover.failure)
     return ImagePreparation(
         ast=working,
         references=state.references,
-        resources=list(state.resources.values()),
+        resources=list(resources.prepared.values()),
         failures=state.failures,
         cover=cover,
     )
-
-
-def _cover(
-    ast: dict[str, object], state: _Pass, *, title: str, author: str | None
-) -> ImageReference | None:
-    planned = plan_cover(
-        ast,
-        title=title,
-        author=author,
-        profile=state.profile,
-        resolve=state.resolved,
-        hold=state.held,
-    )
-    if planned is None:
-        return None
-    if isinstance(planned, CoverFailure):
-        state.failures.append(
-            ImageFailure(identifier=COVER, src=planned.src, reason=planned.reason)
-        )
-        return None
-    reference = ImageReference(
-        identifier=COVER,
-        src=planned.src,
-        alt=None,
-        title=None,
-        resource=planned.resource,
-        cover=True,
-        origin=planned.origin,
-        presented_title=planned.presented_title,
-        presented_author=planned.presented_author,
-    )
-    state.references.append(reference)
-    return reference
 
 
 def _value(value: object, state: _Pass) -> object:
@@ -224,7 +125,7 @@ def _image(node: dict[str, object], state: _Pass) -> dict[str, object]:
     src = text(_at(target, 0)) or ""
     title = text(_at(target, 1)) or ""
     identifier = state.identifier()
-    resource = state.resolved(src, identifier)
+    resource = state.resources.resolve(src, identifier)
     label = inline_label(src)
     if isinstance(resource, str):
         state.failures.append(ImageFailure(identifier=identifier, src=label, reason=resource))

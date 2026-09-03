@@ -6,7 +6,8 @@ from typing import cast
 
 from galley.images.measurement import measure_image
 from galley.images.normalisation import ImageRule, image_rule, normalise
-from galley.images.resources import PackagedResource, ResourceOrigin, packaged_resource
+from galley.images.resources import PackagedResource, ResourcePreparation
+from galley.images.resolution import ResourceOrigin
 from galley.profile.loading import load_profile
 from galley.images.facts import IMAGES_PREPARED
 from tests.image_fixtures import colour_png, transparent_webp, vector_svg
@@ -70,17 +71,15 @@ def test_measured_output_must_match_the_selected_policy(tmp_path: Path) -> None:
 
 
 def test_colour_policy_does_not_rewrite_compatible_fitting_bytes(tmp_path: Path) -> None:
-    profile, rule = _rule("rgb", opaque_colour_type=2, alpha_colour_type=6)
+    profile, _ = _rule("rgb", opaque_colour_type=2, alpha_colour_type=6)
     source = colour_png(tmp_path / "source.png")
 
-    resource = packaged_resource(
-        str(source),
+    preparation = ResourcePreparation(
         profile=profile,
-        rule=rule,
         origin=ResourceOrigin(directory=tmp_path),
         workspace=tmp_path / "packaged",
-        name="image-1",
     )
+    resource = preparation.resolve(str(source), "image-1")
 
     assert isinstance(resource, PackagedResource)
     assert resource.transform == "preserved"

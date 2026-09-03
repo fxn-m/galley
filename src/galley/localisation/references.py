@@ -15,8 +15,9 @@ from typing import Literal, cast
 from urllib.parse import urlsplit
 
 from galley.images.inline import is_inline
-from galley.images.preparation import COVER, IMAGE
-from galley.images.resources import LOCAL_SCHEMES
+from galley.images.cover import COVER
+from galley.images.preparation import IMAGE
+from galley.images.resolution import LOCAL_SCHEMES
 from galley.json_reading import mapping, sequence, text
 from galley.tools.fetching import fetchable
 

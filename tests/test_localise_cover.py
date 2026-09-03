@@ -20,7 +20,7 @@ from tests.localisation_fixtures import (
     read_json,
     serving,
 )
-from tests.prepared_epub import media_resources
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli
 
 
@@ -72,7 +72,8 @@ def test_a_remote_cover_image_is_localised_and_the_book_carries_it(tmp_path: Pat
 
     assert built.returncode == 0, built.stdout
     assert json.loads(built.stdout)["outcome"] == "completed"
-    assert len(media_resources(tmp_path / "after.epub")) == 1
+    book = PreparedEpub(tmp_path / "after.epub")
+    assert len(book.media_resources()) == 1
 
 
 def test_the_cover_a_markdown_source_states_is_rewritten_in_place(tmp_path: Path) -> None:

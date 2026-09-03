@@ -15,7 +15,7 @@ from galley.images.inline import ELISION, LABEL_LIMIT, inline_label
 
 from tests.image_fixtures import grayscale_png
 from tests.markdown_fixtures import write_markdown
-from tests.prepared_epub import media_resources
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
@@ -55,7 +55,8 @@ def test_a_base64_png_is_read_from_the_document_it_arrived_in(tmp_path: Path) ->
     record = report["preparation"]["images"]["records"][0]
     assert record["source"]["measured_media_type"] == "image/png"
     assert (record["source"]["width"]["value"], record["source"]["height"]["value"]) == (4, 3)
-    packaged = media_resources(output)[record["artifact"]["path"].removeprefix("EPUB/")]
+    book = PreparedEpub(output)
+    packaged = book.media_resources()[record["artifact"]["path"].removeprefix("EPUB/")]
     assert packaged == png
 
 

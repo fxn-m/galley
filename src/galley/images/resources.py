@@ -7,22 +7,18 @@ decided by a filename, and the file written into the packaging workspace always 
 bytes measured — preserved or produced.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
-from urllib.parse import SplitResult, unquote, urlsplit
 
 from galley.profile.compatibility import Verdict
-from galley.images.inline import inline_bytes, inline_label, is_inline
-from galley.images.normalisation import ImageRule, normalise
+from galley.images.normalisation import ImageRule, image_rule, normalise
 from galley.images.support import device_support
 from galley.images.measurement import ImageMeasurement, measure_image
-from galley.locations import display_path
-from galley.tools.fetching import fetch_resource, fetchable
+from galley.images.resolution import ResourceOrigin, resolved_bytes
 
 PRESERVED = "preserved"
 NORMALISED = "normalised"
-LOCAL_SCHEMES = frozenset({"", "file"})
 EXTENSIONS = {"image/jpeg": ".jpg", "image/png": ".png"}
 PNG_EXTENSION = ".png"
 
@@ -41,28 +37,6 @@ REASONS = {
     "rasterisation-not-activated": "this Device Profile does not activate SVG rasterisation",
     "unexpected-encoding": "the conversion did not produce the encoding the profile asks for",
 }
-
-
-@dataclass(frozen=True)
-class ResourceOrigin:
-    """Where one Canonical Document's image references resolve from.
-
-    A Markdown source resolves relative references against its own directory and retrieves
-    nothing; an Article-Like Page has no directory and its references were already resolved to
-    absolute locations by extraction, so it retrieves them from the page it came from. Keeping
-    both in one value is what lets every step after resolution be the same step.
-    """
-
-    directory: Path | None = None
-    retrieves: bool = False
-
-
-@dataclass(frozen=True)
-class Resolved:
-    """The bytes one reference names, and the name they are reported under."""
-
-    data: bytes
-    display: str
 
 
 @dataclass(frozen=True)
@@ -92,31 +66,44 @@ class PackagedResource:
     packaged: Packaged
 
 
-def packaged_resource(
-    src: str,
-    *,
-    profile: dict[str, object],
-    rule: ImageRule,
-    origin: ResourceOrigin,
-    workspace: Path,
-    name: str,
-) -> PackagedResource | str:
-    """Resolve, measure and package one reference's bytes, or name the reason it produced none."""
+@dataclass
+class ResourcePreparation:
+    """One image pass's resolution, profile rules and content-based resource reuse.
 
-    resolved = _resolved(origin, src)
-    if isinstance(resolved, str):
-        return resolved
-    return packaged_bytes(
-        resolved.data,
-        display=resolved.display,
-        profile=profile,
-        rule=rule,
-        workspace=workspace,
-        name=name,
-    )
+    Body references and the cover share this store. The first resource for a source digest
+    supplies the packaged identity, preserving reading-order names when a cover reuses a figure.
+    """
+
+    profile: dict[str, object]
+    origin: ResourceOrigin
+    workspace: Path
+    prepared: dict[str, PackagedResource] = field(default_factory=dict[str, PackagedResource])
+    rule: ImageRule = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.rule = image_rule(self.profile)
+
+    def resolve(self, src: str, name: str) -> PackagedResource | str:
+        resolved = resolved_bytes(self.origin, src)
+        if isinstance(resolved, str):
+            return resolved
+        return self.hold(resolved.data, resolved.display, name)
+
+    def hold(self, data: bytes, display: str, name: str) -> PackagedResource | str:
+        resource = _packaged_bytes(
+            data,
+            display=display,
+            profile=self.profile,
+            rule=self.rule,
+            workspace=self.workspace,
+            name=name,
+        )
+        if isinstance(resource, str):
+            return resource
+        return self.prepared.setdefault(resource.digest, resource)
 
 
-def packaged_bytes(
+def _packaged_bytes(
     data: bytes,
     *,
     display: str,
@@ -207,56 +194,3 @@ def _resource(
         transform=transform,
         packaged=packaged,
     )
-
-
-def _resolved(origin: ResourceOrigin, src: str) -> Resolved | str:
-    """Produce the bytes one reference names, or the reason this source cannot produce them.
-
-    An inline reference is answered before either origin, because it belongs to neither: its
-    bytes travelled inside the document, so the same answer is right whichever route the document
-    arrived by, and no socket and no file is involved.
-
-    A retrieving origin resolves what it can retrieve and nothing else. Extraction has already
-    resolved every reference against the page's own address, so anything left that is not an
-    http or https locator is not part of the page — and a page must never be able to name a path
-    on the machine preparing it and have those bytes read into a book. A data URI names no path,
-    so admitting it takes nothing away from that.
-    """
-
-    if is_inline(src):
-        inline = inline_bytes(src)
-        return inline if isinstance(inline, str) else Resolved(inline, inline_label(src))
-    split = urlsplit(src)
-    if origin.retrieves:
-        if not fetchable(split.scheme):
-            return "unsupported-location"
-        fetched = fetch_resource(src)
-        if fetched.data is None:
-            return fetched.reason or "unfetchable-resource"
-        return Resolved(fetched.data, src)
-    location = _location(origin.directory, split)
-    if location is None:
-        return "unsupported-location"
-    try:
-        return Resolved(location.read_bytes(), display_path(location))
-    except FileNotFoundError:
-        return "missing-resource"
-    except OSError:
-        return "unreadable-resource"
-
-
-def _location(directory: Path | None, split: SplitResult) -> Path | None:
-    """Resolve one reference against the source document's own directory, or refuse to guess.
-
-    A source that is not a local file has no directory to resolve against, so a relative
-    reference is unresolvable rather than resolvable somewhere arbitrary.
-    """
-
-    if split.scheme.lower() not in LOCAL_SCHEMES or split.netloc:
-        return None
-    path = unquote(split.path)
-    if not path:
-        return None
-    if Path(path).is_absolute():
-        return Path(path)
-    return None if directory is None else directory / path

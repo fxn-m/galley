@@ -1,7 +1,6 @@
 """Incompatible images become the profile's safe form, and the book proves every one survived."""
 
 import json
-import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +16,7 @@ from tests.image_fixtures import (
     vector_svg,
 )
 from tests.markdown_fixtures import write_markdown
-from tests.prepared_epub import image_sources, media_resources, names, spine_documents
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli, prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
@@ -93,7 +92,8 @@ def test_preparation_normalises_images_and_preserves_their_artifact_relationship
     entry = records(report)["alpha.webp"]
     assert entry["source"]["measured_media_type"] == "image/webp"
     assert entry["packaged"]["alpha"] is True
-    published = media_resources(output)[entry["artifact"]["path"].removeprefix("EPUB/")]
+    book = PreparedEpub(output)
+    published = book.media_resources()[entry["artifact"]["path"].removeprefix("EPUB/")]
     assert published.startswith(b"\x89PNG\r\n\x1a\n")
 
     renderer = records(report)["diagram.svg"]["packaged"]["renderer"]
@@ -107,12 +107,14 @@ def test_preparation_normalises_images_and_preserves_their_artifact_relationship
     assert cover["transform"] == "preserved"
     assert cover["artifact"]["cover"] is True
     assert cover["artifact"]["referenced"] is True
-    document = next(href for href in spine_documents(output) if "cover" in href)
-    sources = [src for href, src, _ in image_sources(output) if href == document]
+    (document,) = book.cover_documents()
+    sources = [src for _, src, _ in book.image_sources(role="cover")]
     assert sources == [f"../{cover['artifact']['path'].removeprefix('EPUB/')}"]
-    assert b"<svg" not in _markup(output, document)
+    assert b"<svg" not in book.member(document)
 
-    published = {src.removeprefix("../"): alt for _, src, alt in image_sources(output)}
+    published = {
+        book.resource_for(document, src): alt for document, src, alt in book.image_sources()
+    }
     for entry in records(report).values():
         if entry["cover"] or entry["artifact"] is None:
             continue
@@ -125,7 +127,7 @@ def test_preparation_normalises_images_and_preserves_their_artifact_relationship
     assert preservation["unmapped"]["value"] == 0
     resources = {entry["sha256"] for entry in report["artifact"]["images"]["resources"]}
     assert {entry["packaged"]["sha256"] for entry in records(report).values()} == resources
-    assert len(media_resources(output)) == REFERENCES
+    assert len(book.media_resources()) == REFERENCES
     assert report["compatibility"]
     for result in report["compatibility"]:
         assert result["verdict"] != "false"
@@ -141,7 +143,8 @@ def test_responsive_candidates_are_recorded_and_removed(tmp_path: Path) -> None:
     assert entry["srcset_candidates"] == ["figure.png 1x", "wide.png 2x"]
     assert entry["alt"] == "grey square"
     assert entry["title"] == "Square title"
-    markup = b"".join(_markup(output, href) for href in spine_documents(output))
+    book = PreparedEpub(output)
+    markup = b"".join(book.member(href) for href in book.spine_documents())
     assert b"srcset" not in markup
     assert b"sizes" not in markup
     assert report["artifact"]["conformance"]["counts"]["error"]["value"] == 0
@@ -219,12 +222,6 @@ def test_human_output_names_what_the_images_became(tmp_path: Path) -> None:
 
     assert (result.returncode, result.stderr) == (0, "")
     assert "Images: 6 references to 6 resources, 1 preserved, 5 normalised\n" in result.stdout
-
-
-def _markup(artifact: Path, href: str) -> bytes:
-    member = next(name for name in names(artifact) if name.endswith(href))
-    with zipfile.ZipFile(artifact) as archive:
-        return archive.read(member)
 
 
 def _preview_bytes(directory: Path) -> dict[str, bytes]:

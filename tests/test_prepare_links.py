@@ -9,7 +9,7 @@ from tests.markdown_fixtures import (
     blocked_links,
     write_markdown,
 )
-from tests.prepared_epub import content_anchors, content_text, navigation_anchors
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli, prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
@@ -59,10 +59,11 @@ def test_web_and_dead_destinations_lose_their_href_while_keeping_their_words(
     for kind in ("web-link", "dead-link"):
         assert counted(entry, kind, "removed") == counted(entry, kind, "before")
         assert counted(entry, kind, "after") == 0
-    targets = {href for _, href, _ in content_anchors(output)}
+    book = PreparedEpub(output)
+    targets = {href for _, href, _ in book.content_anchors()}
     assert "https://example.com/outside" not in targets
     assert "chapter-two.xhtml#absent" not in targets
-    text = content_text(output)
+    text = book.content_text()
     assert "outbound" in text and "broken" in text and "inbound" in text
 
 
@@ -99,7 +100,8 @@ def test_a_zero_note_document_cannot_retain_a_note_reference_link(tmp_path: Path
     assert counted(entry, "footnote-reference", "before") == 0
     assert counted(entry, "footnote-back-link", "before") == 0
     assert counted(entry, "cross-reference", "before") == 2
-    marked = [text for _, _, text in content_anchors(output)]
+    book = PreparedEpub(output)
+    marked = [text for _, _, text in book.content_anchors()]
     assert "notelike" in marked
 
 
@@ -119,7 +121,8 @@ def test_generated_navigation_is_not_altered_by_content_link_processing(tmp_path
     journey = prepare(tmp_path, prepared_source)
     output, _ = journey.output, journey.report
 
-    anchors = navigation_anchors(output)
+    book = PreparedEpub(output)
+    anchors = book.navigation_anchors()
     assert anchors
     assert all(href for href, _ in anchors)
     assert [text for _, text in anchors] == ["Linked", "Footnotes"]

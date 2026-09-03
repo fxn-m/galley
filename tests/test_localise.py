@@ -25,7 +25,7 @@ from tests.localisation_fixtures import (
     read_json,
     serving,
 )
-from tests.prepared_epub import media_resources
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli
 from tests.workspace_fixtures import workspace_environment
 
@@ -70,7 +70,8 @@ def test_localise_writes_a_repair_set_an_ordinary_prepare_accepts(tmp_path: Path
     report = json.loads(built.stdout)
     assert report["outcome"] == "completed"
     assert report["preparation"]["images"]["totals"]["references"]["value"] == 3
-    assert len(media_resources(tmp_path / "after.epub")) == 3
+    book = PreparedEpub(tmp_path / "after.epub")
+    assert len(book.media_resources()) == 3
 
 
 def test_the_rewritten_document_changes_image_locations_and_nothing_else(tmp_path: Path) -> None:
@@ -234,7 +235,8 @@ def test_a_localised_source_publishes_an_illustrated_ready_artifact(tmp_path: Pa
     report = json.loads(published.stdout)
     artifact = Path(str(report["artifact"]["path"]))
     assert artifact == workspace / "ready" / "An Illustrated Clipping.epub"
-    assert len(media_resources(artifact)) == 2
+    book = PreparedEpub(artifact)
+    assert len(book.media_resources()) == 2
 
 
 def test_the_concise_rendering_states_the_repair_set_and_every_reference(tmp_path: Path) -> None:

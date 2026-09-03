@@ -1,143 +1,226 @@
-"""Read a prepared EPUB the way a device would, without trusting Pandoc's exit status."""
+"""One independent snapshot of an EPUB's declared documents, reading roles and media.
 
+No Galley package reader is used: these observations check the bytes the installed command
+published. Each journey owns its snapshot; nothing is shared between tests or invocations.
+"""
+
+import posixpath
 import zipfile
 from pathlib import Path
+from typing import Literal
+from urllib.parse import unquote, urlsplit
 from xml.etree import ElementTree
 
 OPF = "{http://www.idpf.org/2007/opf}"
 XHTML = "{http://www.w3.org/1999/xhtml}"
 DC = "{http://purl.org/dc/elements/1.1/}"
+EPUB = "{http://www.idpf.org/2007/ops}"
 CONTAINER = "META-INF/container.xml"
 CONTAINER_NS = "{urn:oasis:names:tc:opendocument:xmlns:container}"
+Role = Literal["body", "cover", "spine"]
 
 
-def names(artifact: Path) -> list[str]:
-    """List every archive member, in the order the archive stores them."""
+class PreparedEpub:
+    """Read an artifact once, resolving every member relative to the declared OPF location."""
 
-    with zipfile.ZipFile(artifact) as archive:
-        return archive.namelist()
-
-
-def package(artifact: Path) -> ElementTree.Element:
-    """Resolve the OPF package document the container names."""
-
-    with zipfile.ZipFile(artifact) as archive:
-        root = ElementTree.fromstring(archive.read(CONTAINER))
-        rootfile = root.find(f".//{CONTAINER_NS}rootfile")
+    def __init__(self, artifact: Path) -> None:
+        with zipfile.ZipFile(artifact) as archive:
+            self._members = {name: archive.read(name) for name in archive.namelist()}
+        container = ElementTree.fromstring(self._members[CONTAINER])
+        rootfile = container.find(f".//{CONTAINER_NS}rootfile")
         assert rootfile is not None
-        path = rootfile.attrib["full-path"]
-        return ElementTree.fromstring(archive.read(path))
+        self._package_path = rootfile.attrib["full-path"]
+        self._package = ElementTree.fromstring(self._members[self._package_path])
+        self._items = {item.attrib["id"]: item for item in self._package.iter(f"{OPF}item")}
+        self._documents = {
+            item.attrib["href"]: ElementTree.fromstring(self.member(item.attrib["href"]))
+            for item in self._items.values()
+            if item.get("media-type") == "application/xhtml+xml"
+        }
+        self._navigation = next(
+            (
+                item.attrib["href"]
+                for item in self._items.values()
+                if "nav" in item.get("properties", "").split()
+            ),
+            None,
+        )
+        self._covers = {
+            _target(self._package_path, reference.attrib["href"])
+            for reference in self._package.iter(f"{OPF}reference")
+            if "cover" in reference.get("type", "").split()
+        }
+        for href, document in self._documents.items():
+            body = _body(document)
+            if any(
+                "cover" in element.get(f"{EPUB}type", "").split()
+                for element in (document, body, *body)
+            ):
+                self._covers.add(_target(self._package_path, href))
+        if self._navigation is not None:
+            for navigation in self._documents[self._navigation].iter(f"{XHTML}nav"):
+                if "landmarks" not in navigation.get(f"{EPUB}type", "").split():
+                    continue
+                for anchor in navigation.iter(f"{XHTML}a"):
+                    if "cover" in anchor.get(f"{EPUB}type", "").split():
+                        self._covers.add(
+                            _target(
+                                _target(self._package_path, self._navigation), anchor.attrib["href"]
+                            )
+                        )
 
+    def names(self) -> list[str]:
+        """List ZIP members in archive order, including undeclared ones."""
+        return list(self._members)
 
-def metadata(artifact: Path, name: str) -> list[str]:
-    """Read one Dublin Core metadata value from the package document."""
+    def package(self) -> ElementTree.Element:
+        """Expose the OPF for tests whose claim is package structure."""
+        return self._package
 
-    return [element.text or "" for element in package(artifact).iter(f"{DC}{name}")]
+    def member(self, href: str) -> bytes:
+        """Read an OPF-relative member exactly; suffix matches are ambiguous."""
+        return self._members[_target(self._package_path, href)]
 
+    def metadata(self, name: str) -> list[str]:
+        return [element.text or "" for element in self._package.iter(f"{DC}{name}")]
 
-def epub_version(artifact: Path) -> str:
-    """Name the EPUB version the package document declares."""
+    def epub_version(self) -> str:
+        return self._package.attrib["version"]
 
-    return package(artifact).attrib["version"]
+    def spine_documents(self) -> list[str]:
+        """Retain every spine entry in order, including cover and navigation documents."""
+        return [
+            self._items[item.attrib["idref"]].attrib["href"]
+            for item in self._package.iter(f"{OPF}itemref")
+        ]
 
+    def cover_documents(self) -> list[str]:
+        """Name declared cover documents, even when their spine entry is non-linear."""
+        return [
+            href
+            for href in self.spine_documents()
+            if _target(self._package_path, href) in self._covers
+        ]
 
-def spine_documents(artifact: Path) -> list[str]:
-    """List the content documents the spine names, in reading order."""
+    def body_documents(self) -> list[str]:
+        """Name the work's spine documents, excluding cover and navigation roles."""
+        covers = self.cover_documents()
+        return [
+            href
+            for href in self.spine_documents()
+            if href not in covers and href != self._navigation
+        ]
 
-    root = package(artifact)
-    manifest = {item.attrib["id"]: item.attrib["href"] for item in root.iter(f"{OPF}item")}
-    return [manifest[item.attrib["idref"]] for item in root.iter(f"{OPF}itemref")]
+    def navigation_entries(self) -> list[str]:
+        return [text for _, text in self.navigation_anchors()]
 
+    def navigation_anchors(self) -> list[tuple[str, str]]:
+        """Read only the table of contents, not landmark or page-list links."""
+        assert self._navigation is not None
+        toc = next(
+            element
+            for element in self._documents[self._navigation].iter(f"{XHTML}nav")
+            if "toc" in element.get(f"{EPUB}type", "").split()
+        )
+        return [
+            (anchor.get("href", ""), "".join(anchor.itertext()).strip())
+            for anchor in toc.iter(f"{XHTML}a")
+        ]
 
-def navigation_entries(artifact: Path) -> list[str]:
-    """List the visible reading-order entries the EPUB navigation document offers."""
+    def content_anchors(self) -> list[tuple[str, str, str]]:
+        return [
+            (href, anchor.get("href", ""), "".join(anchor.itertext()).strip())
+            for href, root in self._reading().items()
+            for anchor in root.iter(f"{XHTML}a")
+        ]
 
-    return [text for _, text in navigation_anchors(artifact)]
+    def anchor_identifiers(self) -> list[tuple[str, str]]:
+        return [
+            (anchor.get("id", ""), anchor.get("href", ""))
+            for root in self._reading().values()
+            for anchor in root.iter(f"{XHTML}a")
+        ]
 
+    def media_resources(self) -> dict[str, bytes]:
+        """Map declared image hrefs to their exact bytes, excluding undeclared ZIP members."""
+        return {
+            item.attrib["href"]: self.member(item.attrib["href"])
+            for item in self._items.values()
+            if item.get("media-type", "").startswith("image/")
+        }
 
-def navigation_anchors(artifact: Path) -> list[tuple[str, str]]:
-    """List the navigation document's own links as href and visible text.
+    def cover_resource(self) -> str | None:
+        """Name the manifest image declared as the cover, independently of document roles."""
+        return next(
+            (
+                item.attrib["href"]
+                for item in self._items.values()
+                if "cover-image" in item.get("properties", "").split()
+            ),
+            None,
+        )
 
-    Content-link processing must never reach these: they are the device's table-of-contents
-    menu rather than prose, and a navigation document with no hrefs is a book with no way in.
-    """
+    def resource_for(self, document: str, reference: str) -> str | None:
+        """Resolve a document's media reference to its declared manifest href, if present."""
+        target = _target(_target(self._package_path, document), reference)
+        return next(
+            (
+                href
+                for href in self.media_resources()
+                if _target(self._package_path, href) == target
+            ),
+            None,
+        )
 
-    toc = next(
-        element
-        for element in _navigation(artifact).iter(f"{XHTML}nav")
-        if element.attrib.get("{http://www.idpf.org/2007/ops}type") == "toc"
-    )
-    return [
-        (anchor.attrib.get("href", ""), "".join(anchor.itertext()).strip())
-        for anchor in toc.iter(f"{XHTML}a")
-    ]
+    def image_sources(self, *, role: Role = "body") -> list[tuple[str, str, str]]:
+        """Read images and alt text from body, cover, or all spine documents."""
+        return [
+            (href, image.get("src", ""), image.get("alt", ""))
+            for href, root in self._reading(role).items()
+            for image in root.iter(f"{XHTML}img")
+        ]
 
+    def content_text(self) -> str:
+        return " ".join(self.document_texts().values())
 
-def content_anchors(artifact: Path) -> list[tuple[str, str, str]]:
-    """List every anchor the spine's content documents carry: document, href and visible text."""
+    def document_texts(self) -> dict[str, str]:
+        """Read body text in reading order; document head titles are not reader content."""
+        return {
+            href: " ".join("".join(_body(root).itertext()).split())
+            for href, root in self._reading().items()
+        }
 
-    return [
-        (href, anchor.attrib.get("href", ""), "".join(anchor.itertext()).strip())
-        for href, root in _spine(artifact).items()
-        for anchor in root.iter(f"{XHTML}a")
-    ]
+    def document_identifiers(self) -> dict[str, list[str]]:
+        return {
+            href: [
+                identifier
+                for element in root.iter()
+                if (identifier := element.get("id")) is not None
+            ]
+            for href, root in self._reading().items()
+        }
 
+    def headings(self) -> list[tuple[str, str, list[str]]]:
+        return [
+            (href, "".join(heading.itertext()).strip(), heading.get("class", "").split())
+            for href, root in self._reading().items()
+            for heading in root.iter(f"{XHTML}h1")
+        ]
 
-def anchor_identifiers(artifact: Path) -> list[tuple[str, str]]:
-    """List every anchor's own identifier beside its href, for references that must stay stable."""
+    def element_texts(self, tag: str) -> list[str]:
+        return [
+            " ".join("".join(element.itertext()).split())
+            for root in self._reading().values()
+            for element in root.iter(f"{XHTML}{tag}")
+        ]
 
-    return [
-        (anchor.attrib.get("id", ""), anchor.attrib.get("href", ""))
-        for _, root in _spine(artifact).items()
-        for anchor in root.iter(f"{XHTML}a")
-    ]
-
-
-def media_resources(artifact: Path) -> dict[str, bytes]:
-    """Map every image the package manifest declares to the bytes the archive holds.
-
-    Read from the manifest rather than by guessing at member names, so a resource the package
-    never declares cannot pass as one it does.
-    """
-
-    root = package(artifact)
-    hrefs = [
-        item.attrib["href"]
-        for item in root.iter(f"{OPF}item")
-        if item.attrib.get("media-type", "").startswith("image/")
-    ]
-    with zipfile.ZipFile(artifact) as archive:
-        return {href: archive.read(_member(archive, href)) for href in hrefs}
-
-
-def image_sources(artifact: Path) -> list[tuple[str, str, str]]:
-    """List every image the content documents reference: document, src and alt text."""
-
-    return [
-        (href, image.attrib.get("src", ""), image.attrib.get("alt", ""))
-        for href, root in _spine(artifact).items()
-        for image in root.iter(f"{XHTML}img")
-    ]
-
-
-def content_text(artifact: Path) -> str:
-    """Concatenate the reader-visible text of every spine content document, in reading order."""
-
-    return " ".join(document_texts(artifact).values())
-
-
-def document_texts(artifact: Path) -> dict[str, str]:
-    """Map each spine document to its reader-visible text, in reading order.
-
-    Only the body is read. A content document's `head` carries a `title` the reader never sees,
-    and counting it as visible text would make a note page look as though it began with its
-    filename.
-    """
-
-    return {
-        href: " ".join("".join(_body(root).itertext()).split())
-        for href, root in _spine(artifact).items()
-    }
+    def _reading(self, role: Role = "body") -> dict[str, ElementTree.Element]:
+        documents = {
+            "body": self.body_documents,
+            "cover": self.cover_documents,
+            "spine": self.spine_documents,
+        }[role]()
+        return {href: self._documents[href] for href in documents}
 
 
 def _body(root: ElementTree.Element) -> ElementTree.Element:
@@ -146,64 +229,8 @@ def _body(root: ElementTree.Element) -> ElementTree.Element:
     return body
 
 
-def document_identifiers(artifact: Path) -> dict[str, list[str]]:
-    """Map each spine document to the identifiers it offers as link targets."""
-
-    return {
-        href: [
-            identifier for element in root.iter() if (identifier := element.get("id")) is not None
-        ]
-        for href, root in _spine(artifact).items()
-    }
-
-
-def headings(artifact: Path) -> list[tuple[str, str, list[str]]]:
-    """List every top-level heading as its document, its visible text and its classes.
-
-    One file per note leaves the first note's heading listed and titled, and every later one blank
-    and unlisted, so what a heading says and what it is classed as are both load-bearing.
-    """
-
-    return [
-        (href, "".join(heading.itertext()).strip(), heading.attrib.get("class", "").split())
-        for href, root in _spine(artifact).items()
-        for heading in root.iter(f"{XHTML}h1")
-    ]
-
-
-def element_texts(artifact: Path, tag: str) -> list[str]:
-    """List the visible text of every element with one XHTML tag, across the spine in order.
-
-    What a book *renders* a piece of content as is a device fact here, not a formatting taste:
-    a heading drives pagination on CrossPoint and a blockquote is already spoken for by real
-    quotations, so a test that only read the words could not tell any of the three apart.
-    """
-
-    return [
-        " ".join("".join(element.itertext()).split())
-        for root in _spine(artifact).values()
-        for element in root.iter(f"{XHTML}{tag}")
-    ]
-
-
-def _spine(artifact: Path) -> dict[str, ElementTree.Element]:
-    with zipfile.ZipFile(artifact) as archive:
-        return {
-            href: ElementTree.fromstring(archive.read(_member(archive, href)))
-            for href in spine_documents(artifact)
-        }
-
-
-def _navigation(artifact: Path) -> ElementTree.Element:
-    root = package(artifact)
-    navigation = next(
-        item.attrib["href"]
-        for item in root.iter(f"{OPF}item")
-        if "nav" in item.attrib.get("properties", "").split()
-    )
-    with zipfile.ZipFile(artifact) as archive:
-        return ElementTree.fromstring(archive.read(_member(archive, navigation)))
-
-
-def _member(archive: zipfile.ZipFile, href: str) -> str:
-    return next(name for name in archive.namelist() if name.endswith(href))
+def _target(base: str, reference: str) -> str:
+    split = urlsplit(reference)
+    assert not split.scheme and not split.netloc, f"not an in-book reference: {reference}"
+    path = unquote(split.path)
+    return posixpath.normpath(posixpath.join(posixpath.dirname(base), path)) if path else base

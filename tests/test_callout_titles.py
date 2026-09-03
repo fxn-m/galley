@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from tests.markdown_fixtures import write_markdown
-from tests.prepared_epub import content_text, element_texts, navigation_entries
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import prepare
 from tests.repair_fixtures import RepairInputs, inspected, repaired_document
 
@@ -103,7 +103,8 @@ def test_a_recognised_callout_title_becomes_one_emphasised_paragraph(tmp_path: P
     assert emphasis(report)["fired"] is True
     assert emphasis(report)["emphasised"]["value"] == 2
     assert emphasis(report)["titles"] == [REACH, SURVIVAL]
-    assert element_texts(artifact, "strong") == [REACH, SURVIVAL]
+    book = PreparedEpub(artifact)
+    assert book.element_texts("strong") == [REACH, SURVIVAL]
 
 
 def test_no_title_becomes_a_heading_because_headings_drive_pagination(tmp_path: Path) -> None:
@@ -121,9 +122,10 @@ def test_no_title_becomes_a_heading_because_headings_drive_pagination(tmp_path: 
     (artifact, report) = journey.output, journey.report
 
     assert emphasis(report)["fired"] is True
+    book = PreparedEpub(artifact)
     for tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
-        assert REACH not in element_texts(artifact, tag)
-    assert navigation_entries(artifact) == ["A Callout Book"]
+        assert REACH not in book.element_texts(tag)
+    assert book.navigation_entries() == ["A Callout Book"]
 
 
 def test_no_title_becomes_a_blockquote_because_real_quotations_already_are(tmp_path: Path) -> None:
@@ -139,7 +141,8 @@ def test_no_title_becomes_a_blockquote_because_real_quotations_already_are(tmp_p
     (artifact, report) = journey.output, journey.report
 
     assert emphasis(report)["fired"] is True
-    assert element_texts(artifact, "blockquote") == []
+    book = PreparedEpub(artifact)
+    assert book.element_texts("blockquote") == []
 
 
 def test_the_words_survive_the_reblocking_untouched(tmp_path: Path) -> None:
@@ -154,7 +157,8 @@ def test_the_words_survive_the_reblocking_untouched(tmp_path: Path) -> None:
 
     assert preservation["claimed"] is True
     assert preservation["tokens"]["unexpected_missing"] == []
-    assert content_text(artifact).count(REACH) == 1
+    book = PreparedEpub(artifact)
+    assert book.content_text().count(REACH) == 1
 
 
 def test_a_title_holding_more_than_one_block_is_left_alone(tmp_path: Path) -> None:
@@ -166,7 +170,8 @@ def test_a_title_holding_more_than_one_block_is_left_alone(tmp_path: Path) -> No
     (artifact, report) = journey.output, journey.report
 
     assert emphasis(report)["fired"] is False
-    assert element_texts(artifact, "strong") == []
+    book = PreparedEpub(artifact)
+    assert book.element_texts("strong") == []
 
 
 def test_an_inner_title_with_no_wrapper_is_left_alone(tmp_path: Path) -> None:
@@ -179,7 +184,8 @@ def test_an_inner_title_with_no_wrapper_is_left_alone(tmp_path: Path) -> None:
     (artifact, report) = journey.output, journey.report
 
     assert emphasis(report)["fired"] is False
-    assert element_texts(artifact, "strong") == []
+    book = PreparedEpub(artifact)
+    assert book.element_texts("strong") == []
 
 
 def test_an_empty_title_is_left_alone(tmp_path: Path) -> None:
@@ -190,4 +196,5 @@ def test_an_empty_title_is_left_alone(tmp_path: Path) -> None:
     (artifact, report) = journey.output, journey.report
 
     assert emphasis(report)["fired"] is False
-    assert element_texts(artifact, "strong") == []
+    book = PreparedEpub(artifact)
+    assert book.element_texts("strong") == []

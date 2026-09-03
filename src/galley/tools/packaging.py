@@ -92,6 +92,14 @@ class BookMetadata:
     """
 
 
+@dataclass(frozen=True)
+class CoverImage:
+    """The resolved image and template policy supplied together by cover preparation."""
+
+    path: Path
+    template: Callable[[str, Path], Path | None]
+
+
 def package_epub3(
     ast: dict[str, object],
     *,
@@ -99,8 +107,7 @@ def package_epub3(
     metadata: BookMetadata,
     resources: Path,
     toc_depth: int | None,
-    cover: Path | None = None,
-    cover_template: Callable[[str, Path], Path | None] | None = None,
+    cover: CoverImage | None = None,
 ) -> Packaging:
     """Write one EPUB3 candidate into temporary space from the retained native AST.
 
@@ -124,9 +131,7 @@ def package_epub3(
     artifact = workspace / ARTIFACT_NAME
     command = selected_command(COMMAND_VARIABLE, DEFAULT_COMMAND)
     version = installed_version(command)
-    template = (
-        None if cover is None or cover_template is None else cover_template(command, workspace)
-    )
+    template = None if cover is None else cover.template(command, workspace)
     execution = run_dependency(
         command,
         _arguments(
@@ -135,7 +140,7 @@ def package_epub3(
             resources=resources,
             metadata=metadata,
             toc_depth=toc_depth,
-            cover=cover,
+            cover=None if cover is None else cover.path,
             template=template,
         ),
         environment=DETERMINISTIC_ENVIRONMENT,

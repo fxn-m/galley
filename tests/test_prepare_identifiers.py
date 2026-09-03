@@ -20,13 +20,7 @@ from galley.document.link_kinds import FOOTNOTE_HREF_LENGTH
 from galley.transforms.identifiers import PATH_RESERVE, TITLE_PREFIX
 
 from tests.markdown_fixtures import write_markdown
-from tests.prepared_epub import (
-    content_anchors,
-    document_identifiers,
-    headings,
-    navigation_anchors,
-    navigation_entries,
-)
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import prepare
 
 PROFILE = "x4-crosspoint"
@@ -59,8 +53,8 @@ def bounding(report: Any) -> Any:
     )
 
 
-def longest_href(artifact: Path) -> int:
-    return max(len(href.encode("utf-8")) for href, _ in navigation_anchors(artifact))
+def longest_href(book: PreparedEpub) -> int:
+    return max(len(href.encode("utf-8")) for href, _ in book.navigation_anchors())
 
 
 def test_a_long_heading_no_longer_makes_a_book_refuse_its_own_navigation(tmp_path: Path) -> None:
@@ -71,7 +65,8 @@ def test_a_long_heading_no_longer_makes_a_book_refuse_its_own_navigation(tmp_pat
 
     assert report["outcome"] == "completed"
     assert report["artifact"]["links"]["maximum_recorded_href_bytes"]["value"] <= LIMIT
-    assert longest_href(artifact) <= LIMIT
+    book = PreparedEpub(artifact)
+    assert longest_href(book) <= LIMIT
     assert bounding(report)["fired"] is True
 
 
@@ -88,11 +83,13 @@ def test_a_long_title_with_no_heading_of_its_own_gets_one_galley_named(tmp_path:
 
     assert report["outcome"] == "completed"
     assert bounding(report)["title_heading"].startswith(TITLE_PREFIX)
-    assert longest_href(artifact) <= LIMIT
+    book = PreparedEpub(artifact)
+    assert longest_href(book) <= LIMIT
     # The reader sees the same shape of book as one whose title needed nothing done to it:
     # the heading Galley writes is the heading Pandoc was going to synthesise.
-    assert [text for _, text, _ in headings(artifact)] == [LONG, LONG]
-    assert [text for _, text, _ in headings(control)] == ["Short", "Short"]
+    assert [text for _, text, _ in book.headings()] == [LONG, LONG]
+    control_book = PreparedEpub(control)
+    assert [text for _, text, _ in control_book.headings()] == ["Short", "Short"]
 
 
 def test_a_document_leading_with_its_own_heading_is_left_alone(tmp_path: Path) -> None:
@@ -125,8 +122,9 @@ def test_a_wrapped_document_still_gets_a_navigation_entry(tmp_path: Path) -> Non
 
     assert report["outcome"] == "completed"
     assert bounding(report)["title_heading"].startswith(TITLE_PREFIX)
-    assert navigation_entries(artifact) == ["A Short Title", "A section inside the wrapper"]
-    assert [text for _, text, _ in headings(artifact)] == ["A Short Title", "A Short Title"]
+    book = PreparedEpub(artifact)
+    assert book.navigation_entries() == ["A Short Title", "A section inside the wrapper"]
+    assert [text for _, text, _ in book.headings()] == ["A Short Title", "A Short Title"]
 
 
 def test_a_first_heading_repeating_the_title_does_not_share_its_identifier(
@@ -143,12 +141,13 @@ def test_a_first_heading_repeating_the_title_does_not_share_its_identifier(
     artifact, report = journey.output, journey.report
 
     assert report["outcome"] == "completed"
-    for identifiers in document_identifiers(artifact).values():
+    book = PreparedEpub(artifact)
+    for identifiers in book.document_identifiers().values():
         assert sorted(set(identifiers)) == sorted(identifiers)
     # The heading's own slug is still there, and it is not the name the title answers to.
     offered = [
         identifier
-        for identifiers in document_identifiers(artifact).values()
+        for identifiers in book.document_identifiers().values()
         for identifier in identifiers
     ]
     assert "library-patterns-why-frameworks-are-evil" in offered
@@ -203,12 +202,11 @@ def test_a_cross_reference_still_reaches_the_heading_it_named(tmp_path: Path) ->
     assert report["outcome"] == "completed"
     assert report["artifact"]["links"]["dead"] == []
     assert report["artifact"]["references"]["broken"] == []
+    book = PreparedEpub(artifact)
     targets = {
-        fragment
-        for identifiers in document_identifiers(artifact).values()
-        for fragment in identifiers
+        fragment for identifiers in book.document_identifiers().values() for fragment in identifiers
     }
-    for _, href, _ in content_anchors(artifact):
+    for _, href, _ in book.content_anchors():
         if href.startswith("#"):
             assert href[1:] in targets
 
@@ -226,7 +224,8 @@ def test_two_headings_that_shorten_alike_stay_two_targets(tmp_path: Path) -> Non
     assert report["outcome"] == "completed"
     rewritten = bounding(report)["rewritten"]
     assert len(set(rewritten.values())) == len(rewritten) == 2
-    hrefs = [href for href, _ in navigation_anchors(artifact)]
+    book = PreparedEpub(artifact)
+    hrefs = [href for href, _ in book.navigation_anchors()]
     assert len(set(hrefs)) == len(hrefs)
 
 
@@ -270,7 +269,8 @@ def test_the_reserved_path_length_is_measured_rather_than_assumed(tmp_path: Path
     artifact, report = journey.output, journey.report
 
     assert report["outcome"] == "completed"
+    book = PreparedEpub(artifact)
     prefixes = [
-        len(href.split("#")[0].encode("utf-8")) + 1 for href, _ in navigation_anchors(artifact)
+        len(href.split("#")[0].encode("utf-8")) + 1 for href, _ in book.navigation_anchors()
     ]
     assert max(prefixes) <= PATH_RESERVE

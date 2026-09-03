@@ -11,7 +11,7 @@ from tests.image_fixtures import (
     grayscale_png,
 )
 from tests.markdown_fixtures import NOTE_POSITIONS, write_markdown
-from tests.prepared_epub import document_texts, image_sources, media_resources
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli, prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
@@ -52,7 +52,8 @@ def test_preparation_preserves_and_measures_each_resource_and_reference(tmp_path
     assert record["source"]["sample_depth"]["value"] == 8
     assert record["source"]["colour_type"]["value"] == 0
     assert (record["source"]["width"]["value"], record["source"]["height"]["value"]) == (4, 3)
-    published = media_resources(output)[_relative(record["artifact"]["path"])]
+    book = PreparedEpub(output)
+    published = book.media_resources()[_relative(record["artifact"]["path"])]
     assert published == square.read_bytes()
 
     record = next(entry for entry in records(report) if entry["src"] == "photo.jpg")
@@ -60,7 +61,7 @@ def test_preparation_preserves_and_measures_each_resource_and_reference(tmp_path
     assert record["source"]["measured_media_type"] == "image/jpeg"
     assert record["source"]["scan_mode"] == "baseline"
     assert record["source"]["colour_model"] == "greyscale"
-    assert media_resources(output)[_relative(record["artifact"]["path"])] == photo.read_bytes()
+    assert book.media_resources()[_relative(record["artifact"]["path"])] == photo.read_bytes()
 
     repeated = [entry for entry in records(report) if entry["src"] == "figure.png"]
     assert len(repeated) == 2
@@ -68,9 +69,9 @@ def test_preparation_preserves_and_measures_each_resource_and_reference(tmp_path
     assert repeated[0]["artifact"] == repeated[1]["artifact"]
     assert transform(report)["references"]["value"] == REFERENCES + 1
     assert transform(report)["resources"]["value"] == 4
-    assert len(media_resources(output)) == 4
-    assert len({src for _, src, _ in image_sources(output)}) == 4
-    assert len(image_sources(output)) == REFERENCES + 1
+    assert len(book.media_resources()) == 4
+    assert len({src for _, src, _ in book.image_sources()}) == 3
+    assert len(book.image_sources()) == REFERENCES
 
     assert [entry["reference"] for entry in records(report) if not entry["cover"]] == [
         f"image-{number}" for number in range(1, REFERENCES + 1)
@@ -88,7 +89,7 @@ def test_preparation_preserves_and_measures_each_resource_and_reference(tmp_path
     assert record["source"]["measured_media_type"] == "image/png"
     assert record["artifact"]["measured_media_type"] == "image/png"
     assert record["artifact"]["path"].endswith(".png")
-    assert media_resources(output)[_relative(record["artifact"]["path"])] == (
+    assert book.media_resources()[_relative(record["artifact"]["path"])] == (
         mislabelled.read_bytes()
     )
 
@@ -133,8 +134,9 @@ def test_the_recorded_alt_text_is_the_alt_text_the_book_carries(tmp_path: Path) 
 
     record = records(report)[0]
     assert record["alt"] == "Figure caption note."
-    assert [alt for _, _, alt in image_sources(output) if alt] == [record["alt"]]
-    caption = next(text for text in document_texts(output).values() if "Figure caption" in text)
+    book = PreparedEpub(output)
+    assert [alt for _, _, alt in book.image_sources() if alt] == [record["alt"]]
+    caption = next(text for text in book.document_texts().values() if "Figure caption" in text)
     assert "Figure caption note." in caption
 
 

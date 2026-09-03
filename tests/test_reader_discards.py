@@ -14,7 +14,7 @@ from tests.article_fixtures import filler
 from tests.article_server import served
 from tests.markdown_fixtures import native_ast, write_markdown
 from tests.repair_fixtures import RepairInputs, inspected, repaired_document
-from tests.prepared_epub import content_text
+from tests.prepared_epub import PreparedEpub
 from tests.public_cli import run_cli, prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
@@ -77,7 +77,8 @@ def test_a_run_whose_reader_discarded_content_claims_no_text_preservation(
     artifact, report = journey.output, journey.report
 
     preservation = report["artifact"]["text_preservation"]
-    assert ORPHAN_TEXT not in content_text(artifact)
+    book = PreparedEpub(artifact)
+    assert ORPHAN_TEXT not in book.content_text()
     assert preservation["tokens"]["unexpected_missing"] == []
     assert preservation["claimed"] is False
     assert preservation["reason"] == "source-reader-discarded-content"
