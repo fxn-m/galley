@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from tests.public_cli import run_public_cli
+from tests.public_cli import run_cli
 from tests.workspace_fixtures import (
     command_document,
     entries,
@@ -42,17 +42,17 @@ def test_inboxes_are_attempted_in_configured_order(tmp_path: Path) -> None:
         inbox_table("second", str(second)),
         inbox_table("first", str(first), recursive=True),
     )
-    for result in run_public_cli("inbox", "check", "--json", environment=environment):
-        document = command_document(result)
-        coverage = entries(document, "coverage")
-        assert [entry["name"] for entry in coverage] == ["second", "first"]
-        assert coverage[0]["resolved_path"] == str(second.resolve())
-        assert coverage[0]["recursive"] is False
-        assert coverage[0]["status"] == "checked"
-        assert coverage[0]["supported_count"] == 1
-        assert coverage[0]["ignored_count"] == 1
-        assert coverage[1]["recursive"] is True
-        assert result.returncode == COMPLETED
+    result = run_cli("inbox", "check", "--json", environment=environment)
+    document = command_document(result)
+    coverage = entries(document, "coverage")
+    assert [entry["name"] for entry in coverage] == ["second", "first"]
+    assert coverage[0]["resolved_path"] == str(second.resolve())
+    assert coverage[0]["recursive"] is False
+    assert coverage[0]["status"] == "checked"
+    assert coverage[0]["supported_count"] == 1
+    assert coverage[0]["ignored_count"] == 1
+    assert coverage[1]["recursive"] is True
+    assert result.returncode == COMPLETED
 
 
 def test_recursion_is_configured_per_inbox(tmp_path: Path) -> None:
@@ -69,15 +69,13 @@ def test_recursion_is_configured_per_inbox(tmp_path: Path) -> None:
         inbox_table("flat", str(flat)),
         inbox_table("nested", str(nested), recursive=True),
     )
-    for result in run_public_cli("inbox", "check", "--json", environment=environment):
-        document = command_document(result)
-        coverage = entries(document, "coverage")
-        assert coverage[0]["supported_count"] == 1
-        assert coverage[1]["supported_count"] == 2
-        found = {
-            Path(str(entry["resolved_path"])).name for entry in entries(document, "candidates")
-        }
-        assert found == {"top.md", "buried.md"}
+    result = run_cli("inbox", "check", "--json", environment=environment)
+    document = command_document(result)
+    coverage = entries(document, "coverage")
+    assert coverage[0]["supported_count"] == 1
+    assert coverage[1]["supported_count"] == 2
+    found = {Path(str(entry["resolved_path"])).name for entry in entries(document, "candidates")}
+    assert found == {"top.md", "buried.md"}
 
 
 def test_directory_symlinks_are_never_followed(tmp_path: Path) -> None:
@@ -90,9 +88,9 @@ def test_directory_symlinks_are_never_followed(tmp_path: Path) -> None:
     inbox.mkdir(parents=True, exist_ok=True)
     (inbox / "link").symlink_to(outside, target_is_directory=True)
     _, environment = _inbox_workspace(tmp_path, inbox_table("inbox", str(inbox), recursive=True))
-    for result in run_public_cli("inbox", "check", "--json", environment=environment):
-        candidates = entries(command_document(result), "candidates")
-        assert [Path(str(entry["resolved_path"])).name for entry in candidates] == ["inside.md"]
+    result = run_cli("inbox", "check", "--json", environment=environment)
+    candidates = entries(command_document(result), "candidates")
+    assert [Path(str(entry["resolved_path"])).name for entry in candidates] == ["inside.md"]
 
 
 def test_hidden_entries_and_unsupported_files_never_become_candidates(tmp_path: Path) -> None:
@@ -105,13 +103,13 @@ def test_hidden_entries_and_unsupported_files_never_become_candidates(tmp_path: 
     _ = _note(inbox / "page.html", "<p>x</p>\n")
     _ = _note(inbox / "book.epub", "not really\n")
     _, environment = _inbox_workspace(tmp_path, inbox_table("inbox", str(inbox), recursive=True))
-    for result in run_public_cli("inbox", "check", "--json", environment=environment):
-        document = command_document(result)
-        coverage = entries(document, "coverage")
-        assert coverage[0]["supported_count"] == 1
-        assert coverage[0]["ignored_count"] == 2
-        candidates = entries(document, "candidates")
-        assert [Path(str(entry["resolved_path"])).name for entry in candidates] == ["kept.md"]
+    result = run_cli("inbox", "check", "--json", environment=environment)
+    document = command_document(result)
+    coverage = entries(document, "coverage")
+    assert coverage[0]["supported_count"] == 1
+    assert coverage[0]["ignored_count"] == 2
+    candidates = entries(document, "candidates")
+    assert [Path(str(entry["resolved_path"])).name for entry in candidates] == ["kept.md"]
 
 
 def test_each_candidate_states_its_full_identity(tmp_path: Path) -> None:
@@ -120,16 +118,16 @@ def test_each_candidate_states_its_full_identity(tmp_path: Path) -> None:
     inbox = tmp_path / "inbox"
     source = _note(inbox / "note.md", "# Heading\n\nBody.\n")
     _, environment = _inbox_workspace(tmp_path, inbox_table("inbox", str(inbox)))
-    for result in run_public_cli("inbox", "check", "--json", environment=environment):
-        candidate = entries(command_document(result), "candidates")[0]
-        assert candidate["primary_inbox"] == "inbox"
-        assert candidate["inboxes"] == ["inbox"]
-        assert candidate["display_path"] == str(source.resolve())
-        assert candidate["resolved_path"] == str(source.resolve())
-        assert candidate["source_kind"] == "markdown"
-        assert candidate["byte_size"] == source.stat().st_size
-        assert str(candidate["modified_at"]).endswith("Z")
-        assert len(str(candidate["sha256"])) == 64
+    result = run_cli("inbox", "check", "--json", environment=environment)
+    candidate = entries(command_document(result), "candidates")[0]
+    assert candidate["primary_inbox"] == "inbox"
+    assert candidate["inboxes"] == ["inbox"]
+    assert candidate["display_path"] == str(source.resolve())
+    assert candidate["resolved_path"] == str(source.resolve())
+    assert candidate["source_kind"] == "markdown"
+    assert candidate["byte_size"] == source.stat().st_size
+    assert str(candidate["modified_at"]).endswith("Z")
+    assert len(str(candidate["sha256"])) == 64
 
 
 def test_overlapping_inboxes_deduplicate_by_resolved_path(tmp_path: Path) -> None:
@@ -143,14 +141,14 @@ def test_overlapping_inboxes_deduplicate_by_resolved_path(tmp_path: Path) -> Non
         inbox_table("outer", str(outer), recursive=True),
         inbox_table("inner", str(inner)),
     )
-    for result in run_public_cli("inbox", "check", "--json", environment=environment):
-        document = command_document(result)
-        candidates = entries(document, "candidates")
-        assert len(candidates) == 1
-        assert candidates[0]["primary_inbox"] == "outer"
-        assert candidates[0]["inboxes"] == ["outer", "inner"]
-        coverage = entries(document, "coverage")
-        assert [entry["supported_count"] for entry in coverage] == [1, 1]
+    result = run_cli("inbox", "check", "--json", environment=environment)
+    document = command_document(result)
+    candidates = entries(document, "candidates")
+    assert len(candidates) == 1
+    assert candidates[0]["primary_inbox"] == "outer"
+    assert candidates[0]["inboxes"] == ["outer", "inner"]
+    coverage = entries(document, "coverage")
+    assert [entry["supported_count"] for entry in coverage] == [1, 1]
 
 
 def test_an_unavailable_inbox_does_not_block_a_healthy_one(tmp_path: Path) -> None:
@@ -163,14 +161,14 @@ def test_an_unavailable_inbox_does_not_block_a_healthy_one(tmp_path: Path) -> No
         inbox_table("missing", str(tmp_path / "absent")),
         inbox_table("healthy", str(healthy)),
     )
-    for result in run_public_cli("inbox", "check", "--json", environment=environment):
-        document = command_document(result)
-        coverage = entries(document, "coverage")
-        assert coverage[0]["status"] == "unavailable"
-        assert "absent" in str(coverage[0]["error"])
-        assert coverage[1]["status"] == "checked"
-        assert len(entries(document, "candidates")) == 1
-        assert result.returncode == COMPLETED
+    result = run_cli("inbox", "check", "--json", environment=environment)
+    document = command_document(result)
+    coverage = entries(document, "coverage")
+    assert coverage[0]["status"] == "unavailable"
+    assert "absent" in str(coverage[0]["error"])
+    assert coverage[1]["status"] == "checked"
+    assert len(entries(document, "candidates")) == 1
+    assert result.returncode == COMPLETED
 
 
 def test_ordering_is_stable_and_never_selects_on_a_display_name(tmp_path: Path) -> None:
@@ -186,13 +184,13 @@ def test_ordering_is_stable_and_never_selects_on_a_display_name(tmp_path: Path) 
         inbox_table("first", str(first)),
         inbox_table("second", str(second)),
     )
-    for result in run_public_cli("inbox", "check", "--json", environment=environment):
-        candidates = entries(command_document(result), "candidates")
-        assert [entry["resolved_path"] for entry in candidates] == [
-            str((first / "alpha.md").resolve()),
-            str((first / "note.md").resolve()),
-            str((second / "note.md").resolve()),
-        ]
+    result = run_cli("inbox", "check", "--json", environment=environment)
+    candidates = entries(command_document(result), "candidates")
+    assert [entry["resolved_path"] for entry in candidates] == [
+        str((first / "alpha.md").resolve()),
+        str((first / "note.md").resolve()),
+        str((second / "note.md").resolve()),
+    ]
 
 
 def test_the_check_creates_nothing_and_changes_nothing(tmp_path: Path) -> None:
@@ -203,8 +201,8 @@ def test_the_check_creates_nothing_and_changes_nothing(tmp_path: Path) -> None:
     _ = _note(inbox / "other.txt", "plain\n")
     _, environment = _inbox_workspace(tmp_path, inbox_table("inbox", str(inbox), recursive=True))
     before = tree(tmp_path)
-    for result in run_public_cli("inbox", "check", "--json", environment=environment):
-        assert result.returncode == COMPLETED
+    result = run_cli("inbox", "check", "--json", environment=environment)
+    assert result.returncode == COMPLETED
     assert tree(tmp_path) == before
 
 
@@ -214,13 +212,13 @@ def test_a_broken_configuration_refuses_before_any_inbox_is_read(tmp_path: Path)
     workspace = tmp_path / "workspace"
     _ = write_configuration(workspace, "version = 3\n")
     environment = workspace_environment(workspace, tmp_path / "home")
-    for result in run_public_cli("inbox", "check", "--json", environment=environment):
-        document = command_document(result)
-        refusal = field(document, "refusal")
-        assert refusal["boundary"] == "unsupported-configuration-version"
-        assert refusal["authority"] == "inbox check"
-        assert entries(document, "coverage") == []
-        assert result.returncode == REFUSED
+    result = run_cli("inbox", "check", "--json", environment=environment)
+    document = command_document(result)
+    refusal = field(document, "refusal")
+    assert refusal["boundary"] == "unsupported-configuration-version"
+    assert refusal["authority"] == "inbox check"
+    assert entries(document, "coverage") == []
+    assert result.returncode == REFUSED
 
 
 def test_human_output_states_the_same_facts_as_the_document(tmp_path: Path) -> None:
@@ -229,12 +227,12 @@ def test_human_output_states_the_same_facts_as_the_document(tmp_path: Path) -> N
     inbox = tmp_path / "inbox"
     source = _note(inbox / "note.md")
     _, environment = _inbox_workspace(tmp_path, inbox_table("inbox", str(inbox)))
-    for result in run_public_cli("inbox", "check", environment=environment):
-        assert result.stdout.startswith("inbox check: completed\n")
-        assert "Inbox inbox: checked (direct children) — 1 supported, 0 ignored" in result.stdout
-        assert "Candidates: 1" in result.stdout
-        assert str(source.resolve()) in result.stdout
-        assert result.returncode == COMPLETED
+    result = run_cli("inbox", "check", environment=environment)
+    assert result.stdout.startswith("inbox check: completed\n")
+    assert "Inbox inbox: checked (direct children) — 1 supported, 0 ignored" in result.stdout
+    assert "Candidates: 1" in result.stdout
+    assert str(source.resolve()) in result.stdout
+    assert result.returncode == COMPLETED
 
 
 def test_a_file_symlink_is_one_candidate_with_its_target(tmp_path: Path) -> None:
@@ -244,13 +242,11 @@ def test_a_file_symlink_is_one_candidate_with_its_target(tmp_path: Path) -> None
     target = _note(inbox / "real.md")
     (inbox / "link.md").symlink_to(target)
     _, environment = _inbox_workspace(tmp_path, inbox_table("inbox", str(inbox)))
-    for result in run_public_cli("inbox", "check", "--json", environment=environment):
-        candidates = entries(command_document(result), "candidates")
-        assert len(candidates) == 1
-        assert candidates[0]["display_path"] == str(
-            (inbox / "link.md").resolve().parent / "link.md"
-        )
-        assert candidates[0]["resolved_path"] == str(target.resolve())
+    result = run_cli("inbox", "check", "--json", environment=environment)
+    candidates = entries(command_document(result), "candidates")
+    assert len(candidates) == 1
+    assert candidates[0]["display_path"] == str((inbox / "link.md").resolve().parent / "link.md")
+    assert candidates[0]["resolved_path"] == str(target.resolve())
 
 
 def test_a_subdirectory_it_cannot_list_makes_the_inbox_unavailable(tmp_path: Path) -> None:
@@ -264,12 +260,12 @@ def test_a_subdirectory_it_cannot_list_makes_the_inbox_unavailable(tmp_path: Pat
     locked.chmod(0o000)
     _, environment = _inbox_workspace(tmp_path, inbox_table("inbox", str(inbox), recursive=True))
     try:
-        for result in run_public_cli("inbox", "check", "--json", environment=environment):
-            document = command_document(result)
-            coverage = entries(document, "coverage")
-            assert coverage[0]["status"] == "unavailable"
-            assert str(locked.resolve()) in str(coverage[0]["error"])
-            assert len(entries(document, "candidates")) == 1
-            assert result.returncode == COMPLETED
+        result = run_cli("inbox", "check", "--json", environment=environment)
+        document = command_document(result)
+        coverage = entries(document, "coverage")
+        assert coverage[0]["status"] == "unavailable"
+        assert str(locked.resolve()) in str(coverage[0]["error"])
+        assert len(entries(document, "candidates")) == 1
+        assert result.returncode == COMPLETED
     finally:
         locked.chmod(0o700)

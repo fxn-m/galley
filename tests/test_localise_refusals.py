@@ -23,7 +23,7 @@ from tests.localisation_fixtures import (
     png_bytes,
     serving,
 )
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import run_cli
 
 
 def test_a_source_with_no_remote_image_refuses_rather_than_doing_empty_work(tmp_path: Path) -> None:
@@ -33,12 +33,8 @@ def test_a_source_with_no_remote_image_refuses_rather_than_doing_empty_work(tmp_
     source = illustrated_source(tmp_path / "local.md", "figure.png")
     _ = grayscale_png(tmp_path / "figure.png")
 
-    result = run_command(
-        public_cli_commands("localise", str(source))[0],
-        *PROFILE,
-        "--evidence-dir",
-        str(tmp_path / "repair"),
-        "--json",
+    result = run_cli(
+        "localise", str(source), *PROFILE, "--evidence-dir", str(tmp_path / "repair"), "--json"
     )
 
     assert result.returncode == 3
@@ -51,8 +47,9 @@ def test_an_article_url_refuses_because_its_images_already_localise(tmp_path: Pa
     """Preparation retrieves an Article-Like Page's images, so localising one would retrieve the
     same bytes a second time under a different name."""
 
-    result = run_command(
-        public_cli_commands("localise", "https://example.com/article")[0],
+    result = run_cli(
+        "localise",
+        "https://example.com/article",
         *PROFILE,
         "--evidence-dir",
         str(tmp_path / "repair"),
@@ -73,12 +70,8 @@ def test_a_locally_resolving_host_is_refused_through_the_installed_cli(tmp_path:
 
     with serving({"/a.png": Response(png_bytes(tmp_path))}) as origin:
         source = illustrated_source(tmp_path / "clip.md", f"{origin}/a.png")
-        result = run_command(
-            public_cli_commands("localise", str(source))[0],
-            *PROFILE,
-            "--evidence-dir",
-            str(tmp_path / "repair"),
-            "--json",
+        result = run_cli(
+            "localise", str(source), *PROFILE, "--evidence-dir", str(tmp_path / "repair"), "--json"
         )
 
     assert result.returncode == 3
@@ -123,12 +116,8 @@ def test_a_reference_that_is_neither_local_nor_retrievable_refuses(tmp_path: Pat
 
     source = illustrated_source(tmp_path / "clip.md", "ftp://example.com/a.png")
 
-    result = run_command(
-        public_cli_commands("localise", str(source))[0],
-        *PROFILE,
-        "--evidence-dir",
-        str(tmp_path / "repair"),
-        "--json",
+    result = run_cli(
+        "localise", str(source), *PROFILE, "--evidence-dir", str(tmp_path / "repair"), "--json"
     )
 
     assert result.returncode == 3
@@ -143,12 +132,7 @@ def test_the_concise_rendering_names_the_boundary_and_the_reference(tmp_path: Pa
 
     source = illustrated_source(tmp_path / "clip.md", "ftp://example.com/a.png")
 
-    result = run_command(
-        public_cli_commands("localise", str(source))[0],
-        *PROFILE,
-        "--evidence-dir",
-        str(tmp_path / "repair"),
-    )
+    result = run_cli("localise", str(source), *PROFILE, "--evidence-dir", str(tmp_path / "repair"))
 
     assert result.returncode == 3
     assert result.stdout.splitlines()[:2] == [
@@ -169,12 +153,8 @@ def test_an_inline_reference_is_passed_over_rather_than_called_unlocalisable(
     inline = "data:image/png;base64," + b64encode(png).decode("ascii")
     source = illustrated_source(tmp_path / "inline.md", inline)
 
-    result = run_command(
-        public_cli_commands("localise", str(source))[0],
-        *PROFILE,
-        "--evidence-dir",
-        str(tmp_path / "repair"),
-        "--json",
+    result = run_cli(
+        "localise", str(source), *PROFILE, "--evidence-dir", str(tmp_path / "repair"), "--json"
     )
 
     assert result.returncode == 3

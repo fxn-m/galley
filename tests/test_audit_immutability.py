@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from tests.epub_fixtures import CHAPTER_PATH, default_entries, replace, write_epub
-from tests.public_cli import run_public_cli
+from tests.public_cli import run_cli
 
 MALFORMED_XML = b'<?xml version="1.0" encoding="UTF-8"?>\n<html><body><p>unclosed\n'
 
@@ -24,11 +24,11 @@ def test_audit_never_writes_beside_a_read_only_subject(tmp_path: Path) -> None:
     os.chmod(book, 0o444)
     os.chmod(enclosure, 0o555)
     try:
-        results = run_public_cli("audit", str(book), "--profile", "x4-crosspoint", "--json")
+        results = run_cli("audit", str(book), "--profile", "x4-crosspoint", "--json")
     finally:
         os.chmod(enclosure, 0o755)
 
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
+    assert (results.returncode, results.stderr) == (0, "")
     after = book.stat()
     assert (after.st_size, after.st_mtime_ns) == (before.st_size, before.st_mtime_ns)
     assert sha256(book.read_bytes()).hexdigest() == digest
@@ -40,11 +40,10 @@ def test_a_malformed_package_never_changes_the_audited_bytes(tmp_path: Path) -> 
     book = write_epub(tmp_path / "malformed.epub", entries)
     original = book.read_bytes()
 
-    results = run_public_cli("audit", str(book), "--profile", "x4-crosspoint", "--json")
+    result = run_cli("audit", str(book), "--profile", "x4-crosspoint", "--json")
 
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
+    assert (result.returncode, result.stderr) == (0, "")
     assert book.read_bytes() == original
-    for result in results:
-        report = json.loads(result.stdout)
-        assert report["outcome"] == "completed"
-        assert report["artifact"]["sha256"] == sha256(original).hexdigest()
+    report = json.loads(result.stdout)
+    assert report["outcome"] == "completed"
+    assert report["artifact"]["sha256"] == sha256(original).hexdigest()

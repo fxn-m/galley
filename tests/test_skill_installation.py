@@ -7,7 +7,7 @@ force reaches only the two named skill directories, and a successful no-op rewri
 
 from pathlib import Path
 
-from tests.public_cli import public_cli_commands, run_command, run_public_cli
+from tests.public_cli import run_cli
 from tests.skill_fixtures import (
     MANIFEST,
     SKILLS,
@@ -29,60 +29,54 @@ from tests.skill_fixtures import (
 COMPLETED = 0
 
 
-def _install(target: Path | None, *arguments: str, home: Path) -> list[dict[str, object]]:
-    """Install through each public entry point into one target, returning both documents.
-
-    Both entry points run against the same target, so the second one is a repeat of the first.
-    Assertions read `[0]` — the run that met the state the test set up — and the repeat is itself
-    worth having, since a command whose second run disagreed with its first would be caught here.
-    """
+def _install(target: Path | None, *arguments: str, home: Path) -> dict[str, object]:
+    """Install once into the state the test arranged and return its document."""
 
     selection = () if target is None else ("--target", str(target))
-    documents: list[dict[str, object]] = []
-    for result in run_public_cli(
+    result = run_cli(
         "skill", "install", *selection, *arguments, "--json", environment=isolated_home(home)
-    ):
-        documents.append(document_of(result))
-        documents[-1]["exit_code"] = result.returncode
-    return documents
+    )
+    document = document_of(result)
+    document["exit_code"] = result.returncode
+    return document
 
 
 def test_a_missing_target_installs_both_skills_and_records_every_hash(tmp_path: Path) -> None:
     """The first install writes both complete trees plus the manifest that speaks for them."""
 
-    for entry_point, command in enumerate(public_cli_commands("skill", "install")):
-        target = tmp_path / f"target-{entry_point}"
-        result = run_command(
-            command,
-            "--target",
-            str(target),
-            "--json",
-            environment=isolated_home(tmp_path / "home"),
-        )
-        document = document_of(result)
-        entries = skill_entries(document)
-        source = mapping_of(document, "source")
+    target = tmp_path / "target-0"
+    result = run_cli(
+        "skill",
+        "install",
+        "--target",
+        str(target),
+        "--json",
+        environment=isolated_home(tmp_path / "home"),
+    )
+    document = document_of(result)
+    entries = skill_entries(document)
+    source = mapping_of(document, "source")
 
-        assert result.returncode == COMPLETED
-        assert document["outcome"] == "completed"
-        assert [entry["action"] for entry in entries.values()] == ["installed", "installed"]
-        for skill in SKILLS:
-            packaged = packaged_files(skill)
-            installed = contents(target / skill)
-            manifest = manifest_of(target, skill)
-            assert {path: data for path, data in installed.items() if path != MANIFEST} == packaged
-            assert manifest["schema"] == "galley/skill-manifest/1"
-            assert manifest["galley_version"] == source["galley_version"]
-            assert set(digests(entries[skill])) == set(packaged)
-            assert set(dispositions(entries[skill]).values()) == {"written"}
-        assert no_staging_left(target)
+    assert result.returncode == COMPLETED
+    assert document["outcome"] == "completed"
+    assert [entry["action"] for entry in entries.values()] == ["installed", "installed"]
+    for skill in SKILLS:
+        packaged = packaged_files(skill)
+        installed = contents(target / skill)
+        manifest = manifest_of(target, skill)
+        assert {path: data for path, data in installed.items() if path != MANIFEST} == packaged
+        assert manifest["schema"] == "galley/skill-manifest/1"
+        assert manifest["galley_version"] == source["galley_version"]
+        assert set(digests(entries[skill])) == set(packaged)
+        assert set(dispositions(entries[skill]).values()) == {"written"}
+    assert no_staging_left(target)
 
 
 def test_the_default_target_is_the_standard_user_skills_location(tmp_path: Path) -> None:
     """No option means the standard user `.agents/skills` directory, and nothing else."""
 
     home = tmp_path / "home"
-    document = _install(None, home=home)[0]
+    document = _install(None, home=home)
     target = home / ".agents" / "skills"
 
     assert document["exit_code"] == COMPLETED
@@ -95,10 +89,10 @@ def test_an_identical_managed_installation_is_a_successful_no_op(tmp_path: Path)
 
     target = tmp_path / "target"
     home = tmp_path / "home"
-    _ = _install(target, home=home)[0]
+    _ = _install(target, home=home)
     before = stamps(target)
 
-    document = _install(target, home=home)[0]
+    document = _install(target, home=home)
     entries = skill_entries(document)
 
     assert document["exit_code"] == COMPLETED
@@ -114,12 +108,12 @@ def test_an_older_intact_managed_installation_upgrades_to_the_packaged_version(
 
     target = tmp_path / "target"
     home = tmp_path / "home"
-    _ = _install(target, home=home)[0]
+    _ = _install(target, home=home)
     older = manifest_of(target, "galley")
     installed_version = older["galley_version"]
     rewrite_manifest(target, "galley", {**older, "galley_version": "0.0.9"})
 
-    document = _install(target, home=home)[0]
+    document = _install(target, home=home)
     entries = skill_entries(document)
 
     assert document["exit_code"] == COMPLETED
@@ -151,7 +145,7 @@ def test_force_replaces_only_the_two_named_skill_directories(tmp_path: Path) -> 
         if not path.startswith(("galley/", "galley-setup/"))
     }
 
-    document = _install(target, "--force", home=tmp_path / "home")[0]
+    document = _install(target, "--force", home=tmp_path / "home")
     entries = skill_entries(document)
 
     assert document["exit_code"] == COMPLETED
@@ -172,11 +166,11 @@ def test_the_human_rendering_states_the_same_source_target_and_actions(tmp_path:
     """Concise output is a second rendering of the document, never a second account of it."""
 
     target = tmp_path / "target"
-    for result in run_public_cli(
+    result = run_cli(
         "skill", "install", "--target", str(target), environment=isolated_home(tmp_path / "home")
-    ):
-        assert result.returncode == COMPLETED
-        assert "skill install: completed" in result.stdout
-        assert str(target.resolve()) in result.stdout
-        for skill in SKILLS:
-            assert f"{skill}: " in result.stdout
+    )
+    assert result.returncode == COMPLETED
+    assert "skill install: completed" in result.stdout
+    assert str(target.resolve()) in result.stdout
+    for skill in SKILLS:
+        assert f"{skill}: " in result.stdout

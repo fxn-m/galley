@@ -12,7 +12,7 @@ from typing import Any
 from tests.image_fixtures import grayscale_png
 from tests.markdown_fixtures import CAPTIONED_FIGURE, write_markdown
 from tests.prepared_epub import content_text
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import run_cli
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
 
@@ -21,14 +21,13 @@ def test_an_image_alone_on_a_line_keeps_the_caption_its_author_wrote(tmp_path: P
     source = write_markdown(tmp_path / "figure.md", CAPTIONED_FIGURE)
     _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
 
-    for index, command in enumerate(public_cli_commands("prepare", str(source))):
-        output = tmp_path / f"book-{index}.epub"
-        result = run_command(command, "--output", str(output), *ARGUMENTS)
-        report: Any = json.loads(result.stdout)
-        text = content_text(output)
+    output = tmp_path / "book-0.epub"
+    result = run_cli("prepare", str(source), "--output", str(output), *ARGUMENTS)
+    report: Any = json.loads(result.stdout)
+    text = content_text(output)
 
-        assert (result.returncode, report["outcome"]) == (0, "completed")
-        # The words in the brackets are printed, and the note inside them survives with them.
-        assert "A diagram of the loom" in text
-        assert "The loom is the whole comparison." in text
-        assert report["artifact"]["text_preservation"]["tokens"]["unexpected_missing"] == []
+    assert (result.returncode, report["outcome"]) == (0, "completed")
+    # The words in the brackets are printed, and the note inside them survives with them.
+    assert "A diagram of the loom" in text
+    assert "The loom is the whole comparison." in text
+    assert report["artifact"]["text_preservation"]["tokens"]["unexpected_missing"] == []

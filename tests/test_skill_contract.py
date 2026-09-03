@@ -9,7 +9,7 @@ import json
 import re
 from pathlib import Path
 
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import run_cli
 
 SKILL = Path("src/galley/skills/galley")
 # Every command the skill names, as the argument list its own help is read through.
@@ -29,9 +29,7 @@ ROOT_FLAGS = frozenset({"--version"})
 
 
 def _help(*arguments: str) -> str:
-    result = run_command(
-        public_cli_commands(*arguments)[0], "--help", environment={"TERM": "dumb", "COLUMNS": "400"}
-    )
+    result = run_cli(*arguments, "--help", environment={"TERM": "dumb", "COLUMNS": "400"})
     assert result.returncode == 0, result.stderr
     return result.stdout
 

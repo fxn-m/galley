@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.public_cli import run_public_cli
+from tests.public_cli import run_cli
 from tests.workspace_fixtures import (
     command_document,
     field,
@@ -36,12 +36,12 @@ def test_customisation_round_trips_without_changing_the_workspace(
     before = config.read_bytes(), config.stat().st_mtime_ns, tree(workspace)
     environment = workspace_environment(workspace, tmp_path / "home")
 
-    for result in run_public_cli("config", "validate", "--json", environment=environment):
-        document = command_document(result)
-        assert result.returncode == 0, document
-        assert document["customisation"] == {"instructions": instructions, "source": source}
-        assert field(document, "configuration")["version"] == 1
-        assert document["cover_artwork"] == {"value": False, "source": "default"}
+    result = run_cli("config", "validate", "--json", environment=environment)
+    document = command_document(result)
+    assert result.returncode == 0, document
+    assert document["customisation"] == {"instructions": instructions, "source": source}
+    assert field(document, "configuration")["version"] == 1
+    assert document["cover_artwork"] == {"value": False, "source": "default"}
     assert (config.read_bytes(), config.stat().st_mtime_ns, tree(workspace)) == before
 
 
@@ -70,14 +70,14 @@ def test_customisation_keeps_the_configuration_schema_strict(
     _ = config.write_text(f"{header}{setting}\n\n[[inbox]]{inbox}", encoding="utf-8")
     environment = workspace_environment(workspace, tmp_path / "home")
 
-    for result in run_public_cli("config", "validate", "--json", environment=environment):
-        document = command_document(result)
-        assert result.returncode == 3
-        refusal = field(document, "refusal")
-        assert refusal["boundary"] == boundary
-        assert document["customisation"] is None
-        if boundary == "unknown-configuration-key":
-            assert field(refusal, "fact")["accepted"] == ["instructions"]
+    result = run_cli("config", "validate", "--json", environment=environment)
+    document = command_document(result)
+    assert result.returncode == 3
+    refusal = field(document, "refusal")
+    assert refusal["boundary"] == boundary
+    assert document["customisation"] is None
+    if boundary == "unknown-configuration-key":
+        assert field(refusal, "fact")["accepted"] == ["instructions"]
 
 
 def test_instructions_are_reported_as_text_and_never_executed(tmp_path: Path) -> None:
@@ -91,12 +91,12 @@ def test_instructions_are_reported_as_text_and_never_executed(tmp_path: Path) ->
     )
     environment = workspace_environment(workspace, tmp_path / "home")
 
-    for result in run_public_cli("config", "validate", "--json", environment=environment):
-        assert result.returncode == 0
-        assert field(command_document(result), "customisation")["instructions"] == instructions
+    result = run_cli("config", "validate", "--json", environment=environment)
+    assert result.returncode == 0
+    assert field(command_document(result), "customisation")["instructions"] == instructions
     assert not marker.exists()
-    for result in run_public_cli("config", "validate", environment=environment):
-        assert result.returncode == 0
-        assert "Customisation (configured):" in result.stdout
-        assert instructions in result.stdout
+    result = run_cli("config", "validate", environment=environment)
+    assert result.returncode == 0
+    assert "Customisation (configured):" in result.stdout
+    assert instructions in result.stdout
     assert not marker.exists()

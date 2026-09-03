@@ -7,27 +7,19 @@ hashed differed on every run while the book they produced did not. Repeated buil
 digest drift even though the finished artifacts matched.
 """
 
-import json
 import zipfile
 from pathlib import Path
 from typing import Any
 
 from tests.image_fixtures import grayscale_png
 from tests.markdown_fixtures import write_markdown
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
 # Its own level-1 heading, so nothing bounds an identifier and the only transform that could
 # change the AST is image preparation.
 PLAIN = "---\ntitle: A Plain Book\n---\n\n# A Plain Book\n\nWords and more words follow here.\n"
 ILLUSTRATED = f"{PLAIN}\n![alt words](figure.png)\n"
-
-
-def prepared(tmp_path: Path, index: int, command: list[str], source: Path) -> Any:
-    output = tmp_path / f"book-{index}.epub"
-    result = run_command(command, str(source), "--output", str(output), *ARGUMENTS)
-    assert (result.returncode, result.stderr) == (0, "")
-    return output, json.loads(result.stdout)
 
 
 def packaged(report: Any) -> Any:
@@ -46,12 +38,13 @@ def test_two_runs_over_one_illustrated_source_hash_the_same_bytes(tmp_path: Path
     grayscale_png(tmp_path / "figure.png", width=8, height=8)
     source = write_markdown(tmp_path / "illustrated.md", ILLUSTRATED)
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        _, one = prepared(tmp_path, index, command, source)
-        _, two = prepared(tmp_path, index + 100, command, source)
+    journey = prepare(tmp_path, source)
+    _, one = journey.output, journey.report
+    journey2 = prepare(tmp_path, source)
+    _, two = journey2.output, journey2.report
 
-        assert packaged(one)["packaged_ast_sha256"] == packaged(two)["packaged_ast_sha256"]
-        assert one["artifact"]["sha256"] == two["artifact"]["sha256"]
+    assert packaged(one)["packaged_ast_sha256"] == packaged(two)["packaged_ast_sha256"]
+    assert one["artifact"]["sha256"] == two["artifact"]["sha256"]
 
 
 def test_the_digest_names_the_bytes_the_writer_was_handed(tmp_path: Path) -> None:
@@ -61,15 +54,15 @@ def test_the_digest_names_the_bytes_the_writer_was_handed(tmp_path: Path) -> Non
     grayscale_png(tmp_path / "figure.png", width=8, height=8)
     source = write_markdown(tmp_path / "illustrated.md", ILLUSTRATED)
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, source)
+    journey = prepare(tmp_path, source)
+    artifact, report = journey.output, journey.report
 
-        # The image is in the book, which is what makes the bare name a real reference rather
-        # than a tidier-looking one the writer could not resolve.
-        with zipfile.ZipFile(artifact) as archive:
-            assert [name for name in archive.namelist() if name.startswith("EPUB/media/")]
-        assert report["preparation"]["images"]["totals"]["references"]["value"] == 2
-        assert report["preparation"]["images"]["preservation"]["mapped"]["value"] == 2
+    # The image is in the book, which is what makes the bare name a real reference rather
+    # than a tidier-looking one the writer could not resolve.
+    with zipfile.ZipFile(artifact) as archive:
+        assert [name for name in archive.namelist() if name.startswith("EPUB/media/")]
+    assert report["preparation"]["images"]["totals"]["references"]["value"] == 2
+    assert report["preparation"]["images"]["preservation"]["mapped"]["value"] == 2
 
 
 def test_a_document_no_transform_changed_reports_it_was_not_transformed(tmp_path: Path) -> None:
@@ -77,11 +70,11 @@ def test_a_document_no_transform_changed_reports_it_was_not_transformed(tmp_path
 
     source = write_markdown(tmp_path / "plain.md", PLAIN)
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        _, report = prepared(tmp_path, index, command, source)
+    journey = prepare(tmp_path, source)
+    _, report = journey.output, journey.report
 
-        assert packaged(report)["transformed"] is False
-        assert packaged(report)["packaged_ast_sha256"] == packaged(report)["retained_ast_sha256"]
+    assert packaged(report)["transformed"] is False
+    assert packaged(report)["packaged_ast_sha256"] == packaged(report)["retained_ast_sha256"]
 
 
 def test_an_illustrated_document_is_transformed_and_says_which_transform_did_it(
@@ -94,8 +87,8 @@ def test_an_illustrated_document_is_transformed_and_says_which_transform_did_it(
     grayscale_png(tmp_path / "figure.png", width=8, height=8)
     source = write_markdown(tmp_path / "illustrated.md", ILLUSTRATED)
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        _, report = prepared(tmp_path, index, command, source)
+    journey = prepare(tmp_path, source)
+    _, report = journey.output, journey.report
 
-        assert packaged(report)["transformed"] is True
-        assert "image-preparation" in fired(report)
+    assert packaged(report)["transformed"] is True
+    assert "image-preparation" in fired(report)

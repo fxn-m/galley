@@ -12,14 +12,13 @@ does: the near misses are what keep this a duplicate-suppression rule rather tha
 opinion.
 """
 
-import json
 from pathlib import Path
 from typing import Any
 
 from tests.image_fixtures import grayscale_png
 from tests.markdown_fixtures import write_markdown
 from tests.prepared_epub import content_text, image_sources
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import run_cli, prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
 PROSE = "Ordinary prose, long enough that this reads as a document rather than as a fragment."
@@ -35,14 +34,6 @@ def source(alt: str, following: str) -> str:
     )
 
 
-def prepared(tmp_path: Path, index: int, command: list[str], document: str) -> tuple[Path, Any]:
-    written = write_markdown(tmp_path / f"source-{index}.md", document)
-    _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
-    output = tmp_path / f"book-{index}.epub"
-    result = run_command(command, str(written), "--output", str(output), *ARGUMENTS)
-    return output, json.loads(result.stdout)
-
-
 def suppression(report: Any) -> Any:
     return next(
         entry
@@ -52,28 +43,30 @@ def suppression(report: Any) -> Any:
 
 
 def test_a_caption_the_next_paragraph_repeats_is_printed_once(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, source(LESSON, LESSON))
+    prepared_source = write_markdown(tmp_path / "source-0.md", source(LESSON, LESSON))
+    _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        assert suppression(report)["fired"] is True
-        assert suppression(report)["suppressed"]["value"] == 1
-        assert suppression(report)["captions"] == [LESSON]
-        assert content_text(artifact).count(LESSON) == 1
+    assert report["outcome"] == "completed"
+    assert suppression(report)["fired"] is True
+    assert suppression(report)["suppressed"]["value"] == 1
+    assert suppression(report)["captions"] == [LESSON]
+    assert content_text(artifact).count(LESSON) == 1
 
 
 def test_the_alt_attribute_itself_is_untouched(tmp_path: Path) -> None:
     """Only the printed copy goes. Accessibility reads the attribute and it still says the same."""
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, source(LESSON, LESSON))
+    prepared_source = write_markdown(tmp_path / "source-0.md", source(LESSON, LESSON))
+    _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
 
-        assert suppression(report)["fired"] is True
-        assert [
-            alt
-            for document, _, alt in image_sources(artifact)
-            if not document.endswith("cover.xhtml")
-        ] == [LESSON]
+    assert suppression(report)["fired"] is True
+    assert [
+        alt for document, _, alt in image_sources(artifact) if not document.endswith("cover.xhtml")
+    ] == [LESSON]
 
 
 def test_text_preservation_is_unaffected_by_the_suppression(tmp_path: Path) -> None:
@@ -86,13 +79,15 @@ def test_text_preservation_is_unaffected_by_the_suppression(tmp_path: Path) -> N
     missing from a book that still says them.
     """
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        _, report = prepared(tmp_path, index, command, source(LESSON, LESSON))
-        preservation = report["artifact"]["text_preservation"]
+    prepared_source = write_markdown(tmp_path / "source-0.md", source(LESSON, LESSON))
+    _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    _, report = journey.output, journey.report
+    preservation = report["artifact"]["text_preservation"]
 
-        assert suppression(report)["fired"] is True
-        assert preservation["claimed"] is True
-        assert preservation["tokens"]["unexpected_missing"] == []
+    assert suppression(report)["fired"] is True
+    assert preservation["claimed"] is True
+    assert preservation["tokens"]["unexpected_missing"] == []
 
 
 def test_whitespace_the_two_copies_were_spaced_by_does_not_defeat_the_match(
@@ -108,13 +103,15 @@ def test_whitespace_the_two_copies_were_spaced_by_does_not_defeat_the_match(
     spaced = "Is GPT part of AGI? ( LeCun 2019 )"
     document = source("Is GPT part of AGI? (LeCun 2019)", spaced)
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, document)
-        text = content_text(artifact)
+    prepared_source = write_markdown(tmp_path / "source-0.md", document)
+    _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
+    text = content_text(artifact)
 
-        assert suppression(report)["fired"] is True
-        assert text.count("Is GPT part of AGI?") == 1
-        assert spaced in text
+    assert suppression(report)["fired"] is True
+    assert text.count("Is GPT part of AGI?") == 1
+    assert spaced in text
 
 
 def test_a_caption_the_next_paragraph_only_begins_is_still_printed(tmp_path: Path) -> None:
@@ -122,22 +119,26 @@ def test_a_caption_the_next_paragraph_only_begins_is_still_printed(tmp_path: Pat
 
     document = source(LESSON, f"{LESSON} And the reason it is better takes a while to explain.")
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, document)
+    prepared_source = write_markdown(tmp_path / "source-0.md", document)
+    _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
 
-        assert suppression(report)["fired"] is False
-        assert content_text(artifact).count(LESSON) == 2
+    assert suppression(report)["fired"] is False
+    assert content_text(artifact).count(LESSON) == 2
 
 
 def test_a_caption_differing_by_one_word_is_still_printed(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(
-            tmp_path, index, command, source(LESSON, "A worse GPT-3 lesson.")
-        )
-        text = content_text(artifact)
+    prepared_source = write_markdown(
+        tmp_path / "source-0.md", source(LESSON, "A worse GPT-3 lesson.")
+    )
+    _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
+    text = content_text(artifact)
 
-        assert suppression(report)["fired"] is False
-        assert (text.count(LESSON), text.count("A worse GPT-3 lesson.")) == (1, 1)
+    assert suppression(report)["fired"] is False
+    assert (text.count(LESSON), text.count("A worse GPT-3 lesson.")) == (1, 1)
 
 
 def test_a_figure_whose_caption_came_from_its_alt_but_says_something_else_is_left_alone(
@@ -152,11 +153,13 @@ def test_a_figure_whose_caption_came_from_its_alt_but_says_something_else_is_lef
 
     document = source(LESSON, "The graveyard is full of designs that did not survive contact.")
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, document)
+    prepared_source = write_markdown(tmp_path / "source-0.md", document)
+    _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
 
-        assert suppression(report)["fired"] is False
-        assert content_text(artifact).count(LESSON) == 1
+    assert suppression(report)["fired"] is False
+    assert content_text(artifact).count(LESSON) == 1
 
 
 def test_a_figure_with_no_paragraph_after_it_is_left_alone(tmp_path: Path) -> None:
@@ -167,30 +170,28 @@ def test_a_figure_with_no_paragraph_after_it_is_left_alone(tmp_path: Path) -> No
         f"![{LESSON}](figure.png)\n"
     )
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, document)
+    prepared_source = write_markdown(tmp_path / "source-0.md", document)
+    _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
 
-        assert suppression(report)["fired"] is False
-        assert content_text(artifact).count(LESSON) == 1
+    assert suppression(report)["fired"] is False
+    assert content_text(artifact).count(LESSON) == 1
 
 
 def test_the_terminal_says_how_many_captions_stopped_being_printed(tmp_path: Path) -> None:
     """A transform that takes text off the panel says so where a person is looking."""
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        written = write_markdown(tmp_path / f"human-{index}.md", source(LESSON, LESSON))
-        _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
-        result = run_command(
-            command,
-            str(written),
-            "--output",
-            str(tmp_path / f"human-{index}.epub"),
-            "--profile",
-            "x4-crosspoint",
-        )
+    written = write_markdown(tmp_path / "human-0.md", source(LESSON, LESSON))
+    _ = grayscale_png(tmp_path / "figure.png", width=40, height=30)
+    result = run_cli(
+        "prepare",
+        str(written),
+        "--output",
+        str(tmp_path / "human-0.epub"),
+        "--profile",
+        "x4-crosspoint",
+    )
 
-        assert "Transform: duplicate-caption-suppression (fired)\n" in result.stdout
-        assert (
-            "Captions: 1 suppressed, each still printed by the paragraph below it\n"
-            in result.stdout
-        )
+    assert "Transform: duplicate-caption-suppression (fired)\n" in result.stdout
+    assert "Captions: 1 suppressed, each still printed by the paragraph below it\n" in result.stdout

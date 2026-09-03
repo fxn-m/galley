@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from tests.epub_fixtures import PACKAGE_PATH, default_entries, replace, write_epub
-from tests.public_cli import run_public_cli
+from tests.public_cli import run_cli
 
 # Conformance retention is about what the real checker reports, so the whole module
 # opts out of the suite's instant EPUBCheck stand-in.
@@ -32,16 +32,16 @@ INVALID_PACKAGE = b"""<?xml version="1.0" encoding="UTF-8"?>
 
 
 def audited(book: Path) -> dict[str, Any]:
-    """Audit one EPUB through both entry points with the real pinned EPUBCheck."""
+    """Audit one EPUB through the installed command with the real pinned EPUBCheck."""
 
     before = sha256(book.read_bytes()).hexdigest()
-    results = run_public_cli("audit", str(book), "--profile", "x4-crosspoint", "--json")
+    result = run_cli("audit", str(book), "--profile", "x4-crosspoint", "--json")
 
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
+    assert (result.returncode, result.stderr) == (0, "")
     assert sha256(book.read_bytes()).hexdigest() == before
-    reports: list[dict[str, Any]] = [json.loads(result.stdout) for result in results]
-    assert reports[0]["artifact"] == reports[1]["artifact"]
-    return reports[0]
+    reports: dict[str, Any] = json.loads(result.stdout)
+
+    return reports
 
 
 @pytest.fixture(scope="module")
@@ -165,14 +165,10 @@ def test_the_package_validity_non_requirement_sits_beside_the_result(
 def test_human_output_shows_conformance_beside_the_non_requirement(tmp_path: Path) -> None:
     book = write_epub(tmp_path / "valid.epub")
 
-    results = run_public_cli("audit", str(book), "--profile", "x4-crosspoint")
+    result = run_cli("audit", str(book), "--profile", "x4-crosspoint")
 
-    for result in results:
-        assert result.returncode == 0
-        assert (
-            "Conformance: EPUBCheck 5.3.0; 0 fatal, 0 error, 0 warning, 0 usage\n" in result.stdout
-        )
-        assert (
-            "Non-requirement: EPUB validity is not a requirement. (package-validity)\n"
-            in result.stdout
-        )
+    assert result.returncode == 0
+    assert "Conformance: EPUBCheck 5.3.0; 0 fatal, 0 error, 0 warning, 0 usage\n" in result.stdout
+    assert (
+        "Non-requirement: EPUB validity is not a requirement. (package-validity)\n" in result.stdout
+    )

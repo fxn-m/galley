@@ -7,7 +7,7 @@ something to overwrite. Every test here asserts the target is byte-for-byte what
 
 from pathlib import Path
 
-from tests.public_cli import run_public_cli
+from tests.public_cli import run_cli
 from tests.skill_fixtures import (
     contents,
     differences,
@@ -29,7 +29,7 @@ def _install(target: Path, *arguments: str, home: Path) -> dict[str, object]:
     """Install through the first public entry point, returning the document it emitted."""
 
     documents: list[dict[str, object]] = []
-    for result in run_public_cli(
+    result = run_cli(
         "skill",
         "install",
         "--target",
@@ -37,9 +37,9 @@ def _install(target: Path, *arguments: str, home: Path) -> dict[str, object]:
         *arguments,
         "--json",
         environment=isolated_home(home),
-    ):
-        documents.append(document_of(result))
-        documents[-1]["exit_code"] = result.returncode
+    )
+    documents.append(document_of(result))
+    documents[-1]["exit_code"] = result.returncode
     return documents[0]
 
 
@@ -157,9 +157,7 @@ def test_the_human_rendering_names_the_boundary_and_what_differed(tmp_path: Path
     assert _install(target, home=home)["exit_code"] == COMPLETED
     _edit(target)
 
-    for result in run_public_cli(
-        "skill", "install", "--target", str(target), environment=isolated_home(home)
-    ):
-        assert result.returncode == REFUSED
-        assert f"Boundary: {CONFLICT}" in result.stdout
-        assert "differs: SKILL.md" in result.stdout
+    result = run_cli("skill", "install", "--target", str(target), environment=isolated_home(home))
+    assert result.returncode == REFUSED
+    assert f"Boundary: {CONFLICT}" in result.stdout
+    assert "differs: SKILL.md" in result.stdout

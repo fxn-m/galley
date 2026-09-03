@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.public_cli import run_public_cli
+from tests.public_cli import run_cli
 from tests.workspace_fixtures import (
     command_document,
     field,
@@ -54,13 +54,13 @@ def test_invalid_configurations_refuse_at_a_named_boundary(
     (workspace / "inbox").mkdir(parents=True)
     _ = write_configuration(workspace, body)
     environment = workspace_environment(workspace, tmp_path / "home")
-    for result in run_public_cli("config", "validate", "--json", environment=environment):
-        document = command_document(result)
-        refusal = field(document, "refusal")
-        assert refusal["boundary"] == boundary
-        assert refusal["authority"] == "config validate"
-        assert document["outcome"] == "refused"
-        assert result.returncode == REFUSED
+    result = run_cli("config", "validate", "--json", environment=environment)
+    document = command_document(result)
+    refusal = field(document, "refusal")
+    assert refusal["boundary"] == boundary
+    assert refusal["authority"] == "config validate"
+    assert document["outcome"] == "refused"
+    assert result.returncode == REFUSED
 
 
 def test_a_missing_inbox_directory_refuses(tmp_path: Path) -> None:
@@ -71,16 +71,16 @@ def test_a_missing_inbox_directory_refuses(tmp_path: Path) -> None:
         workspace, "version = 1\n\n" + inbox_table("clippings", str(tmp_path / "absent"))
     )
     environment = workspace_environment(workspace, tmp_path / "home")
-    for result in run_public_cli("config", "validate", "--json", environment=environment):
-        refusal = field(command_document(result), "refusal")
-        assert refusal["boundary"] == "inbox-unavailable"
-        assert refusal["fact"] == {
-            "configured_path": str(tmp_path / "absent"),
-            "name": "clippings",
-            "resolved_path": str((tmp_path / "absent").resolve()),
-            "state": "absent",
-        }
-        assert result.returncode == REFUSED
+    result = run_cli("config", "validate", "--json", environment=environment)
+    refusal = field(command_document(result), "refusal")
+    assert refusal["boundary"] == "inbox-unavailable"
+    assert refusal["fact"] == {
+        "configured_path": str(tmp_path / "absent"),
+        "name": "clippings",
+        "resolved_path": str((tmp_path / "absent").resolve()),
+        "state": "absent",
+    }
+    assert result.returncode == REFUSED
 
 
 def test_an_inbox_naming_a_file_refuses_on_its_path_kind(tmp_path: Path) -> None:
@@ -92,11 +92,11 @@ def test_an_inbox_naming_a_file_refuses_on_its_path_kind(tmp_path: Path) -> None
     _ = occupied.write_text("not a directory\n", encoding="utf-8")
     _ = write_configuration(workspace, "version = 1\n\n" + inbox_table("galley", "inbox"))
     environment = workspace_environment(workspace, tmp_path / "home")
-    for result in run_public_cli("config", "validate", "--json", environment=environment):
-        refusal = field(command_document(result), "refusal")
-        assert refusal["boundary"] == "inbox-unavailable"
-        assert field(refusal, "fact")["state"] == "not-a-directory"
-        assert result.returncode == REFUSED
+    result = run_cli("config", "validate", "--json", environment=environment)
+    refusal = field(command_document(result), "refusal")
+    assert refusal["boundary"] == "inbox-unavailable"
+    assert field(refusal, "fact")["state"] == "not-a-directory"
+    assert result.returncode == REFUSED
 
 
 def test_an_unreadable_inbox_refuses(tmp_path: Path) -> None:
@@ -109,11 +109,11 @@ def test_an_unreadable_inbox_refuses(tmp_path: Path) -> None:
     _ = write_configuration(workspace, "version = 1\n\n" + inbox_table("locked", str(external)))
     environment = workspace_environment(workspace, tmp_path / "home")
     try:
-        for result in run_public_cli("config", "validate", "--json", environment=environment):
-            refusal = field(command_document(result), "refusal")
-            assert refusal["boundary"] == "inbox-unavailable"
-            assert field(refusal, "fact")["state"] == "unreadable"
-            assert result.returncode == REFUSED
+        result = run_cli("config", "validate", "--json", environment=environment)
+        refusal = field(command_document(result), "refusal")
+        assert refusal["boundary"] == "inbox-unavailable"
+        assert field(refusal, "fact")["state"] == "unreadable"
+        assert result.returncode == REFUSED
     finally:
         external.chmod(0o700)
 
@@ -125,8 +125,8 @@ def test_an_owned_location_of_the_wrong_kind_refuses(tmp_path: Path) -> None:
     _ = valid_workspace(workspace, owned=False)
     _ = (workspace / "ready").write_text("occupied\n", encoding="utf-8")
     environment = workspace_environment(workspace, tmp_path / "home")
-    for result in run_public_cli("config", "validate", "--json", environment=environment):
-        refusal = field(command_document(result), "refusal")
-        assert refusal["boundary"] == "workspace-location-unusable"
-        assert field(refusal, "fact")["role"] == "ready"
-        assert result.returncode == REFUSED
+    result = run_cli("config", "validate", "--json", environment=environment)
+    refusal = field(command_document(result), "refusal")
+    assert refusal["boundary"] == "workspace-location-unusable"
+    assert field(refusal, "fact")["role"] == "ready"
+    assert result.returncode == REFUSED

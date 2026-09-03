@@ -12,7 +12,6 @@ whose first heading repeats its title ends up with two elements answering to one
 all three to Galley's naming.
 """
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +27,7 @@ from tests.prepared_epub import (
     navigation_anchors,
     navigation_entries,
 )
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import prepare
 
 PROFILE = "x4-crosspoint"
 ARGUMENTS = ("--profile", PROFILE, "--json")
@@ -52,13 +51,6 @@ def source(title: str, body: str) -> str:
     return f'---\ntitle: "{title}"\n---\n\n{body}'
 
 
-def prepared(tmp_path: Path, index: int, command: list[str], document: str) -> tuple[Path, Any]:
-    written = write_markdown(tmp_path / f"source-{index}.md", document)
-    output = tmp_path / f"book-{index}.epub"
-    result = run_command(command, str(written), "--output", str(output), *ARGUMENTS)
-    return output, json.loads(result.stdout)
-
-
 def bounding(report: Any) -> Any:
     return next(
         entry
@@ -72,48 +64,53 @@ def longest_href(artifact: Path) -> int:
 
 
 def test_a_long_heading_no_longer_makes_a_book_refuse_its_own_navigation(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        document = source(LONG, f"# {LONG}\n\n{PROSE}")
-        artifact, report = prepared(tmp_path, index, command, document)
+    document = source(LONG, f"# {LONG}\n\n{PROSE}")
+    prepared_source = write_markdown(tmp_path / "source-0.md", document)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        assert report["artifact"]["links"]["maximum_recorded_href_bytes"]["value"] <= LIMIT
-        assert longest_href(artifact) <= LIMIT
-        assert bounding(report)["fired"] is True
+    assert report["outcome"] == "completed"
+    assert report["artifact"]["links"]["maximum_recorded_href_bytes"]["value"] <= LIMIT
+    assert longest_href(artifact) <= LIMIT
+    assert bounding(report)["fired"] is True
 
 
 def test_a_long_title_with_no_heading_of_its_own_gets_one_galley_named(tmp_path: Path) -> None:
     """Pandoc synthesises a section from the stated title and slugs that, so there is nothing in
     the document to bound. The heading it would have written is written explicitly instead."""
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, source(LONG, PROSE))
-        control, _ = prepared(tmp_path, index + 100, command, source("Short", PROSE))
+    prepared_source = write_markdown(tmp_path / "source-0.md", source(LONG, PROSE))
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
+    prepared_source = write_markdown(tmp_path / "control.md", source("Short", PROSE))
+    journey2 = prepare(tmp_path, prepared_source, expected_exit=None)
+    control, _ = journey2.output, journey2.report
 
-        assert report["outcome"] == "completed"
-        assert bounding(report)["title_heading"].startswith(TITLE_PREFIX)
-        assert longest_href(artifact) <= LIMIT
-        # The reader sees the same shape of book as one whose title needed nothing done to it:
-        # the heading Galley writes is the heading Pandoc was going to synthesise.
-        assert [text for _, text, _ in headings(artifact)] == [LONG, LONG]
-        assert [text for _, text, _ in headings(control)] == ["Short", "Short"]
+    assert report["outcome"] == "completed"
+    assert bounding(report)["title_heading"].startswith(TITLE_PREFIX)
+    assert longest_href(artifact) <= LIMIT
+    # The reader sees the same shape of book as one whose title needed nothing done to it:
+    # the heading Galley writes is the heading Pandoc was going to synthesise.
+    assert [text for _, text, _ in headings(artifact)] == [LONG, LONG]
+    assert [text for _, text, _ in headings(control)] == ["Short", "Short"]
 
 
 def test_a_document_leading_with_its_own_heading_is_left_alone(tmp_path: Path) -> None:
     """The writer synthesises nothing for a document that already opens with a level-1 heading,
     and that heading carries an identifier of its own for the bounding pass to reach."""
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        document = source("A Short Title", f"# A Short Title\n\n{PROSE}")
-        _, report = prepared(tmp_path, index, command, document)
+    document = source("A Short Title", f"# A Short Title\n\n{PROSE}")
+    prepared_source = write_markdown(tmp_path / "source-0.md", document)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    _, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        assert bounding(report) == {
-            **bounding(report),
-            "fired": False,
-            "rewritten": {},
-            "title_heading": None,
-        }
+    assert report["outcome"] == "completed"
+    assert bounding(report) == {
+        **bounding(report),
+        "fired": False,
+        "rewritten": {},
+        "title_heading": None,
+    }
 
 
 def test_a_wrapped_document_still_gets_a_navigation_entry(tmp_path: Path) -> None:
@@ -122,13 +119,14 @@ def test_a_wrapped_document_still_gets_a_navigation_entry(tmp_path: Path) -> Non
     a book with no entries has no page breaks either. Galley writes the heading the writer did
     not, whatever the title's length."""
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, source("A Short Title", WRAPPED))
+    prepared_source = write_markdown(tmp_path / "source-0.md", source("A Short Title", WRAPPED))
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        assert bounding(report)["title_heading"].startswith(TITLE_PREFIX)
-        assert navigation_entries(artifact) == ["A Short Title", "A section inside the wrapper"]
-        assert [text for _, text, _ in headings(artifact)] == ["A Short Title", "A Short Title"]
+    assert report["outcome"] == "completed"
+    assert bounding(report)["title_heading"].startswith(TITLE_PREFIX)
+    assert navigation_entries(artifact) == ["A Short Title", "A section inside the wrapper"]
+    assert [text for _, text, _ in headings(artifact)] == ["A Short Title", "A Short Title"]
 
 
 def test_a_first_heading_repeating_the_title_does_not_share_its_identifier(
@@ -139,21 +137,22 @@ def test_a_first_heading_repeating_the_title_does_not_share_its_identifier(
     heading is its own title minus a colon is the ordinary shape that collides with it."""
 
     title = "Library patterns: Why frameworks are evil"
-    for index, command in enumerate(public_cli_commands("prepare")):
-        body = f"## Library patterns Why frameworks are evil\n\n{PROSE}"
-        artifact, report = prepared(tmp_path, index, command, source(title, body))
+    body = f"## Library patterns Why frameworks are evil\n\n{PROSE}"
+    prepared_source = write_markdown(tmp_path / "source-0.md", source(title, body))
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        for identifiers in document_identifiers(artifact).values():
-            assert sorted(set(identifiers)) == sorted(identifiers)
-        # The heading's own slug is still there, and it is not the name the title answers to.
-        offered = [
-            identifier
-            for identifiers in document_identifiers(artifact).values()
-            for identifier in identifiers
-        ]
-        assert "library-patterns-why-frameworks-are-evil" in offered
-        assert bounding(report)["title_heading"] in offered
+    assert report["outcome"] == "completed"
+    for identifiers in document_identifiers(artifact).values():
+        assert sorted(set(identifiers)) == sorted(identifiers)
+    # The heading's own slug is still there, and it is not the name the title answers to.
+    offered = [
+        identifier
+        for identifiers in document_identifiers(artifact).values()
+        for identifier in identifiers
+    ]
+    assert "library-patterns-why-frameworks-are-evil" in offered
+    assert bounding(report)["title_heading"] in offered
 
 
 def test_the_title_heading_costs_the_reader_nothing(tmp_path: Path) -> None:
@@ -166,48 +165,52 @@ def test_the_title_heading_costs_the_reader_nothing(tmp_path: Path) -> None:
     transform fires and where it does not.
     """
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        # The same document twice: once for Galley to write the heading, once carrying its own.
-        _, inserted = prepared(tmp_path, index, command, source(TITLE, WRAPPED))
-        _, untouched = prepared(
-            tmp_path, index + 100, command, source(TITLE, f"# {TITLE}\n\n{WRAPPED}")
-        )
+    # The same document twice: once for Galley to write the heading, once carrying its own.
+    prepared_source = write_markdown(tmp_path / "source-0.md", source(TITLE, WRAPPED))
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    _, inserted = journey.output, journey.report
+    prepared_source = write_markdown(
+        tmp_path / "control.md", source(TITLE, f"# {TITLE}\n\n{WRAPPED}")
+    )
+    journey2 = prepare(tmp_path, prepared_source, expected_exit=None)
+    _, untouched = journey2.output, journey2.report
 
-        assert (inserted["outcome"], untouched["outcome"]) == ("completed", "completed")
-        one = inserted["artifact"]["text_preservation"]["tokens"]
-        two = untouched["artifact"]["text_preservation"]["tokens"]
-        assert bounding(inserted)["title_heading"].startswith(TITLE_PREFIX)
-        assert bounding(untouched)["title_heading"] is None
-        # Neither loses a word, and both books carry exactly the same words: the heading Galley
-        # writes is the heading the document would have had.
-        assert one["unexpected_missing"] == two["unexpected_missing"] == []
-        assert one["artifact"]["value"] == two["artifact"]["value"]
-        # All the transform adds is the title, once — the difference is only whether those words
-        # were already in the baseline the artifact is compared against.
-        assert one["added"]["value"] - two["added"]["value"] == len(TITLE.split())
+    assert (inserted["outcome"], untouched["outcome"]) == ("completed", "completed")
+    one = inserted["artifact"]["text_preservation"]["tokens"]
+    two = untouched["artifact"]["text_preservation"]["tokens"]
+    assert bounding(inserted)["title_heading"].startswith(TITLE_PREFIX)
+    assert bounding(untouched)["title_heading"] is None
+    # Neither loses a word, and both books carry exactly the same words: the heading Galley
+    # writes is the heading the document would have had.
+    assert one["unexpected_missing"] == two["unexpected_missing"] == []
+    assert one["artifact"]["value"] == two["artifact"]["value"]
+    # All the transform adds is the title, once — the difference is only whether those words
+    # were already in the baseline the artifact is compared against.
+    assert one["added"]["value"] - two["added"]["value"] == len(TITLE.split())
 
 
 def test_a_cross_reference_still_reaches_the_heading_it_named(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        document = source(
-            "A Short Title",
-            f"# {LONG}\n\n{PROSE}\nAnd [a pointer back]({{#ref}}) to it.\n".replace(
-                "{#ref}", "#" + LONG.lower().replace(" ", "-").replace(",", "").replace(":", "")
-            ),
-        )
-        artifact, report = prepared(tmp_path, index, command, document)
+    document = source(
+        "A Short Title",
+        f"# {LONG}\n\n{PROSE}\nAnd [a pointer back]({{#ref}}) to it.\n".replace(
+            "{#ref}", "#" + LONG.lower().replace(" ", "-").replace(",", "").replace(":", "")
+        ),
+    )
+    prepared_source = write_markdown(tmp_path / "source-0.md", document)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        assert report["artifact"]["links"]["dead"] == []
-        assert report["artifact"]["references"]["broken"] == []
-        targets = {
-            fragment
-            for identifiers in document_identifiers(artifact).values()
-            for fragment in identifiers
-        }
-        for _, href, _ in content_anchors(artifact):
-            if href.startswith("#"):
-                assert href[1:] in targets
+    assert report["outcome"] == "completed"
+    assert report["artifact"]["links"]["dead"] == []
+    assert report["artifact"]["references"]["broken"] == []
+    targets = {
+        fragment
+        for identifiers in document_identifiers(artifact).values()
+        for fragment in identifiers
+    }
+    for _, href, _ in content_anchors(artifact):
+        if href.startswith("#"):
+            assert href[1:] in targets
 
 
 def test_two_headings_that_shorten_alike_stay_two_targets(tmp_path: Path) -> None:
@@ -215,38 +218,43 @@ def test_two_headings_that_shorten_alike_stay_two_targets(tmp_path: Path) -> Non
     whichever the writer wrote first."""
 
     shared = " ".join(["indistinguishable"] * 6)
-    for index, command in enumerate(public_cli_commands("prepare")):
-        document = source("A Short Title", f"# {shared} one\n\n{PROSE}\n# {shared} two\n\n{PROSE}")
-        artifact, report = prepared(tmp_path, index, command, document)
+    document = source("A Short Title", f"# {shared} one\n\n{PROSE}\n# {shared} two\n\n{PROSE}")
+    prepared_source = write_markdown(tmp_path / "source-0.md", document)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        rewritten = bounding(report)["rewritten"]
-        assert len(set(rewritten.values())) == len(rewritten) == 2
-        hrefs = [href for href, _ in navigation_anchors(artifact)]
-        assert len(set(hrefs)) == len(hrefs)
+    assert report["outcome"] == "completed"
+    rewritten = bounding(report)["rewritten"]
+    assert len(set(rewritten.values())) == len(rewritten) == 2
+    hrefs = [href for href, _ in navigation_anchors(artifact)]
+    assert len(set(hrefs)) == len(hrefs)
 
 
 def test_rewriting_an_identifier_moves_no_word(tmp_path: Path) -> None:
     """An identifier is not a word. Text Preservation is what proves the rewrite left the prose
     exactly where it was, on the document that needed the most rewriting."""
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        document = source(LONG, f"# {LONG}\n\n{PROSE}\n## {LONG} again\n\n{PROSE}")
-        _, report = prepared(tmp_path, index, command, document)
+    document = source(LONG, f"# {LONG}\n\n{PROSE}\n## {LONG} again\n\n{PROSE}")
+    prepared_source = write_markdown(tmp_path / "source-0.md", document)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    _, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        tokens = report["artifact"]["text_preservation"]["tokens"]
-        assert tokens["unexpected_missing"] == []
+    assert report["outcome"] == "completed"
+    tokens = report["artifact"]["text_preservation"]["tokens"]
+    assert tokens["unexpected_missing"] == []
 
 
 def test_the_same_source_still_builds_the_same_bytes(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        document = source(LONG, f"# {LONG}\n\n{PROSE}")
-        first, one = prepared(tmp_path, index, command, document)
-        second, two = prepared(tmp_path, index + 100, command, document)
+    document = source(LONG, f"# {LONG}\n\n{PROSE}")
+    prepared_source = write_markdown(tmp_path / "source-0.md", document)
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    first, one = journey.output, journey.report
+    prepared_source = write_markdown(tmp_path / "control.md", document)
+    journey2 = prepare(tmp_path, prepared_source, expected_exit=None)
+    second, two = journey2.output, journey2.report
 
-        assert one["outcome"] == two["outcome"] == "completed"
-        assert first.read_bytes() == second.read_bytes()
+    assert one["outcome"] == two["outcome"] == "completed"
+    assert first.read_bytes() == second.read_bytes()
 
 
 def test_the_reserved_path_length_is_measured_rather_than_assumed(tmp_path: Path) -> None:
@@ -254,14 +262,15 @@ def test_the_reserved_path_length_is_measured_rather_than_assumed(tmp_path: Path
     Galley does not choose that prefix — Pandoc names its own content documents — so it is held
     to a built book rather than trusted."""
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        notes = "".join(
-            f"A note[^{number}].\n\n[^{number}]: Body {number}.\n\n" for number in range(1, 12)
-        )
-        artifact, report = prepared(tmp_path, index, command, source("A Short Title", notes))
+    notes = "".join(
+        f"A note[^{number}].\n\n[^{number}]: Body {number}.\n\n" for number in range(1, 12)
+    )
+    prepared_source = write_markdown(tmp_path / "source-0.md", source("A Short Title", notes))
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    artifact, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        prefixes = [
-            len(href.split("#")[0].encode("utf-8")) + 1 for href, _ in navigation_anchors(artifact)
-        ]
-        assert max(prefixes) <= PATH_RESERVE
+    assert report["outcome"] == "completed"
+    prefixes = [
+        len(href.split("#")[0].encode("utf-8")) + 1 for href, _ in navigation_anchors(artifact)
+    ]
+    assert max(prefixes) <= PATH_RESERVE

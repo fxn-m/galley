@@ -1,6 +1,5 @@
 """The Report states how far a book's figures were reduced, without judging whether they read."""
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +12,7 @@ from tests.image_fixtures import (
     vector_svg,
 )
 from tests.markdown_fixtures import PLAIN_BOOK, write_markdown
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import run_cli, prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint")
 # The fixture references five images and names a sixth as the cover. The cover is not a figure
@@ -33,86 +32,80 @@ def transformable(directory: Path) -> None:
     _ = grayscale_png(directory / "cover.png", width=8, height=12)
 
 
-def prepared(tmp_path: Path, index: int, command: list[str], text: str) -> Any:
-    source = write_markdown(tmp_path / f"source-{index}.md", text)
-    output = tmp_path / f"book-{index}.epub"
-    result = run_command(command, str(source), "--output", str(output), *ARGUMENTS, "--json")
-    assert (result.returncode, result.stderr) == (0, "")
-    return json.loads(result.stdout)
-
-
 def reduction(report: Any) -> Any:
     return report["preparation"]["images"]["reduction"]
 
 
 def test_the_aggregate_summarises_every_figure_the_book_carries(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        report = prepared(tmp_path, index, command, NORMALISED_IMAGES)
+    transformable(tmp_path)
+    prepared_source = write_markdown(tmp_path / "source-0.md", NORMALISED_IMAGES)
+    journey = prepare(tmp_path, prepared_source)
+    report = journey.report
 
-        stated = reduction(report)
-        assert stated["images"]["value"] == FIGURES
-        assert stated["reduced"]["value"] == 1
-        assert stated["scale"]["minimum"]["value"] == 53
-        assert stated["scale"]["median"]["value"] == 100
-        assert stated["scale"]["maximum"]["value"] == 100
-        assert stated["scale"]["minimum"]["unit"] == "percent"
+    stated = reduction(report)
+    assert stated["images"]["value"] == FIGURES
+    assert stated["reduced"]["value"] == 1
+    assert stated["scale"]["minimum"]["value"] == 53
+    assert stated["scale"]["median"]["value"] == 100
+    assert stated["scale"]["maximum"]["value"] == 100
+    assert stated["scale"]["minimum"]["unit"] == "percent"
 
 
 def test_the_aggregate_answers_what_walking_the_records_answers(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        report = prepared(tmp_path, index, command, NORMALISED_IMAGES)
+    transformable(tmp_path)
+    prepared_source = write_markdown(tmp_path / "source-0.md", NORMALISED_IMAGES)
+    journey = prepare(tmp_path, prepared_source)
+    report = journey.report
 
-        records = report["preparation"]["images"]["records"]
-        scales = sorted(
-            entry["packaged"]["scale"]["value"] for entry in records if not entry["cover"]
-        )
-        stated = reduction(report)
-        assert stated["images"]["value"] == len(scales)
-        assert stated["reduced"]["value"] == sum(1 for scale in scales if scale < 100)
-        assert stated["scale"]["minimum"]["value"] == scales[0]
-        assert stated["scale"]["maximum"]["value"] == scales[-1]
-        assert stated["scale"]["median"]["value"] == scales[len(scales) // 2]
+    records = report["preparation"]["images"]["records"]
+    scales = sorted(entry["packaged"]["scale"]["value"] for entry in records if not entry["cover"])
+    stated = reduction(report)
+    assert stated["images"]["value"] == len(scales)
+    assert stated["reduced"]["value"] == sum(1 for scale in scales if scale < 100)
+    assert stated["scale"]["minimum"]["value"] == scales[0]
+    assert stated["scale"]["maximum"]["value"] == scales[-1]
+    assert stated["scale"]["median"]["value"] == scales[len(scales) // 2]
 
 
 def test_the_cover_is_named_a_reference_and_left_out_of_the_aggregate(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        report = prepared(tmp_path, index, command, NORMALISED_IMAGES)
+    transformable(tmp_path)
+    prepared_source = write_markdown(tmp_path / "source-0.md", NORMALISED_IMAGES)
+    journey = prepare(tmp_path, prepared_source)
+    report = journey.report
 
-        records = report["preparation"]["images"]["records"]
-        assert sum(1 for entry in records if entry["cover"]) == 1
-        assert len(records) == FIGURES + 1
-        assert reduction(report)["images"]["value"] == FIGURES
+    records = report["preparation"]["images"]["records"]
+    assert sum(1 for entry in records if entry["cover"]) == 1
+    assert len(records) == FIGURES + 1
+    assert reduction(report)["images"]["value"] == FIGURES
 
 
 def test_a_book_with_no_figures_states_none_rather_than_a_scale(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        report = prepared(tmp_path, index, command, PLAIN_BOOK)
+    prepared_source = write_markdown(tmp_path / "source-0.md", PLAIN_BOOK)
+    journey = prepare(tmp_path, prepared_source)
+    report = journey.report
 
-        stated = reduction(report)
-        assert stated["images"]["value"] == 0
-        assert stated["reduced"]["value"] == 0
-        assert stated["scale"] is None
+    stated = reduction(report)
+    assert stated["images"]["value"] == 0
+    assert stated["reduced"]["value"] == 0
+    assert stated["scale"] is None
 
 
 def test_the_aggregate_states_that_it_does_not_settle_legibility(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        report = prepared(tmp_path, index, command, NORMALISED_IMAGES)
+    transformable(tmp_path)
+    prepared_source = write_markdown(tmp_path / "source-0.md", NORMALISED_IMAGES)
+    journey = prepare(tmp_path, prepared_source)
+    report = journey.report
 
-        definition = reduction(report)["definition"]
-        assert "legibility" in definition
-        assert "device reads" in definition.lower()
+    definition = reduction(report)["definition"]
+    assert "legibility" in definition
+    assert "device reads" in definition.lower()
 
 
 def test_the_terminal_names_the_reduction_without_the_records(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        source = write_markdown(tmp_path / f"terminal-{index}.md", NORMALISED_IMAGES)
-        output = tmp_path / f"terminal-{index}.epub"
-        result = run_command(command, str(source), "--output", str(output), *ARGUMENTS)
+    transformable(tmp_path)
+    source = write_markdown(tmp_path / "terminal-0.md", NORMALISED_IMAGES)
+    output = tmp_path / "terminal-0.epub"
+    result = run_cli("prepare", str(source), "--output", str(output), *ARGUMENTS)
 
-        assert (result.returncode, result.stderr) == (0, "")
-        assert "Figures: 5 carried, 1 reduced to fit; scale 53/100/100 percent" in result.stdout
+    assert (result.returncode, result.stderr) == (0, "")
+    assert "Figures: 5 carried, 1 reduced to fit; scale 53/100/100 percent" in result.stdout

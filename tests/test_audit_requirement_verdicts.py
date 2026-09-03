@@ -12,7 +12,7 @@ from tests.epub_fixtures import (
     without,
     write_epub,
 )
-from tests.public_cli import NO_EPUBCHECK, run_public_cli
+from tests.public_cli import NO_EPUBCHECK, run_cli
 
 MALFORMED_XML = b'<?xml version="1.0" encoding="UTF-8"?>\n<html><body><p>unclosed\n'
 LINKLESS_NAVIGATION = b"""<?xml version="1.0" encoding="UTF-8"?>
@@ -25,14 +25,14 @@ LINKLESS_NAVIGATION = b"""<?xml version="1.0" encoding="UTF-8"?>
 
 def audited(book: Path) -> dict[str, Any]:
     before = sha256(book.read_bytes()).hexdigest()
-    results = run_public_cli(
+    result = run_cli(
         "audit", str(book), "--profile", "x4-crosspoint", "--json", environment=NO_EPUBCHECK
     )
 
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
+    assert (result.returncode, result.stderr) == (0, "")
     assert sha256(book.read_bytes()).hexdigest() == before
-    reports: list[dict[str, Any]] = [json.loads(result.stdout) for result in results]
-    return reports[0]
+    reports: dict[str, Any] = json.loads(result.stdout)
+    return reports
 
 
 def verdicts(report: dict[str, Any]) -> dict[str, str]:
@@ -126,22 +126,21 @@ def test_a_false_crash_class_requirement_still_completes_the_audit(tmp_path: Pat
     book = write_epub(tmp_path / "crash-class.epub", entries)
     before = sha256(book.read_bytes()).hexdigest()
 
-    results = run_public_cli(
+    result = run_cli(
         "audit", str(book), "--profile", "x4-crosspoint", "--json", environment=NO_EPUBCHECK
     )
 
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
+    assert (result.returncode, result.stderr) == (0, "")
     assert sha256(book.read_bytes()).hexdigest() == before
-    for result in results:
-        report = json.loads(result.stdout)
-        entry = requirement(report, "recorded-links-per-block")
-        assert report["outcome"] == "completed"
-        assert report["refusal"] is None
-        assert (entry["verdict"], entry["failure_mode"], entry["authority"]) == (
-            "false",
-            "crash",
-            "refuse",
-        )
+    report = json.loads(result.stdout)
+    entry = requirement(report, "recorded-links-per-block")
+    assert report["outcome"] == "completed"
+    assert report["refusal"] is None
+    assert (entry["verdict"], entry["failure_mode"], entry["authority"]) == (
+        "false",
+        "crash",
+        "refuse",
+    )
 
 
 def test_failure_mode_authority_and_limits_travel_with_every_result(tmp_path: Path) -> None:

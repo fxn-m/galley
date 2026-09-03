@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.public_cli import public_cli_commands, run_command, run_public_cli
+from tests.public_cli import run_cli
 from tests.workspace_fixtures import (
     command_document,
     entries,
@@ -80,9 +80,7 @@ def _templated_workspace(tmp_path: Path) -> tuple[Path, dict[str, str]]:
 
 
 def _help(*arguments: str) -> str:
-    result = run_command(
-        public_cli_commands(*arguments)[0], "--help", environment={"TERM": "dumb", "COLUMNS": "400"}
-    )
+    result = run_cli(*arguments, "--help", environment={"TERM": "dumb", "COLUMNS": "400"})
     assert result.returncode == 0, result.stderr
     return result.stdout
 
@@ -116,18 +114,18 @@ def test_the_annotated_template_validates_through_the_read_only_validator(tmp_pa
     """The template is what setup writes, so the validator it finishes by invoking must accept it."""
 
     workspace, environment = _templated_workspace(tmp_path)
-    for result in run_public_cli(
+    result = run_cli(
         "config", "validate", "--workspace", str(workspace), "--json", environment=environment
-    ):
-        document = command_document(result)
-        inboxes = entries(document, "inboxes")
-        assert result.returncode == COMPLETED
-        assert [inbox["name"] for inbox in inboxes] == ["inbox", "reading"]
-        assert [inbox["path_resolution"] for inbox in inboxes] == ["relative", "home-relative"]
-        assert [inbox["recursive"] for inbox in inboxes] == [False, True]
-        assert {location["state"] for location in entries(document, "locations")} == {"usable"}
-        connection = field(document, "connection")
-        assert connection["destination"] == {"value": "/Books", "source": "configured"}
+    )
+    document = command_document(result)
+    inboxes = entries(document, "inboxes")
+    assert result.returncode == COMPLETED
+    assert [inbox["name"] for inbox in inboxes] == ["inbox", "reading"]
+    assert [inbox["path_resolution"] for inbox in inboxes] == ["relative", "home-relative"]
+    assert [inbox["recursive"] for inbox in inboxes] == [False, True]
+    assert {location["state"] for location in entries(document, "locations")} == {"usable"}
+    connection = field(document, "connection")
+    assert connection["destination"] == {"value": "/Books", "source": "configured"}
 
 
 def test_the_owned_locations_setup_creates_are_the_roles_the_validator_reports(
@@ -136,13 +134,13 @@ def test_the_owned_locations_setup_creates_are_the_roles_the_validator_reports(
     """The skill creates what the CLI never will, so the two lists of roles have to agree."""
 
     workspace, environment = _templated_workspace(tmp_path)
-    for result in run_public_cli(
+    result = run_cli(
         "config", "validate", "--workspace", str(workspace), "--json", environment=environment
-    ):
-        roles = [location["role"] for location in entries(command_document(result), "locations")]
-        assert roles == ["work", "ready", "delivery"]
-        for role in roles:
-            assert f"`{role}/`" in _skill_text()
+    )
+    roles = [location["role"] for location in entries(command_document(result), "locations")]
+    assert roles == ["work", "ready", "delivery"]
+    for role in roles:
+        assert f"`{role}/`" in _skill_text()
 
 
 def test_the_default_workspace_the_skill_states_is_the_one_the_cli_resolves(tmp_path: Path) -> None:
@@ -150,9 +148,9 @@ def test_the_default_workspace_the_skill_states_is_the_one_the_cli_resolves(tmp_
 
     home = tmp_path / "home"
     assert "`~/Documents/Galley`" in _skill_text()
-    for result in run_public_cli("config", "validate", "--json", environment=isolated_home(home)):
-        workspace = field(command_document(result), "workspace")
-        assert workspace["path"] == str((home / "Documents" / "Galley").resolve())
+    result = run_cli("config", "validate", "--json", environment=isolated_home(home))
+    workspace = field(command_document(result), "workspace")
+    assert workspace["path"] == str((home / "Documents" / "Galley").resolve())
 
 
 def test_every_option_the_setup_skill_names_exists_on_the_installed_cli() -> None:
@@ -187,7 +185,7 @@ def test_an_unreachable_device_probe_writes_nothing_and_leaves_setup_valid(tmp_p
 
     workspace, environment = _templated_workspace(tmp_path)
     before = tree(workspace)
-    for result in run_public_cli(
+    result = run_cli(
         "device",
         "status",
         "--workspace",
@@ -198,14 +196,14 @@ def test_an_unreachable_device_probe_writes_nothing_and_leaves_setup_valid(tmp_p
         "0.2",
         "--json",
         environment=environment,
-    ):
-        assert result.returncode == REFUSED
-        assert field(command_document(result), "refusal")["boundary"] == "device-unavailable"
+    )
+    assert result.returncode == REFUSED
+    assert field(command_document(result), "refusal")["boundary"] == "device-unavailable"
     assert tree(workspace) == before
-    for result in run_public_cli(
+    result = run_cli(
         "config", "validate", "--workspace", str(workspace), "--json", environment=environment
-    ):
-        assert result.returncode == COMPLETED
+    )
+    assert result.returncode == COMPLETED
     assert tree(workspace) == before
 
 
@@ -271,15 +269,14 @@ def test_each_boundary_the_skill_names_is_one_the_validator_really_emits(
     configuration = workspace / "galley.toml"
     environment = isolated_home(tmp_path / "home")
     try:
-        results = run_public_cli(
+        result = run_cli(
             "config", "validate", "--workspace", str(workspace), "--json", environment=environment
         )
     finally:
         if configuration.exists():
             configuration.chmod(0o600)
-    for result in results:
-        assert result.returncode == REFUSED
-        assert field(command_document(result), "refusal")["boundary"] == boundary
+    assert result.returncode == REFUSED
+    assert field(command_document(result), "refusal")["boundary"] == boundary
     assert f"`{boundary}`" in CONFIGURATION.read_text(encoding="utf-8")
 
 

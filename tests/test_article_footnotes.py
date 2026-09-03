@@ -21,104 +21,102 @@ from tests.article_server import (
     served,
 )
 from tests.markdown_fixtures import write_markdown
-from tests.public_cli import public_cli_commands, run_command, run_public_cli
+from tests.public_cli import run_cli
 
 CONVENTION = "doc-noteref-endnotes"
 
 
-def inspect_json(source: str, *extra: str) -> list[Any]:
-    results = run_public_cli("inspect", source, "--profile", "x4-crosspoint", "--json", *extra)
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
-    return [json.loads(result.stdout) for result in results]
+def inspect_json(source: str, *extra: str) -> Any:
+    result = run_cli("inspect", source, "--profile", "x4-crosspoint", "--json", *extra)
+    assert (result.returncode, result.stderr) == (0, "")
+    return json.loads(result.stdout)
 
 
 def test_the_recognised_shape_becomes_canonical_notes() -> None:
     """Both halves of the relabel run, so every recovered Note carries its text."""
 
     with served(APPARATUS) as url:
-        for report in inspect_json(url):
-            recovery = report["extraction"]["footnote_recovery"]
-            assert recovery["outcome"] == "recovered"
-            assert recovery["convention"] == CONVENTION
-            assert recovery["basis"] == "measured"
-            assert recovery["references"]["value"] == 2
-            assert recovery["definitions"]["value"] == 2
-            assert recovery["recovered_notes"]["value"] == 2
-            assert recovery["empty_notes"]["value"] == 0
-            assert recovery["mismatch"]["value"] == 0
-            assert recovery["reason"] is None
-            # The Canonical Document holds the notes, which is what the interlock counts.
-            assert report["canonical_document"]["reading"]["notes"]["value"] == 2
+        report = inspect_json(url)
+        recovery = report["extraction"]["footnote_recovery"]
+        assert recovery["outcome"] == "recovered"
+        assert recovery["convention"] == CONVENTION
+        assert recovery["basis"] == "measured"
+        assert recovery["references"]["value"] == 2
+        assert recovery["definitions"]["value"] == 2
+        assert recovery["recovered_notes"]["value"] == 2
+        assert recovery["empty_notes"]["value"] == 0
+        assert recovery["mismatch"]["value"] == 0
+        assert recovery["reason"] is None
+        # The Canonical Document holds the notes, which is what the interlock counts.
+        assert report["canonical_document"]["reading"]["notes"]["value"] == 2
 
 
 def test_a_recovered_note_reaches_the_baseline_and_carries_its_paragraphs(tmp_path: Path) -> None:
     """Recovery runs before the Canonical Document, so note text is in the fixed point too."""
 
     with served(APPARATUS_MULTI_PARAGRAPH) as url:
-        for index, command in enumerate(public_cli_commands("inspect", url)):
-            evidence = tmp_path / f"evidence-{index}"
-            result = run_command(
-                command, "--profile", "x4-crosspoint", "--json", "--evidence-dir", str(evidence)
-            )
+        evidence = tmp_path / "evidence-0"
+        result = run_cli(
+            "inspect", url, "--profile", "x4-crosspoint", "--json", "--evidence-dir", str(evidence)
+        )
 
-            assert (result.returncode, result.stderr) == (0, "")
-            baseline = (evidence / "preservation-baseline.txt").read_text(encoding="utf-8")
-            assert "Firstpara body here." in baseline
-            assert "Secondpara body here." in baseline
-            report = json.loads(result.stdout)
-            assert report["extraction"]["footnote_recovery"]["outcome"] == "recovered"
-            assert report["canonical_document"]["reading"]["notes"]["value"] == 1
+        assert (result.returncode, result.stderr) == (0, "")
+        baseline = (evidence / "preservation-baseline.txt").read_text(encoding="utf-8")
+        assert "Firstpara body here." in baseline
+        assert "Secondpara body here." in baseline
+        report = json.loads(result.stdout)
+        assert report["extraction"]["footnote_recovery"]["outcome"] == "recovered"
+        assert report["canonical_document"]["reading"]["notes"]["value"] == 1
 
 
 def test_references_without_targets_leave_the_content_unchanged() -> None:
     """Extraction dropped the targets, so there is nothing to pair and nothing is invented."""
 
     with served(APPARATUS_WITHOUT_TARGETS) as url:
-        for report in inspect_json(url):
-            recovery = report["extraction"]["footnote_recovery"]
-            assert recovery["outcome"] == "skipped"
-            assert recovery["reason"] == "no-definitions"
-            assert recovery["references"]["value"] == 2
-            assert recovery["definitions"]["value"] == 0
-            assert recovery["recovered_notes"]["value"] == 0
-            assert report["canonical_document"]["reading"]["notes"]["value"] == 0
+        report = inspect_json(url)
+        recovery = report["extraction"]["footnote_recovery"]
+        assert recovery["outcome"] == "skipped"
+        assert recovery["reason"] == "no-definitions"
+        assert recovery["references"]["value"] == 2
+        assert recovery["definitions"]["value"] == 0
+        assert recovery["recovered_notes"]["value"] == 0
+        assert report["canonical_document"]["reading"]["notes"]["value"] == 0
 
 
 def test_mismatched_counts_refuse_recovery_for_the_whole_document() -> None:
     """Recovering only the paired half would leave the other reference pointing at nothing."""
 
     with served(APPARATUS_MISMATCHED) as url:
-        for report in inspect_json(url):
-            recovery = report["extraction"]["footnote_recovery"]
-            assert recovery["outcome"] == "skipped"
-            assert recovery["reason"] == "reference-definition-mismatch"
-            assert (recovery["references"]["value"], recovery["definitions"]["value"]) == (2, 1)
-            assert recovery["mismatch"]["value"] == 1
-            assert recovery["recovered_notes"]["value"] == 0
-            # The note that would have paired stays readable in place instead.
-            assert report["canonical_document"]["reading"]["notes"]["value"] == 0
-            assert report["extraction"]["words"]["value"] > 0
+        report = inspect_json(url)
+        recovery = report["extraction"]["footnote_recovery"]
+        assert recovery["outcome"] == "skipped"
+        assert recovery["reason"] == "reference-definition-mismatch"
+        assert (recovery["references"]["value"], recovery["definitions"]["value"]) == (2, 1)
+        assert recovery["mismatch"]["value"] == 1
+        assert recovery["recovered_notes"]["value"] == 0
+        # The note that would have paired stays readable in place instead.
+        assert report["canonical_document"]["reading"]["notes"]["value"] == 0
+        assert report["extraction"]["words"]["value"] > 0
 
 
 def test_one_empty_note_refuses_recovery_of_every_note(tmp_path: Path) -> None:
     """A blank note is worse than no note, so the good recovery is refused with the bad one."""
 
     with served(APPARATUS_WITH_EMPTY_NOTE) as url:
-        for index, command in enumerate(public_cli_commands("inspect", url)):
-            evidence = tmp_path / f"evidence-{index}"
-            result = run_command(
-                command, "--profile", "x4-crosspoint", "--json", "--evidence-dir", str(evidence)
-            )
+        evidence = tmp_path / "evidence-0"
+        result = run_cli(
+            "inspect", url, "--profile", "x4-crosspoint", "--json", "--evidence-dir", str(evidence)
+        )
 
-            assert (result.returncode, result.stderr) == (0, "")
-            recovery = json.loads(result.stdout)["extraction"]["footnote_recovery"]
-            assert recovery["outcome"] == "skipped"
-            assert recovery["reason"] == "empty-note"
-            assert recovery["empty_notes"]["value"] == 1
-            assert recovery["recovered_notes"]["value"] == 0
-            # No text was lost by refusing; the surviving note is still readable in place.
-            baseline = (evidence / "preservation-baseline.txt").read_text(encoding="utf-8")
-            assert "Firstnote body here." in baseline
+        assert (result.returncode, result.stderr) == (0, "")
+        recovery = json.loads(result.stdout)["extraction"]["footnote_recovery"]
+        assert recovery["outcome"] == "skipped"
+        assert recovery["reason"] == "empty-note"
+        assert recovery["empty_notes"]["value"] == 1
+        assert recovery["recovered_notes"]["value"] == 0
+        # No text was lost by refusing; the surviving note is still readable in place.
+        baseline = (evidence / "preservation-baseline.txt").read_text(encoding="utf-8")
+        assert "Firstnote body here." in baseline
 
 
 def test_a_note_that_parses_to_nothing_refuses_recovery_of_every_note(tmp_path: Path) -> None:
@@ -131,23 +129,22 @@ def test_a_note_that_parses_to_nothing_refuses_recovery_of_every_note(tmp_path: 
     """
 
     with served(APPARATUS_WITH_STRAY_ITEM) as url:
-        for index, command in enumerate(public_cli_commands("inspect", url)):
-            evidence = tmp_path / f"stray-{index}"
-            result = run_command(
-                command, "--profile", "x4-crosspoint", "--json", "--evidence-dir", str(evidence)
-            )
+        evidence = tmp_path / "stray-0"
+        result = run_cli(
+            "inspect", url, "--profile", "x4-crosspoint", "--json", "--evidence-dir", str(evidence)
+        )
 
-            assert (result.returncode, result.stderr) == (0, "")
-            report = json.loads(result.stdout)
-            recovery = report["extraction"]["footnote_recovery"]
-            assert (recovery["outcome"], recovery["reason"]) == ("skipped", "empty-note")
-            assert recovery["recovered_notes"]["value"] == 0
-            assert recovery["empty_notes"]["value"] == 2
-            assert report["canonical_document"]["reading"]["notes"]["value"] == 0
-            # Nothing was lost by refusing: both notes are still readable in place.
-            baseline = (evidence / "preservation-baseline.txt").read_text(encoding="utf-8")
-            assert "Firstnote body here." in baseline
-            assert "Secondnote body here." in baseline
+        assert (result.returncode, result.stderr) == (0, "")
+        report = json.loads(result.stdout)
+        recovery = report["extraction"]["footnote_recovery"]
+        assert (recovery["outcome"], recovery["reason"]) == ("skipped", "empty-note")
+        assert recovery["recovered_notes"]["value"] == 0
+        assert recovery["empty_notes"]["value"] == 2
+        assert report["canonical_document"]["reading"]["notes"]["value"] == 0
+        # Nothing was lost by refusing: both notes are still readable in place.
+        baseline = (evidence / "preservation-baseline.txt").read_text(encoding="utf-8")
+        assert "Firstnote body here." in baseline
+        assert "Secondnote body here." in baseline
 
 
 def test_a_duplicate_target_refuses_recovery(tmp_path: Path) -> None:
@@ -164,7 +161,7 @@ def test_a_duplicate_target_refuses_recovery(tmp_path: Path) -> None:
     command_path = defuddle_returning(tmp_path / "defuddle", duplicated)
 
     with served() as url:
-        results = run_public_cli(
+        result = run_cli(
             "inspect",
             url,
             "--profile",
@@ -173,28 +170,27 @@ def test_a_duplicate_target_refuses_recovery(tmp_path: Path) -> None:
             environment={"GALLEY_DEFUDDLE": str(command_path)},
         )
 
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
-    for result in results:
-        recovery = json.loads(result.stdout)["extraction"]["footnote_recovery"]
-        assert recovery["outcome"] == "skipped"
-        assert recovery["reason"] == "duplicate-target"
-        assert recovery["recovered_notes"]["value"] == 0
+    assert (result.returncode, result.stderr) == (0, "")
+    recovery = json.loads(result.stdout)["extraction"]["footnote_recovery"]
+    assert recovery["outcome"] == "skipped"
+    assert recovery["reason"] == "duplicate-target"
+    assert recovery["recovered_notes"]["value"] == 0
 
 
 def test_lookalike_links_are_not_an_apparatus_and_are_left_alone() -> None:
     """A link whose href resembles a reference is not a Footnote Apparatus and is not treated as one."""
 
     with served(LOOKALIKE_LINKS) as url:
-        for report in inspect_json(url):
-            recovery = report["extraction"]["footnote_recovery"]
-            assert recovery["outcome"] == "not-recognised"
-            assert recovery["reason"] == "no-apparatus"
-            assert recovery["convention"] is None
-            assert recovery["references"]["value"] == 0
-            assert recovery["recovered_notes"]["value"] == 0
-            assert report["canonical_document"]["reading"]["notes"]["value"] == 0
-            # The link itself survives untouched, for the link transforms to decide about.
-            assert report["canonical_document"]["reading"]["links"]["value"] == 1
+        report = inspect_json(url)
+        recovery = report["extraction"]["footnote_recovery"]
+        assert recovery["outcome"] == "not-recognised"
+        assert recovery["reason"] == "no-apparatus"
+        assert recovery["convention"] is None
+        assert recovery["references"]["value"] == 0
+        assert recovery["recovered_notes"]["value"] == 0
+        assert report["canonical_document"]["reading"]["notes"]["value"] == 0
+        # The link itself survives untouched, for the link transforms to decide about.
+        assert report["canonical_document"]["reading"]["links"]["value"] == 1
 
 
 def test_content_outside_the_convention_is_carried_through_untouched(tmp_path: Path) -> None:
@@ -206,15 +202,14 @@ def test_content_outside_the_convention_is_carried_through_untouched(tmp_path: P
 
     with served(LOOKALIKE_LINKS) as url:
         content = extracted_content(url)
-        for index, command in enumerate(public_cli_commands("inspect", url)):
-            evidence = tmp_path / f"evidence-{index}"
-            result = run_command(
-                command, "--profile", "x4-crosspoint", "--json", "--evidence-dir", str(evidence)
-            )
+        evidence = tmp_path / "evidence-0"
+        result = run_cli(
+            "inspect", url, "--profile", "x4-crosspoint", "--json", "--evidence-dir", str(evidence)
+        )
 
-            assert (result.returncode, result.stderr) == (0, "")
-            document = json.loads((evidence / "canonical-document.json").read_text("utf-8"))
-            assert document["pandoc"] == native_html_ast(content, tmp_path)
+        assert (result.returncode, result.stderr) == (0, "")
+        document = json.loads((evidence / "canonical-document.json").read_text("utf-8"))
+        assert document["pandoc"] == native_html_ast(content, tmp_path)
 
 
 def test_a_markdown_source_never_reports_extraction_facts(tmp_path: Path) -> None:
@@ -222,8 +217,7 @@ def test_a_markdown_source_never_reports_extraction_facts(tmp_path: Path) -> Non
 
     source = write_markdown(tmp_path / "notes.md")
 
-    results = run_public_cli("inspect", str(source), "--profile", "x4-crosspoint", "--json")
+    result = run_cli("inspect", str(source), "--profile", "x4-crosspoint", "--json")
 
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
-    for result in results:
-        assert json.loads(result.stdout)["extraction"] is None
+    assert (result.returncode, result.stderr) == (0, "")
+    assert json.loads(result.stdout)["extraction"] is None

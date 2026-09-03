@@ -4,12 +4,12 @@ from pathlib import Path
 
 from tests.crosspoint_server import Device, crosspoint
 from tests.delivery_fixtures import REFUSED, plan, published, records
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import cli_command, run_command
 from tests.workspace_fixtures import command_document, entries, field, tree
 
 COMPLETED = 0
 UNCONFIRMED = 5
-ENTRY_POINT = public_cli_commands()[0]
+ENTRY_POINT = cli_command()
 
 
 def once(artifact: Path, environment: dict[str, str], *arguments: str) -> dict[str, object]:
@@ -186,6 +186,7 @@ def test_every_plan_and_attempt_writes_its_own_immutable_record(tmp_path: Path) 
 
     workspace, artifact, environment = published(tmp_path)
     with crosspoint() as (host, _device):
+        _ = plan(artifact, environment, host)
         _ = plan(artifact, environment, host)
         earlier = tree(workspace / "delivery")
         _ = once(artifact, environment, "--host", host)

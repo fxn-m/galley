@@ -12,7 +12,7 @@ from tests.markdown_fixtures import (
     native_ast,
     write_markdown,
 )
-from tests.public_cli import public_cli_commands, run_command, run_public_cli
+from tests.public_cli import run_cli
 
 CARRIED = "carried-through"
 # Every constructor Pandoc's Markdown reader produces that the Modelled Set does not name.
@@ -20,103 +20,106 @@ OUTSIDE = ("Cite", "LineBlock", "Math", "RawBlock", "RawInline", "Strikeout", "T
 MODELLED_SET_NAMES = names(MODELLED_SET, "constructors")
 
 
-def inspect_json(source: Path) -> list[Any]:
-    results = run_public_cli("inspect", str(source), "--profile", "x4-crosspoint", "--json")
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
-    return [json.loads(result.stdout) for result in results]
+def inspect_json(source: Path) -> Any:
+    result = run_cli("inspect", str(source), "--profile", "x4-crosspoint", "--json")
+    assert (result.returncode, result.stderr) == (0, "")
+    return json.loads(result.stdout)
 
 
 def test_canonical_document_facts_count_every_constructor(tmp_path: Path) -> None:
     source = write_markdown(tmp_path / "outside.md", OUTSIDE_THE_MODELLED_SET)
 
-    for report in inspect_json(source):
-        constructors = report["canonical_document"]["constructors"]
-        assert constructors["Table"] == {"basis": "measured", "unit": "nodes", "value": 1}
-        assert constructors["Header"] == {"basis": "measured", "unit": "nodes", "value": 1}
-        assert constructors["RawBlock"]["value"] > 1
-        assert set(OUTSIDE) <= set(constructors)
-        # A sub-type tag is not a constructor and must never be counted as one.
-        assert "AlignDefault" not in constructors
-        assert "ColWidthDefault" not in constructors
-        assert "InlineMath" not in constructors
+    report = inspect_json(source)
+    constructors = report["canonical_document"]["constructors"]
+    assert constructors["Table"] == {"basis": "measured", "unit": "nodes", "value": 1}
+    assert constructors["Header"] == {"basis": "measured", "unit": "nodes", "value": 1}
+    assert constructors["RawBlock"]["value"] > 1
+    assert set(OUTSIDE) <= set(constructors)
+    # A sub-type tag is not a constructor and must never be counted as one.
+    assert "AlignDefault" not in constructors
+    assert "ColWidthDefault" not in constructors
+    assert "InlineMath" not in constructors
 
 
 def test_every_unsupported_constructor_is_recorded_and_carried(tmp_path: Path) -> None:
     source = write_markdown(tmp_path / "outside.md", OUTSIDE_THE_MODELLED_SET)
 
-    for report in inspect_json(source):
-        canonical = report["canonical_document"]
-        assert canonical["modelled_set"] == "galley/modelled-set/1"
-        unsupported = canonical["unsupported"]
-        assert [record["constructor"] for record in unsupported] == sorted(OUTSIDE)
-        for record in unsupported:
-            assert record["disposition"] == CARRIED
-            assert record["in_modelled_set"] is False
-            assert record["count"]["value"] == len(record["locations"])
-            assert record["count"]["basis"] == "measured"
-        by_name = {record["constructor"]: record for record in unsupported}
-        assert by_name["Table"]["locations"] == ["/blocks/1"]
-        assert by_name["Strikeout"]["locations"] == ["/blocks/2/c/4"]
+    report = inspect_json(source)
+    canonical = report["canonical_document"]
+    assert canonical["modelled_set"] == "galley/modelled-set/1"
+    unsupported = canonical["unsupported"]
+    assert [record["constructor"] for record in unsupported] == sorted(OUTSIDE)
+    for record in unsupported:
+        assert record["disposition"] == CARRIED
+        assert record["in_modelled_set"] is False
+        assert record["count"]["value"] == len(record["locations"])
+        assert record["count"]["basis"] == "measured"
+    by_name = {record["constructor"]: record for record in unsupported}
+    assert by_name["Table"]["locations"] == ["/blocks/1"]
+    assert by_name["Strikeout"]["locations"] == ["/blocks/2/c/4"]
 
 
 def test_every_unsupported_location_points_at_its_own_node(tmp_path: Path) -> None:
     source = write_markdown(tmp_path / "outside.md", OUTSIDE_THE_MODELLED_SET)
     ast = native_ast(source)
 
-    for report in inspect_json(source):
-        for record in report["canonical_document"]["unsupported"]:
-            for pointer in record["locations"]:
-                assert _resolve(ast, pointer)["t"] == record["constructor"]
+    report = inspect_json(source)
+    for record in report["canonical_document"]["unsupported"]:
+        for pointer in record["locations"]:
+            assert _resolve(ast, pointer)["t"] == record["constructor"]
 
 
 def test_the_modelled_set_produces_no_unsupported_records(tmp_path: Path) -> None:
     source = write_markdown(tmp_path / "modelled.md")
 
-    for report in inspect_json(source):
-        canonical = report["canonical_document"]
-        assert canonical["unsupported"] == []
-        assert set(canonical["constructors"]) == {
-            "BlockQuote",
-            "BulletList",
-            "Emph",
-            "Header",
-            "Image",
-            "Para",
-            "Plain",
-            "Space",
-            "Str",
-        }
+    report = inspect_json(source)
+    canonical = report["canonical_document"]
+    assert canonical["unsupported"] == []
+    assert set(canonical["constructors"]) == {
+        "BlockQuote",
+        "BulletList",
+        "Emph",
+        "Header",
+        "Image",
+        "Para",
+        "Plain",
+        "Space",
+        "Str",
+    }
 
 
 def test_unsupported_content_alone_never_refuses(tmp_path: Path) -> None:
     source = write_markdown(tmp_path / "outside.md", OUTSIDE_THE_MODELLED_SET)
 
-    for report in inspect_json(source):
-        assert (report["outcome"], report["refusal"]) == ("completed", None)
-        # No requirement is answered from Unsupported Content: it creates no refusal authority.
-        unsupported = [
-            record["constructor"] for record in report["canonical_document"]["unsupported"]
-        ]
-        assert unsupported
-        assert [entry for entry in report["compatibility"] if entry["verdict"] == "false"] == []
+    report = inspect_json(source)
+    assert (report["outcome"], report["refusal"]) == ("completed", None)
+    # No requirement is answered from Unsupported Content: it creates no refusal authority.
+    unsupported = [record["constructor"] for record in report["canonical_document"]["unsupported"]]
+    assert unsupported
+    assert [entry for entry in report["compatibility"] if entry["verdict"] == "false"] == []
 
 
 def test_unsupported_content_survives_verbatim_and_stays_out_of_warnings(tmp_path: Path) -> None:
     source = write_markdown(tmp_path / "outside.md", OUTSIDE_THE_MODELLED_SET)
 
-    for index, command in enumerate(public_cli_commands("inspect", str(source))):
-        evidence = tmp_path / f"carried-{index}"
-        result = run_command(
-            command, "--profile", "x4-crosspoint", "--json", "--evidence-dir", str(evidence)
-        )
+    evidence = tmp_path / "carried-0"
+    result = run_cli(
+        "inspect",
+        str(source),
+        "--profile",
+        "x4-crosspoint",
+        "--json",
+        "--evidence-dir",
+        str(evidence),
+    )
 
-        assert (result.returncode, result.stderr) == (0, "")
-        assert json.loads(result.stdout)["warnings"] == []
-        document = json.loads((evidence / "canonical-document.json").read_text(encoding="utf-8"))
-        assert document["pandoc"] == native_ast(source)
-        assert document["warnings"] == []
-        carried = {record["t"] for record in _nodes(document["pandoc"]["blocks"])}
-        assert set(OUTSIDE) <= carried
+    assert (result.returncode, result.stderr) == (0, "")
+    assert json.loads(result.stdout)["warnings"] == []
+    document = json.loads((evidence / "canonical-document.json").read_text(encoding="utf-8"))
+    assert document["pandoc"] == native_ast(source)
+    assert document["warnings"] == []
+    carried = {record["t"] for record in _nodes(document["pandoc"]["blocks"])}
+    assert set(OUTSIDE) <= carried
 
 
 def _nodes(value: Any) -> list[Any]:
@@ -139,13 +142,12 @@ def _resolve(ast: Any, pointer: str) -> Any:
 def test_human_output_names_unsupported_content_it_carried(tmp_path: Path) -> None:
     source = write_markdown(tmp_path / "outside.md", OUTSIDE_THE_MODELLED_SET)
 
-    results = run_public_cli("inspect", str(source), "--profile", "x4-crosspoint")
+    result = run_cli("inspect", str(source), "--profile", "x4-crosspoint")
 
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
-    for result in results:
-        assert "Unsupported Content: carried through; " in result.stdout
-        assert "Table 1" in result.stdout
-        assert "RawBlock 6" in result.stdout
+    assert (result.returncode, result.stderr) == (0, "")
+    assert "Unsupported Content: carried through; " in result.stdout
+    assert "Table 1" in result.stdout
+    assert "RawBlock 6" in result.stdout
 
 
 def test_the_reader_reaches_the_text_of_every_modelled_constructor(tmp_path: Path) -> None:
@@ -153,18 +155,23 @@ def test_the_reader_reaches_the_text_of_every_modelled_constructor(tmp_path: Pat
 
     source = write_markdown(tmp_path / "modelled.md", INSIDE_THE_MODELLED_SET)
 
-    for index, command in enumerate(public_cli_commands("inspect", str(source))):
-        evidence = tmp_path / f"modelled-{index}"
-        result = run_command(
-            command, "--profile", "x4-crosspoint", "--json", "--evidence-dir", str(evidence)
-        )
+    evidence = tmp_path / "modelled-0"
+    result = run_cli(
+        "inspect",
+        str(source),
+        "--profile",
+        "x4-crosspoint",
+        "--json",
+        "--evidence-dir",
+        str(evidence),
+    )
 
-        assert (result.returncode, result.stderr) == (0, "")
-        canonical = json.loads(result.stdout)["canonical_document"]
-        assert canonical["unsupported"] == []
-        assert set(canonical["constructors"]) == set(MODELLED_SET_NAMES)
-        baseline = (evidence / "preservation-baseline.txt").read_text(encoding="utf-8")
-        assert [word for word in MODELLED_WORDS if word not in baseline] == []
+    assert (result.returncode, result.stderr) == (0, "")
+    canonical = json.loads(result.stdout)["canonical_document"]
+    assert canonical["unsupported"] == []
+    assert set(canonical["constructors"]) == set(MODELLED_SET_NAMES)
+    baseline = (evidence / "preservation-baseline.txt").read_text(encoding="utf-8")
+    assert [word for word in MODELLED_WORDS if word not in baseline] == []
 
 
 def test_unsupported_content_in_metadata_is_reported_too(tmp_path: Path) -> None:
@@ -172,11 +179,11 @@ def test_unsupported_content_in_metadata_is_reported_too(tmp_path: Path) -> None
 
     source = write_markdown(tmp_path / "struck.md", STRUCK_THROUGH_TITLE)
 
-    for report in inspect_json(source):
-        canonical = report["canonical_document"]
-        assert canonical["location_base"] == "pandoc"
-        assert [record["constructor"] for record in canonical["unsupported"]] == ["Strikeout"]
-        assert canonical["unsupported"][0]["locations"] == ["/meta/title/c/2"]
+    report = inspect_json(source)
+    canonical = report["canonical_document"]
+    assert canonical["location_base"] == "pandoc"
+    assert [record["constructor"] for record in canonical["unsupported"]] == ["Strikeout"]
+    assert canonical["unsupported"][0]["locations"] == ["/meta/title/c/2"]
 
 
 def test_a_table_reports_no_unknown_constructor(tmp_path: Path) -> None:
@@ -184,10 +191,10 @@ def test_a_table_reports_no_unknown_constructor(tmp_path: Path) -> None:
 
     source = write_markdown(tmp_path / "outside.md", OUTSIDE_THE_MODELLED_SET)
 
-    for report in inspect_json(source):
-        unsupported = report["canonical_document"]["unsupported"]
-        assert [record["constructor"] for record in unsupported if not record["recognised"]] == []
-        assert "AlignDefault" not in report["canonical_document"]["constructors"]
+    report = inspect_json(source)
+    unsupported = report["canonical_document"]["unsupported"]
+    assert [record["constructor"] for record in unsupported if not record["recognised"]] == []
+    assert "AlignDefault" not in report["canonical_document"]["constructors"]
 
 
 def test_a_constructor_galley_has_never_met_is_reported_not_skipped() -> None:

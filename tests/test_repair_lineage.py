@@ -12,26 +12,25 @@ from typing import Any
 import pytest
 
 from tests.markdown_fixtures import PLAIN_BOOK, write_markdown
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import run_cli
 from tests.repair_fixtures import RepairInputs, edited, hand_rolled_repair, inspected
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
 
 
 def refused(tmp_path: Path, source: Path, repair: RepairInputs, name: str) -> list[Any]:
-    """Run both entry points with these Repair Inputs and require a refusal from each."""
+    """Run the installed command with these Repair Inputs and require a refusal."""
 
     reports: list[Any] = []
-    for index, command in enumerate(public_cli_commands("prepare", str(source))):
-        output = tmp_path / f"{name}-{index}.epub"
-        result = run_command(command, "--output", str(output), *ARGUMENTS, *repair.options)
-        report = json.loads(result.stdout)
+    output = tmp_path / f"{name}-{0}.epub"
+    result = run_cli("prepare", str(source), "--output", str(output), *ARGUMENTS, *repair.options)
+    report = json.loads(result.stdout)
 
-        assert (result.returncode, report["outcome"]) == (3, "refused")
-        assert report["refusal"]["artifact_written"] is False
-        assert not output.exists()
-        assert not (tmp_path / f"{name}-{index}.galley").exists()
-        reports.append(report)
+    assert (result.returncode, report["outcome"]) == (3, "refused")
+    assert report["refusal"]["artifact_written"] is False
+    assert not output.exists()
+    assert not (tmp_path / f"{name}-{0}.galley").exists()
+    reports.append(report)
     return reports
 
 

@@ -18,7 +18,7 @@ from tests.image_fixtures import (
 )
 from tests.markdown_fixtures import write_markdown
 from tests.prepared_epub import image_sources, media_resources, names, spine_documents
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import run_cli, prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
 MAXIMUM = (480, 800)
@@ -46,14 +46,6 @@ def transformable(directory: Path) -> None:
     _ = grayscale_png(directory / "cover.png", width=8, height=12)
 
 
-def prepared(tmp_path: Path, index: int, command: list[str], text: str) -> tuple[Path, Any]:
-    source = write_markdown(tmp_path / f"source-{index}.md", text)
-    output = tmp_path / f"book-{index}.epub"
-    result = run_command(command, str(source), "--output", str(output), *ARGUMENTS)
-    assert (result.returncode, result.stderr) == (0, "")
-    return output, json.loads(result.stdout)
-
-
 def records(report: Any) -> dict[str, Any]:
     return {entry["src"]: entry for entry in report["preparation"]["images"]["records"]}
 
@@ -63,209 +55,170 @@ def measured(entry: Any, side: str, key: str) -> Any:
     return None if value is None else value["value"]
 
 
-def test_every_unsupported_input_becomes_an_eight_bit_greyscale_png(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        _, report = prepared(tmp_path, index, command, NORMALISED_IMAGES)
+def test_preparation_normalises_images_and_preserves_their_artifact_relationships(
+    tmp_path: Path,
+) -> None:
+    transformable(tmp_path)
+    prepared_source = write_markdown(tmp_path / "source-0.md", NORMALISED_IMAGES)
+    journey = prepare(tmp_path, prepared_source)
+    output, report = journey.output, journey.report
 
-        prepared_records = records(report)
-        assert len(prepared_records) == REFERENCES
-        # A colour PNG at 8 bits is device-verified, so only its size sends it through the
-        # transform; every other input is transformed because the device does not render it.
-        for src, support in TRANSFORMED.items():
-            entry = prepared_records[src]
-            assert entry["transform"] == "normalised"
-            assert (entry["device_support"], entry["fits_panel"]) == support
-            assert entry["packaged"]["measured_media_type"] == "image/png"
-            assert measured(entry, "packaged", "sample_depth") == 8
-            assert measured(entry, "packaged", "colour_type") in {0, 4}
-        assert measured(prepared_records["alpha.webp"], "packaged", "colour_type") == 4
-        assert measured(prepared_records["diagram.svg"], "packaged", "colour_type") == 0
+    prepared_records = records(report)
+    assert len(prepared_records) == REFERENCES
+    # A colour PNG at 8 bits is device-verified, so only its size sends it through the
+    # transform; every other input is transformed because the device does not render it.
+    for src, support in TRANSFORMED.items():
+        entry = prepared_records[src]
+        assert entry["transform"] == "normalised"
+        assert (entry["device_support"], entry["fits_panel"]) == support
+        assert entry["packaged"]["measured_media_type"] == "image/png"
+        assert measured(entry, "packaged", "sample_depth") == 8
+        assert measured(entry, "packaged", "colour_type") in {0, 4}
+    assert measured(prepared_records["alpha.webp"], "packaged", "colour_type") == 4
+    assert measured(prepared_records["diagram.svg"], "packaged", "colour_type") == 0
 
+    oversize = records(report)["oversize.png"]
+    width = measured(oversize, "packaged", "width")
+    height = measured(oversize, "packaged", "height")
+    assert (width, height) == MAXIMUM
+    assert width / height == OVERSIZE[0] / OVERSIZE[1]
+    assert measured(oversize, "packaged", "scale") == 53
+    small = records(report)["progressive.jpg"]
+    assert (measured(small, "packaged", "width"), measured(small, "packaged", "height")) == (
+        measured(small, "source", "width"),
+        measured(small, "source", "height"),
+    )
+    assert measured(small, "packaged", "scale") == 100
 
-def test_resizing_preserves_aspect_ratio_and_never_upscales(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        _, report = prepared(tmp_path, index, command, NORMALISED_IMAGES)
+    entry = records(report)["alpha.webp"]
+    assert entry["source"]["measured_media_type"] == "image/webp"
+    assert entry["packaged"]["alpha"] is True
+    published = media_resources(output)[entry["artifact"]["path"].removeprefix("EPUB/")]
+    assert published.startswith(b"\x89PNG\r\n\x1a\n")
 
-        oversize = records(report)["oversize.png"]
-        width = measured(oversize, "packaged", "width")
-        height = measured(oversize, "packaged", "height")
-        assert (width, height) == MAXIMUM
-        assert width / height == OVERSIZE[0] / OVERSIZE[1]
-        assert measured(oversize, "packaged", "scale") == 53
-        small = records(report)["progressive.jpg"]
-        assert (measured(small, "packaged", "width"), measured(small, "packaged", "height")) == (
-            measured(small, "source", "width"),
-            measured(small, "source", "height"),
-        )
-        assert measured(small, "packaged", "scale") == 100
+    renderer = records(report)["diagram.svg"]["packaged"]["renderer"]
+    assert renderer["tool"] == "resvg"
+    assert renderer["matches_pinned_version"] is True
+    assert renderer["system_fonts"] is False
+    assert report["galley"]["dependencies"]["resvg"] == renderer["version"]
+    assert report["galley"]["dependencies"]["pillow"]
 
+    cover = next(entry for entry in records(report).values() if entry["cover"] is True)
+    assert cover["transform"] == "preserved"
+    assert cover["artifact"]["cover"] is True
+    assert cover["artifact"]["referenced"] is True
+    document = next(href for href in spine_documents(output) if "cover" in href)
+    sources = [src for href, src, _ in image_sources(output) if href == document]
+    assert sources == [f"../{cover['artifact']['path'].removeprefix('EPUB/')}"]
+    assert b"<svg" not in _markup(output, document)
 
-def test_transparency_survives_as_the_colour_type_the_profile_names(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        output, report = prepared(tmp_path, index, command, NORMALISED_IMAGES)
+    published = {src.removeprefix("../"): alt for _, src, alt in image_sources(output)}
+    for entry in records(report).values():
+        if entry["cover"] or entry["artifact"] is None:
+            continue
+        member = entry["artifact"]["path"].removeprefix("EPUB/")
+        assert published[member] == entry["alt"]
 
-        entry = records(report)["alpha.webp"]
-        assert entry["source"]["measured_media_type"] == "image/webp"
-        assert entry["packaged"]["alpha"] is True
-        published = media_resources(output)[entry["artifact"]["path"].removeprefix("EPUB/")]
-        assert published.startswith(b"\x89PNG\r\n\x1a\n")
-
-
-def test_the_svg_is_rasterised_by_the_pinned_renderer(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        _, report = prepared(tmp_path, index, command, NORMALISED_IMAGES)
-
-        renderer = records(report)["diagram.svg"]["packaged"]["renderer"]
-        assert renderer["tool"] == "resvg"
-        assert renderer["matches_pinned_version"] is True
-        assert renderer["system_fonts"] is False
-        assert report["galley"]["dependencies"]["resvg"] == renderer["version"]
-        assert report["galley"]["dependencies"]["pillow"]
-
-
-def test_the_cover_is_a_direct_image_element_referencing_the_opf_cover(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        output, report = prepared(tmp_path, index, command, NORMALISED_IMAGES)
-
-        cover = next(entry for entry in records(report).values() if entry["cover"] is True)
-        assert cover["transform"] == "preserved"
-        assert cover["artifact"]["cover"] is True
-        assert cover["artifact"]["referenced"] is True
-        document = next(href for href in spine_documents(output) if "cover" in href)
-        sources = [src for href, src, _ in image_sources(output) if href == document]
-        assert sources == [f"../{cover['artifact']['path'].removeprefix('EPUB/')}"]
-        assert b"<svg" not in _markup(output, document)
+    preservation = report["preparation"]["images"]["preservation"]
+    assert preservation["claimed"] is True
+    assert preservation["mapped"]["value"] == REFERENCES
+    assert preservation["unmapped"]["value"] == 0
+    resources = {entry["sha256"] for entry in report["artifact"]["images"]["resources"]}
+    assert {entry["packaged"]["sha256"] for entry in records(report).values()} == resources
+    assert len(media_resources(output)) == REFERENCES
+    assert report["compatibility"]
+    for result in report["compatibility"]:
+        assert result["verdict"] != "false"
 
 
 def test_responsive_candidates_are_recorded_and_removed(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        _ = grayscale_png(tmp_path / "figure.png")
-        output, report = prepared(tmp_path, index, command, RESPONSIVE_IMAGE)
+    _ = grayscale_png(tmp_path / "figure.png")
+    prepared_source = write_markdown(tmp_path / "source-0.md", RESPONSIVE_IMAGE)
+    journey = prepare(tmp_path, prepared_source)
+    output, report = journey.output, journey.report
 
-        entry = records(report)["figure.png"]
-        assert entry["srcset_candidates"] == ["figure.png 1x", "wide.png 2x"]
-        assert entry["alt"] == "grey square"
-        assert entry["title"] == "Square title"
-        markup = b"".join(_markup(output, href) for href in spine_documents(output))
-        assert b"srcset" not in markup
-        assert b"sizes" not in markup
-        assert report["artifact"]["conformance"]["counts"]["error"]["value"] == 0
-
-
-def test_alt_and_title_stay_with_the_image_they_belong_to(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        output, report = prepared(tmp_path, index, command, NORMALISED_IMAGES)
-
-        published = {src.removeprefix("../"): alt for _, src, alt in image_sources(output)}
-        for entry in records(report).values():
-            if entry["cover"] or entry["artifact"] is None:
-                continue
-            member = entry["artifact"]["path"].removeprefix("EPUB/")
-            assert published[member] == entry["alt"]
+    entry = records(report)["figure.png"]
+    assert entry["srcset_candidates"] == ["figure.png 1x", "wide.png 2x"]
+    assert entry["alt"] == "grey square"
+    assert entry["title"] == "Square title"
+    markup = b"".join(_markup(output, href) for href in spine_documents(output))
+    assert b"srcset" not in markup
+    assert b"sizes" not in markup
+    assert report["artifact"]["conformance"]["counts"]["error"]["value"] == 0
 
 
 def test_evidence_holds_deterministic_previews_without_claiming_a_verdict(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        _, report = prepared(tmp_path, index, command, NORMALISED_IMAGES)
-        previews = tmp_path / f"book-{index}.galley" / "previews"
+    transformable(tmp_path)
+    prepared_source = write_markdown(tmp_path / "source-0.md", NORMALISED_IMAGES)
+    journey = prepare(tmp_path, prepared_source)
+    _, report = journey.output, journey.report
+    previews = journey.evidence / "previews"
 
-        entry = records(report)["oversize.png"]
-        assert entry["previews"] == {
-            "prepared": "previews/image-1-prepared.png",
-            "source": "previews/image-1-source.png",
-            "viewing": "previews/image-1-viewing.png",
-        }
-        viewing = previews / "image-1-viewing.png"
-        assert viewing.is_file()
-        assert len(_levels(viewing)) <= 4
-        repeated = run_command(
-            command,
-            str(tmp_path / f"source-{index}.md"),
-            "--output",
-            str(tmp_path / f"again-{index}.epub"),
-            *ARGUMENTS,
-        )
-        assert repeated.returncode == 0
-        again = json.loads(repeated.stdout)
-        assert (
-            again["preparation"]["images"]["records"] == report["preparation"]["images"]["records"]
-        )
-        assert _preview_bytes(previews) == _preview_bytes(
-            tmp_path / f"again-{index}.galley" / "previews"
-        )
-        judged = [
-            observation
-            for observation in report["observations"]
-            if observation["name"] in {"colour-meaning-collapse", "diagram-text-legibility"}
-        ]
-        assert len(judged) == 2
-        for observation in judged:
-            assert observation["fired"] is None
-            assert "previews/image-1-viewing.png" in observation["locations"]
-        assert report["reading_verdict"] == {"value": "not_tested", "predicted": None}
-
-
-def test_image_preservation_maps_every_reference_to_a_decoded_artifact_resource(
-    tmp_path: Path,
-) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        output, report = prepared(tmp_path, index, command, NORMALISED_IMAGES)
-
-        preservation = report["preparation"]["images"]["preservation"]
-        assert preservation["claimed"] is True
-        assert preservation["mapped"]["value"] == REFERENCES
-        assert preservation["unmapped"]["value"] == 0
-        resources = {entry["sha256"] for entry in report["artifact"]["images"]["resources"]}
-        assert {entry["packaged"]["sha256"] for entry in records(report).values()} == resources
-        assert len(media_resources(output)) == REFERENCES
-        assert report["compatibility"]
-        for result in report["compatibility"]:
-            assert result["verdict"] != "false"
+    entry = records(report)["oversize.png"]
+    assert entry["previews"] == {
+        "prepared": "previews/image-1-prepared.png",
+        "source": "previews/image-1-source.png",
+        "viewing": "previews/image-1-viewing.png",
+    }
+    viewing = previews / "image-1-viewing.png"
+    assert viewing.is_file()
+    assert len(_levels(viewing)) <= 4
+    repeated = run_cli(
+        "prepare",
+        str(tmp_path / "source-0.md"),
+        "--output",
+        str(tmp_path / "again-0.epub"),
+        *ARGUMENTS,
+    )
+    assert repeated.returncode == 0
+    again = json.loads(repeated.stdout)
+    assert again["preparation"]["images"]["records"] == report["preparation"]["images"]["records"]
+    assert _preview_bytes(previews) == _preview_bytes(tmp_path / "again-0.galley" / "previews")
+    judged = [
+        observation
+        for observation in report["observations"]
+        if observation["name"] in {"colour-meaning-collapse", "diagram-text-legibility"}
+    ]
+    assert len(judged) == 2
+    for observation in judged:
+        assert observation["fired"] is None
+        assert "previews/image-1-viewing.png" in observation["locations"]
+    assert report["reading_verdict"] == {"value": "not_tested", "predicted": None}
 
 
 def test_a_source_that_cannot_be_decoded_refuses_with_no_final_epub(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        _ = (tmp_path / "diagram.svg").write_bytes(b"<svg xmlns='http://www.w3.org/2000/svg'")
-        source = write_markdown(tmp_path / f"broken-{index}.md", NORMALISED_IMAGES)
-        output = tmp_path / f"broken-{index}.epub"
+    transformable(tmp_path)
+    _ = (tmp_path / "diagram.svg").write_bytes(b"<svg xmlns='http://www.w3.org/2000/svg'")
+    source = write_markdown(tmp_path / "broken-0.md", NORMALISED_IMAGES)
+    output = tmp_path / "broken-0.epub"
 
-        result = run_command(command, str(source), "--output", str(output), *ARGUMENTS)
+    result = run_cli("prepare", str(source), "--output", str(output), *ARGUMENTS)
 
-        assert result.returncode == 3
-        report = json.loads(result.stdout)
-        assert report["refusal"]["boundary"] == "image-processing-failure"
-        assert report["refusal"]["stage"] == "image-preparation"
-        assert [entry["reason"] for entry in report["refusal"]["fact"]["failures"]] == [
-            "render-failure"
-        ]
-        assert not output.exists()
+    assert result.returncode == 3
+    report = json.loads(result.stdout)
+    assert report["refusal"]["boundary"] == "image-processing-failure"
+    assert report["refusal"]["stage"] == "image-preparation"
+    assert [entry["reason"] for entry in report["refusal"]["fact"]["failures"]] == [
+        "render-failure"
+    ]
+    assert not output.exists()
 
 
 def test_human_output_names_what_the_images_became(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        transformable(tmp_path)
-        source = write_markdown(tmp_path / f"human-{index}.md", NORMALISED_IMAGES)
+    transformable(tmp_path)
+    source = write_markdown(tmp_path / "human-0.md", NORMALISED_IMAGES)
 
-        result = run_command(
-            command,
-            str(source),
-            "--output",
-            str(tmp_path / f"human-{index}.epub"),
-            "--profile",
-            "x4-crosspoint",
-        )
+    result = run_cli(
+        "prepare",
+        str(source),
+        "--output",
+        str(tmp_path / "human-0.epub"),
+        "--profile",
+        "x4-crosspoint",
+    )
 
-        assert (result.returncode, result.stderr) == (0, "")
-        assert "Images: 6 references to 6 resources, 1 preserved, 5 normalised\n" in result.stdout
+    assert (result.returncode, result.stderr) == (0, "")
+    assert "Images: 6 references to 6 resources, 1 preserved, 5 normalised\n" in result.stdout
 
 
 def _markup(artifact: Path, href: str) -> bytes:

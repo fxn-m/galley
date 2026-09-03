@@ -26,7 +26,7 @@ from tests.localisation_fixtures import (
     serving,
 )
 from tests.prepared_epub import media_resources
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import run_cli
 from tests.workspace_fixtures import workspace_environment
 
 
@@ -41,12 +41,8 @@ def test_localise_writes_a_repair_set_an_ordinary_prepare_accepts(tmp_path: Path
     }
     with serving(pinned) as origin:
         source = illustrated_source(tmp_path / "clip.md", f"{origin}/a.png", f"{origin}/b.jpg")
-        refused = run_command(
-            public_cli_commands("prepare", str(source))[0],
-            *PROFILE,
-            "--output",
-            str(tmp_path / "before.epub"),
-            "--json",
+        refused = run_cli(
+            "prepare", str(source), *PROFILE, "--output", str(tmp_path / "before.epub"), "--json"
         )
         document = localised(source, tmp_path / "repair")
 
@@ -55,8 +51,9 @@ def test_localise_writes_a_repair_set_an_ordinary_prepare_accepts(tmp_path: Path
     assert document["outcome"] == "completed", document
 
     evidence = tmp_path / "repair"
-    built = run_command(
-        public_cli_commands("prepare", str(source))[0],
+    built = run_cli(
+        "prepare",
+        str(source),
         *PROFILE,
         "--output",
         str(tmp_path / "after.epub"),
@@ -83,8 +80,9 @@ def test_the_rewritten_document_changes_image_locations_and_nothing_else(tmp_pat
 
     with serving({"/a.png": Response(png_bytes(tmp_path))}) as origin:
         source = illustrated_source(tmp_path / "clip.md", f"{origin}/a.png")
-        inspected = run_command(
-            public_cli_commands("inspect", str(source))[0],
+        inspected = run_cli(
+            "inspect",
+            str(source),
             *PROFILE,
             "--json",
             "--evidence-dir",
@@ -185,8 +183,9 @@ def test_prepare_still_retrieves_nothing_and_rebuilds_the_same_bytes(tmp_path: P
         str(evidence / "preservation-baseline.txt"),
     )
     builds = [
-        run_command(
-            public_cli_commands("prepare", str(source))[0],
+        run_cli(
+            "prepare",
+            str(source),
             *PROFILE,
             "--output",
             str(tmp_path / f"book-{number}.epub"),
@@ -214,8 +213,9 @@ def test_a_localised_source_publishes_an_illustrated_ready_artifact(tmp_path: Pa
 
     assert document["outcome"] == "completed"
     evidence = tmp_path / "repair"
-    published = run_command(
-        public_cli_commands("prepare", str(source))[0],
+    published = run_cli(
+        "prepare",
+        str(source),
         *PROFILE,
         "--ready",
         "--json",

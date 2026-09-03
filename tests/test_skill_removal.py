@@ -7,7 +7,7 @@ edited, added and foreign file stays and is reported.
 
 from pathlib import Path
 
-from tests.public_cli import run_public_cli
+from tests.public_cli import run_cli
 from tests.skill_fixtures import (
     MANIFEST,
     SKILLS,
@@ -27,7 +27,7 @@ REFUSED = 3
 
 def _run(command: str, target: Path, home: Path, *arguments: str) -> dict[str, object]:
     documents: list[dict[str, object]] = []
-    for result in run_public_cli(
+    result = run_cli(
         "skill",
         command,
         "--target",
@@ -35,9 +35,9 @@ def _run(command: str, target: Path, home: Path, *arguments: str) -> dict[str, o
         *arguments,
         "--json",
         environment=isolated_home(home),
-    ):
-        documents.append(document_of(result))
-        documents[-1]["exit_code"] = result.returncode
+    )
+    documents.append(document_of(result))
+    documents[-1]["exit_code"] = result.returncode
     return documents[0]
 
 
@@ -129,16 +129,16 @@ def test_uninstall_leaves_a_foreign_destination_exactly_as_it_was(tmp_path: Path
 def test_uninstall_accepts_no_force_option(tmp_path: Path) -> None:
     """No option in this release authorises removing a file Galley cannot attribute to itself."""
 
-    for result in run_public_cli(
+    result = run_cli(
         "skill",
         "uninstall",
         "--target",
         str(tmp_path / "target"),
         "--force",
         environment=isolated_home(tmp_path / "home"),
-    ):
-        assert result.returncode == 2
-        assert result.stdout == ""
+    )
+    assert result.returncode == 2
+    assert result.stdout == ""
 
 
 def test_uninstall_refuses_a_target_that_is_not_a_directory(tmp_path: Path) -> None:

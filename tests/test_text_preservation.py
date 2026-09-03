@@ -7,7 +7,7 @@ from typing import Any
 from tests.image_fixtures import grayscale_png
 from tests.epub_fixtures import write_epub
 from tests.markdown_fixtures import write_markdown
-from tests.public_cli import NO_EPUBCHECK, public_cli_commands, run_command, run_public_cli
+from tests.public_cli import NO_EPUBCHECK, run_cli
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
 LOST_SENTENCE = "Caf\u0065\u0301 café `can't` can’t Echo Echo."
@@ -71,24 +71,23 @@ raise SystemExit(completed.returncode)
 def test_prepare_measures_normalised_visible_text_after_restructuring(tmp_path: Path) -> None:
     _ = grayscale_png(tmp_path / "figure.png")
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        source = write_markdown(tmp_path / f"source-{index}.md", PRESERVED_TEXT)
-        output = tmp_path / f"book-{index}.epub"
+    source = write_markdown(tmp_path / "source-0.md", PRESERVED_TEXT)
+    output = tmp_path / "book-0.epub"
 
-        result = run_command(command, str(source), "--output", str(output), *ARGUMENTS)
+    result = run_cli("prepare", str(source), "--output", str(output), *ARGUMENTS)
 
-        assert (result.returncode, result.stderr) == (0, "")
-        facts = preservation(json.loads(result.stdout))
-        assert facts["claimed"] is True
-        assert facts["basis"] == "measured"
-        assert facts["normalization"] == "NFC"
-        assert facts["tokens"]["baseline"]["value"] == 20
-        assert facts["tokens"]["artifact"]["value"] >= 20
-        assert facts["tokens"]["expected_missing"] == []
-        assert facts["tokens"]["unexpected_missing"] == []
-        assert facts["characters"]["authoritative"] is False
-        assert facts["characters"]["identical"] is False
-        assert output.is_file()
+    assert (result.returncode, result.stderr) == (0, "")
+    facts = preservation(json.loads(result.stdout))
+    assert facts["claimed"] is True
+    assert facts["basis"] == "measured"
+    assert facts["normalization"] == "NFC"
+    assert facts["tokens"]["baseline"]["value"] == 20
+    assert facts["tokens"]["artifact"]["value"] >= 20
+    assert facts["tokens"]["expected_missing"] == []
+    assert facts["tokens"]["unexpected_missing"] == []
+    assert facts["characters"]["authoritative"] is False
+    assert facts["characters"]["identical"] is False
+    assert output.is_file()
 
 
 def test_unexpected_missing_tokens_refuse_but_declared_losses_are_allowed(
@@ -100,110 +99,100 @@ def test_unexpected_missing_tokens_refuse_but_declared_losses_are_allowed(
     declarations = tmp_path / "expected.json"
     _ = declarations.write_text(json.dumps(expected), encoding="utf-8")
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        source = write_markdown(tmp_path / f"eaten-{index}.md", text)
-        refused_output = tmp_path / f"refused-{index}.epub"
-        environment = {"GALLEY_PANDOC": str(wrapper)}
+    source = write_markdown(tmp_path / "eaten-0.md", text)
+    refused_output = tmp_path / "refused-0.epub"
+    environment = {"GALLEY_PANDOC": str(wrapper)}
 
-        refused = run_command(
-            command,
-            str(source),
-            "--output",
-            str(refused_output),
-            *ARGUMENTS,
-            environment=environment,
-        )
+    refused = run_cli(
+        "prepare", str(source), "--output", str(refused_output), *ARGUMENTS, environment=environment
+    )
 
-        assert (refused.returncode, refused.stderr) == (3, "")
-        report = json.loads(refused.stdout)
-        assert report["refusal"]["boundary"] == "text-preservation"
-        assert report["refusal"]["stage"] == "text-preservation"
-        assert report["refusal"]["artifact_written"] is False
-        assert preservation(report)["tokens"]["unexpected_missing"] == [
-            {"count": {"basis": "measured", "unit": "tokens", "value": count}, "token": token}
-            for token, count in sorted(expected.items())
-        ]
-        assert not refused_output.exists()
-        assert (tmp_path / f"refused-{index}.galley" / "report.json").is_file()
+    assert (refused.returncode, refused.stderr) == (3, "")
+    report = json.loads(refused.stdout)
+    assert report["refusal"]["boundary"] == "text-preservation"
+    assert report["refusal"]["stage"] == "text-preservation"
+    assert report["refusal"]["artifact_written"] is False
+    assert preservation(report)["tokens"]["unexpected_missing"] == [
+        {"count": {"basis": "measured", "unit": "tokens", "value": count}, "token": token}
+        for token, count in sorted(expected.items())
+    ]
+    assert not refused_output.exists()
+    assert (tmp_path / "refused-0.galley" / "report.json").is_file()
 
-        allowed_output = tmp_path / f"allowed-{index}.epub"
-        allowed = run_command(
-            command,
-            str(source),
-            "--output",
-            str(allowed_output),
-            *ARGUMENTS,
-            "--expected-missing-tokens",
-            str(declarations),
-            environment=environment,
-        )
+    allowed_output = tmp_path / "allowed-0.epub"
+    allowed = run_cli(
+        "prepare",
+        str(source),
+        "--output",
+        str(allowed_output),
+        *ARGUMENTS,
+        "--expected-missing-tokens",
+        str(declarations),
+        environment=environment,
+    )
 
-        assert (allowed.returncode, allowed.stderr) == (0, "")
-        allowed_facts = preservation(json.loads(allowed.stdout))
-        assert {
-            entry["token"]: entry["count"]["value"]
-            for entry in allowed_facts["tokens"]["expected_missing"]
-        } == expected
-        assert allowed_facts["tokens"]["unexpected_missing"] == []
-        assert allowed_output.is_file()
+    assert (allowed.returncode, allowed.stderr) == (0, "")
+    allowed_facts = preservation(json.loads(allowed.stdout))
+    assert {
+        entry["token"]: entry["count"]["value"]
+        for entry in allowed_facts["tokens"]["expected_missing"]
+    } == expected
+    assert allowed_facts["tokens"]["unexpected_missing"] == []
+    assert allowed_output.is_file()
 
 
 def test_audit_without_a_baseline_makes_no_text_preservation_claim(tmp_path: Path) -> None:
     book = write_epub(tmp_path / "foreign.epub")
 
-    structured = run_public_cli("audit", str(book), *ARGUMENTS, environment=NO_EPUBCHECK)
-    rendered = run_public_cli(
-        "audit", str(book), "--profile", "x4-crosspoint", environment=NO_EPUBCHECK
-    )
+    structured = run_cli("audit", str(book), *ARGUMENTS, environment=NO_EPUBCHECK)
+    rendered = run_cli("audit", str(book), "--profile", "x4-crosspoint", environment=NO_EPUBCHECK)
 
-    for result in structured:
-        assert result.returncode == 0
-        assert preservation(json.loads(result.stdout)) == {
-            "claimed": False,
-            "detail": "Preservation Baseline unavailable",
-            "reason": "preservation-baseline-unavailable",
-        }
-    for result in rendered:
-        assert result.returncode == 0
-        assert (
-            "Text Preservation: not claimed (Preservation Baseline unavailable)\n" in result.stdout
-        )
+    result = structured
+    assert result.returncode == 0
+    assert preservation(json.loads(result.stdout)) == {
+        "claimed": False,
+        "detail": "Preservation Baseline unavailable",
+        "reason": "preservation-baseline-unavailable",
+    }
+    result = rendered
+    assert result.returncode == 0
+    assert "Text Preservation: not claimed (Preservation Baseline unavailable)\n" in result.stdout
 
 
 def test_expected_loss_declarations_are_immutable_workflow_inputs(tmp_path: Path) -> None:
     source = write_markdown(tmp_path / "source.md", "# Kept\n\nEvery token survives.\n")
 
-    for command_index, command in enumerate(public_cli_commands("prepare")):
-        for collision in ("artifact", "report", "evidence"):
-            prefix = f"{command_index}-{collision}"
-            output = tmp_path / f"book-{prefix}.epub"
-            arguments: list[str] = []
-            if collision == "artifact":
-                declarations = tmp_path / f"expected-{prefix}.json"
-                output = declarations
-            elif collision == "report":
-                declarations = tmp_path / f"expected-{prefix}.json"
-                arguments = ["--report-out", str(declarations)]
-            else:
-                evidence = tmp_path / f"evidence-{prefix}"
-                evidence.mkdir()
-                declarations = evidence / "report.json"
-                arguments = ["--evidence-dir", str(evidence)]
-            original = b"{}\n"
-            _ = declarations.write_bytes(original)
+    command_index = 0
+    for collision in ("artifact", "report", "evidence"):
+        prefix = f"{command_index}-{collision}"
+        output = tmp_path / f"book-{prefix}.epub"
+        arguments: list[str] = []
+        if collision == "artifact":
+            declarations = tmp_path / f"expected-{prefix}.json"
+            output = declarations
+        elif collision == "report":
+            declarations = tmp_path / f"expected-{prefix}.json"
+            arguments = ["--report-out", str(declarations)]
+        else:
+            evidence = tmp_path / f"evidence-{prefix}"
+            evidence.mkdir()
+            declarations = evidence / "report.json"
+            arguments = ["--evidence-dir", str(evidence)]
+        original = b"{}\n"
+        _ = declarations.write_bytes(original)
 
-            result = run_command(
-                command,
-                str(source),
-                "--output",
-                str(output),
-                *ARGUMENTS,
-                "--expected-missing-tokens",
-                str(declarations),
-                "--overwrite",
-                *arguments,
-            )
+        result = run_cli(
+            "prepare",
+            str(source),
+            "--output",
+            str(output),
+            *ARGUMENTS,
+            "--expected-missing-tokens",
+            str(declarations),
+            "--overwrite",
+            *arguments,
+        )
 
-            assert (result.returncode, result.stderr) == (3, "")
-            assert json.loads(result.stdout)["refusal"]["boundary"] == "output-is-input"
-            assert declarations.read_bytes() == original
+        assert (result.returncode, result.stderr) == (3, "")
+        assert json.loads(result.stdout)["refusal"]["boundary"] == "output-is-input"
+        assert declarations.read_bytes() == original

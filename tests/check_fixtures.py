@@ -3,7 +3,7 @@
 import subprocess
 from pathlib import Path
 
-from tests.public_cli import public_cli_commands, run_command, run_public_cli
+from tests.public_cli import run_cli
 from tests.ready_fixtures import PROFILE, facts, report
 from tests.workspace_fixtures import (
     command_document,
@@ -31,8 +31,9 @@ def publish(
 ) -> subprocess.CompletedProcess[str]:
     """Publish one Ready Artifact through a single entry point, as a reader would."""
 
-    return run_command(
-        public_cli_commands("prepare", str(source))[0],
+    return run_cli(
+        "prepare",
+        str(source),
         "--profile",
         PROFILE,
         "--ready",
@@ -43,14 +44,11 @@ def publish(
 
 
 def checked(environment: dict[str, str]) -> dict[str, object]:
-    """Check the Inboxes through both entry points, proving they derived the same facts."""
+    """Read the Inbox Check facts emitted by the installed command."""
 
-    documents = [
-        command_document(result)
-        for result in run_public_cli("inbox", "check", "--json", environment=environment)
-    ]
-    assert derived(documents[0]) == derived(documents[1])
-    return documents[0]
+    documents = command_document(run_cli("inbox", "check", "--json", environment=environment))
+
+    return documents
 
 
 def derived(document: dict[str, object]) -> dict[str, object]:

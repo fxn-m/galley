@@ -3,7 +3,7 @@
 from hashlib import sha256
 from pathlib import Path
 
-from tests.public_cli import run_public_cli
+from tests.public_cli import run_cli
 from tests.ready_fixtures import (
     COMPLETED,
     INVOCATION_ERROR,
@@ -23,10 +23,10 @@ def test_republishing_the_same_provenance_refuses(tmp_path: Path) -> None:
     source = inbox_note(tmp_path)
     workspace = tmp_path / "workspace"
     environment = workspace_environment(workspace, tmp_path / "home")
-    first, _ = prepare_ready(source, environment)
+    first = prepare_ready(source, environment)
     assert first.returncode == COMPLETED
     published = tree(workspace / "ready")
-    again, _ = prepare_ready(source, environment)
+    again = prepare_ready(source, environment)
     assert again.returncode == REFUSED
     assert facts(report(again.stdout), "refusal")["boundary"] == "output-exists"
     assert tree(workspace / "ready") == published
@@ -39,7 +39,7 @@ def test_a_changed_source_refuses_against_the_observed_hash(tmp_path: Path) -> N
     workspace = tmp_path / "workspace"
     environment = workspace_environment(workspace, tmp_path / "home")
     stale = sha256(b"whatever the Inbox Check saw").hexdigest()
-    result, _ = prepare_ready(source, environment, "--expected-source-hash", stale)
+    result = prepare_ready(source, environment, "--expected-source-hash", stale)
     assert result.returncode == REFUSED
     refusal = facts(report(result.stdout), "refusal")
     assert refusal["boundary"] == "source-hash-mismatch"
@@ -58,7 +58,7 @@ def test_a_matching_hash_publishes(tmp_path: Path) -> None:
     source = inbox_note(tmp_path)
     environment = workspace_environment(tmp_path / "workspace", tmp_path / "home")
     observed = sha256(source.read_bytes()).hexdigest()
-    result, _ = prepare_ready(source, environment, "--expected-source-hash", observed)
+    result = prepare_ready(source, environment, "--expected-source-hash", observed)
     assert result.returncode == COMPLETED
 
 
@@ -66,7 +66,7 @@ def test_an_expected_hash_needs_local_source_bytes(tmp_path: Path) -> None:
     """A page has no bytes to compare, so the check is refused rather than quietly skipped."""
 
     environment = workspace_environment(tmp_path / "workspace", tmp_path / "home")
-    for result in run_public_cli(
+    result = run_cli(
         "prepare",
         "https://example.invalid/article",
         "--profile",
@@ -76,9 +76,9 @@ def test_an_expected_hash_needs_local_source_bytes(tmp_path: Path) -> None:
         "--expected-source-hash",
         "0" * 64,
         environment=environment,
-    ):
-        assert result.returncode == REFUSED
-        assert facts(report(result.stdout), "refusal")["boundary"] == "expected-hash-unavailable"
+    )
+    assert result.returncode == REFUSED
+    assert facts(report(result.stdout), "refusal")["boundary"] == "expected-hash-unavailable"
 
 
 def test_a_retried_attempt_replaces_its_work_evidence(tmp_path: Path) -> None:
@@ -89,10 +89,10 @@ def test_a_retried_attempt_replaces_its_work_evidence(tmp_path: Path) -> None:
     environment = workspace_environment(workspace, tmp_path / "home")
     stale = sha256(b"stale").hexdigest()
     for _ in range(2):
-        result, _ = prepare_ready(source, environment, "--expected-source-hash", stale)
+        result = prepare_ready(source, environment, "--expected-source-hash", stale)
         assert result.returncode == REFUSED
     assert len(sorted((workspace / "work").glob("*/report.json"))) == 1
-    published, _ = prepare_ready(source, environment)
+    published = prepare_ready(source, environment)
     assert published.returncode == COMPLETED
 
 
@@ -101,7 +101,7 @@ def test_ready_refuses_overwrite_rather_than_mutating_evidence(tmp_path: Path) -
 
     source = inbox_note(tmp_path)
     environment = workspace_environment(tmp_path / "workspace", tmp_path / "home")
-    result, _ = prepare_ready(source, environment, "--overwrite")
+    result = prepare_ready(source, environment, "--overwrite")
     assert result.returncode == INVOCATION_ERROR
 
 
@@ -110,11 +110,9 @@ def test_prepare_requires_exactly_one_destination_mode(tmp_path: Path) -> None:
 
     source = inbox_note(tmp_path)
     environment = workspace_environment(tmp_path / "workspace", tmp_path / "home")
-    for result in run_public_cli(
-        "prepare", str(source), "--profile", PROFILE, environment=environment
-    ):
-        assert result.returncode == INVOCATION_ERROR
-    for result in run_public_cli(
+    result = run_cli("prepare", str(source), "--profile", PROFILE, environment=environment)
+    assert result.returncode == INVOCATION_ERROR
+    result = run_cli(
         "prepare",
         str(source),
         "--profile",
@@ -123,8 +121,8 @@ def test_prepare_requires_exactly_one_destination_mode(tmp_path: Path) -> None:
         "--output",
         str(tmp_path / "book.epub"),
         environment=environment,
-    ):
-        assert result.returncode == INVOCATION_ERROR
+    )
+    assert result.returncode == INVOCATION_ERROR
 
 
 def test_a_source_changing_while_it_is_read_refuses(tmp_path: Path) -> None:
@@ -143,7 +141,7 @@ def test_a_source_changing_while_it_is_read_refuses(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     meddler.chmod(0o755)
-    result, _ = prepare_ready(source, {**environment, "GALLEY_PANDOC": str(meddler)})
+    result = prepare_ready(source, {**environment, "GALLEY_PANDOC": str(meddler)})
     assert result.returncode == REFUSED
     refusal = facts(report(result.stdout), "refusal")
     assert refusal["boundary"] == "source-changed-during-read"

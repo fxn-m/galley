@@ -16,7 +16,7 @@ from tests.epub_fixtures import (
     without,
     write_epub,
 )
-from tests.public_cli import NO_EPUBCHECK, run_public_cli
+from tests.public_cli import NO_EPUBCHECK, run_cli
 
 MALFORMED_XML = b'<?xml version="1.0" encoding="UTF-8"?>\n<html><body><p>unclosed\n'
 
@@ -52,18 +52,18 @@ def package(manifest: str, spine: str = CHAPTER_ITEMREF, spine_attributes: str =
 
 
 def audit_artifact(book: Path) -> dict[str, Any]:
-    """Audit one EPUB through both public entry points and return its artifact facts."""
+    """Audit one EPUB through the installed command and return its artifact facts."""
 
     before = sha256(book.read_bytes()).hexdigest()
-    results = run_public_cli(
+    result = run_cli(
         "audit", str(book), "--profile", "x4-crosspoint", "--json", environment=NO_EPUBCHECK
     )
 
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
+    assert (result.returncode, result.stderr) == (0, "")
     assert sha256(book.read_bytes()).hexdigest() == before
-    artifacts: list[dict[str, Any]] = [json.loads(result.stdout)["artifact"] for result in results]
-    assert artifacts[0] == artifacts[1]
-    return artifacts[0]
+    artifacts: dict[str, Any] = json.loads(result.stdout)["artifact"]
+
+    return artifacts
 
 
 def problem_kinds(artifact: dict[str, Any]) -> list[str]:

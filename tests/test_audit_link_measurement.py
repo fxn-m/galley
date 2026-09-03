@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from tests.epub_fixtures import CHAPTER_PATH, chapter, default_entries, replace, write_epub
-from tests.public_cli import NO_EPUBCHECK, run_public_cli
+from tests.public_cli import NO_EPUBCHECK, run_cli
 
 # The fixture's navigation document contributes one recorded cross-reference of its own,
 # so chapter expectations below carry it explicitly rather than hiding it.
@@ -18,15 +18,15 @@ def audited_links(tmp_path: Path, body: str, name: str = "links.epub") -> dict[s
     entries = replace(default_entries(), CHAPTER_PATH, chapter(body))
     book = write_epub(tmp_path / name, entries)
     before = sha256(book.read_bytes()).hexdigest()
-    results = run_public_cli(
+    result = run_cli(
         "audit", str(book), "--profile", "x4-crosspoint", "--json", environment=NO_EPUBCHECK
     )
 
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
+    assert (result.returncode, result.stderr) == (0, "")
     assert sha256(book.read_bytes()).hexdigest() == before
-    reports: list[dict[str, Any]] = [json.loads(result.stdout) for result in results]
-    assert reports[0]["artifact"] == reports[1]["artifact"]
-    return reports[0]["artifact"]["links"]
+    reports: dict[str, Any] = json.loads(result.stdout)
+
+    return reports["artifact"]["links"]
 
 
 def test_a_link_is_recorded_only_with_an_in_book_href_and_visible_text(tmp_path: Path) -> None:

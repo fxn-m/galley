@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from typing import cast
 
-from tests.public_cli import run_public_cli
+from tests.public_cli import run_cli
 
 COMPLETED = 0
 INVOCATION_ERROR = 2
@@ -26,10 +26,10 @@ def inbox_note(root: Path, name: str = "note.md", body: str = BODY) -> Path:
 
 def prepare_ready(
     source: Path, environment: dict[str, str], *extra: str
-) -> list[subprocess.CompletedProcess[str]]:
-    """Publish one source as a Ready Artifact through both public entry points."""
+) -> subprocess.CompletedProcess[str]:
+    """Publish one source as a Ready Artifact through the installed command."""
 
-    return run_public_cli(
+    return run_cli(
         "prepare",
         str(source),
         "--profile",

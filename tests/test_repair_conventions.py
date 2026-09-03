@@ -10,7 +10,7 @@ from typing import Any, cast
 
 import yaml
 
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import run_cli
 from tests.repair_fixtures import CONSUMED_TOKENS, declarations, hand_rolled_repair
 
 CONVENTIONS = Path("src/galley/skills/galley/resources/repair-conventions.yaml")
@@ -90,25 +90,25 @@ def test_only_the_sections_heading_word_is_consumed_by_the_repair(tmp_path: Path
     source, repair = hand_rolled_repair(tmp_path)
     declared = declarations(tmp_path / "expected.json", CONSUMED_TOKENS)
 
-    for index, command in enumerate(public_cli_commands("prepare", str(source))):
-        result = run_command(
-            command,
-            "--output",
-            str(tmp_path / f"book-{index}.epub"),
-            *ARGUMENTS,
-            "--expected-missing-tokens",
-            str(declared),
-            *repair.options,
-        )
-        report: Any = json.loads(result.stdout)
-        tokens = report["artifact"]["text_preservation"]["tokens"]
+    result = run_cli(
+        "prepare",
+        str(source),
+        "--output",
+        str(tmp_path / "book-0.epub"),
+        *ARGUMENTS,
+        "--expected-missing-tokens",
+        str(declared),
+        *repair.options,
+    )
+    report: Any = json.loads(result.stdout)
+    tokens = report["artifact"]["text_preservation"]["tokens"]
 
-        assert result.returncode == 0
-        # The convention's claim, measured: each digit survives twice — as its reference number
-        # and as its "Footnote N." label — so no digit is expected missing, and the notes
-        # section's own heading word is the entire residue.
-        assert [entry["token"] for entry in tokens["expected_missing"]] == ["Notes"]
-        assert tokens["unexpected_missing"] == []
-        assert set(MARKERS).isdisjoint(
-            entry["token"] for entry in tokens["expected_missing"] + tokens["unexpected_missing"]
-        )
+    assert result.returncode == 0
+    # The convention's claim, measured: each digit survives twice — as its reference number
+    # and as its "Footnote N." label — so no digit is expected missing, and the notes
+    # section's own heading word is the entire residue.
+    assert [entry["token"] for entry in tokens["expected_missing"]] == ["Notes"]
+    assert tokens["unexpected_missing"] == []
+    assert set(MARKERS).isdisjoint(
+        entry["token"] for entry in tokens["expected_missing"] + tokens["unexpected_missing"]
+    )

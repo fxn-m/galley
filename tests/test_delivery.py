@@ -7,7 +7,7 @@ from pathlib import Path
 
 from tests.crosspoint_server import Device, crosspoint
 from tests.delivery_fixtures import UNCONFIRMED, deliver, published, records
-from tests.public_cli import public_cli_commands, run_command, run_public_cli
+from tests.public_cli import cli_command, run_cli
 from tests.workspace_fixtures import command_document, entries, field, tree
 
 COMPLETED = 0
@@ -19,13 +19,13 @@ def test_a_new_book_is_uploaded_once_and_confirmed(tmp_path: Path) -> None:
     workspace, artifact, environment = published(tmp_path)
     size = artifact.stat().st_size
     with crosspoint() as (host, device):
-        results = run_public_cli(
+        results = run_cli(
             "deliver", str(artifact), "--json", "--host", host, environment=environment
         )
         assert device.uploads[0] == (artifact.name, size)
         assert device.files[artifact.name] == size
-    first = command_document(results[0])
-    assert results[0].returncode == COMPLETED
+    first = command_document(results)
+    assert results.returncode == COMPLETED
     assert first["outcome"] == "delivered"
     assert first["mode"] == "deliver"
     action = field(first, "action")
@@ -40,7 +40,7 @@ def test_a_new_book_is_uploaded_once_and_confirmed(tmp_path: Path) -> None:
         "upload",
         "postflight-confirmation",
     ]
-    assert len(records(workspace)) == len(results)
+    assert len(records(workspace)) == 1
 
 
 def test_the_upload_is_multipart_and_asks_for_no_optimization(tmp_path: Path) -> None:
@@ -48,11 +48,7 @@ def test_the_upload_is_multipart_and_asks_for_no_optimization(tmp_path: Path) ->
 
     _workspace, artifact, environment = published(tmp_path)
     with crosspoint() as (host, device):
-        _ = run_public_cli(
-            "deliver", str(artifact), "--json", "--host", host, environment=environment
-        )
-        # The second entry point finds the book already there and sends nothing; one upload is the
-        # whole of what Delivery writes.
+        _ = run_cli("deliver", str(artifact), "--json", "--host", host, environment=environment)
         assert device.upload_requests == 1
         for content_type in device.upload_content_types:
             assert content_type.startswith("multipart/form-data; boundary=galley-")
@@ -62,26 +58,19 @@ def test_the_upload_is_multipart_and_asks_for_no_optimization(tmp_path: Path) ->
 
 
 def test_the_exact_readable_ready_name_reaches_crosspoint(tmp_path: Path) -> None:
-    """Both entry points serialize and confirm the published Unicode filename unchanged."""
+    """Delivery serializes and confirms the published Unicode filename unchanged."""
 
     readable = "Café’s, 2026 (第2版) [A&B] - draft_v1.2.md"
     _workspace, artifact, environment = published(tmp_path, readable)
     size = artifact.stat().st_size
     assert artifact.name == f"{Path(readable).stem}.epub"
-    for command in public_cli_commands():
-        with crosspoint() as (host, device):
-            result = run_command(
-                command,
-                "deliver",
-                str(artifact),
-                "--json",
-                "--host",
-                host,
-                environment=environment,
-            )
-            assert result.returncode == COMPLETED
-            assert device.uploads == [(artifact.name, size)]
-            assert device.files == {artifact.name: size}
+    with crosspoint() as (host, device):
+        result = run_cli(
+            "deliver", str(artifact), "--json", "--host", host, environment=environment
+        )
+        assert result.returncode == COMPLETED
+        assert device.uploads == [(artifact.name, size)]
+        assert device.files == {artifact.name: size}
 
 
 def test_the_record_references_everything_the_delivery_rested_on(tmp_path: Path) -> None:
@@ -90,7 +79,7 @@ def test_the_record_references_everything_the_delivery_rested_on(tmp_path: Path)
     workspace, artifact, environment = published(tmp_path)
     with crosspoint() as (host, _device):
         results = deliver(artifact, environment, "--host", host)
-    document = command_document(results[0])
+    document = command_document(results)
     facts = field(document, "artifact")
     assert Path(str(facts["report_path"])).is_file()
     assert len(str(facts["report_sha256"])) == 64
@@ -110,7 +99,7 @@ def test_the_artifact_and_its_evidence_are_untouched_by_delivery(tmp_path: Path)
     workspace, artifact, environment = published(tmp_path)
     before = tree(workspace / "ready")
     with crosspoint() as (host, _device):
-        results = deliver(artifact, environment, "--host", host)
+        results = [deliver(artifact, environment, "--host", host) for _ in range(2)]
     assert [command_document(result)["outcome"] for result in results] == [
         "delivered",
         "already-delivered",
@@ -123,14 +112,13 @@ def test_http_success_without_confirmation_is_not_delivery(tmp_path: Path) -> No
 
     workspace, artifact, environment = published(tmp_path)
     with crosspoint(Device(visibility_delay=99)) as (host, device):
-        results = deliver(artifact, environment, "--host", host)
-        assert device.upload_requests == len(results)
-    for result in results:
-        assert result.returncode == UNCONFIRMED
-        document = command_document(result)
-        assert document["outcome"] == "unconfirmed"
-        assert field(document, "action")["transport_status"] == 200
-        assert field(document, "refusal")["boundary"] == "unconfirmed-delivery"
+        result = deliver(artifact, environment, "--host", host)
+        assert device.upload_requests == 1
+    assert result.returncode == UNCONFIRMED
+    document = command_document(result)
+    assert document["outcome"] == "unconfirmed"
+    assert field(document, "action")["transport_status"] == 200
+    assert field(document, "refusal")["boundary"] == "unconfirmed-delivery"
     assert tree(workspace / "ready")
 
 
@@ -139,12 +127,11 @@ def test_a_definite_pre_write_failure_sends_no_upload(tmp_path: Path) -> None:
 
     workspace, artifact, environment = published(tmp_path)
     with crosspoint(Device(status={"device": "Kobo", "version": "1.0"})) as (host, device):
-        results = deliver(artifact, environment, "--host", host)
+        result = deliver(artifact, environment, "--host", host)
         assert device.upload_requests == 0
-    for result in results:
-        document = command_document(result)
-        assert document["outcome"] == "refused"
-        assert field(document, "action")["upload_began"] is False
+    document = command_document(result)
+    assert document["outcome"] == "refused"
+    assert field(document, "action")["upload_began"] is False
     assert {str(record["outcome"]) for record in records(workspace)} == {"refused"}
 
 
@@ -154,7 +141,7 @@ def test_the_human_rendering_derives_from_the_same_record(tmp_path: Path) -> Non
     workspace, artifact, environment = published(tmp_path)
     with crosspoint() as (host, _device):
         result = subprocess.run(
-            [*public_cli_commands()[0], "deliver", str(artifact), "--host", host],
+            [*cli_command(), "deliver", str(artifact), "--host", host],
             check=False,
             capture_output=True,
             text=True,
@@ -176,7 +163,7 @@ def test_delivery_never_prompts_in_the_terminal(tmp_path: Path) -> None:
     _workspace, artifact, environment = published(tmp_path)
     with crosspoint() as (host, _device):
         result = subprocess.run(
-            [*public_cli_commands()[0], "deliver", str(artifact), "--json", "--host", host],
+            [*cli_command(), "deliver", str(artifact), "--json", "--host", host],
             check=False,
             capture_output=True,
             text=True,

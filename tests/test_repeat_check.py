@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from tests.check_fixtures import checked_workspace, publish, states
-from tests.public_cli import run_public_cli
+from tests.public_cli import run_cli
 from tests.ready_fixtures import BODY, COMPLETED, facts, inbox_note, ready_reports, report
 from tests.workspace_fixtures import tree
 
@@ -115,9 +115,9 @@ def test_human_output_states_each_candidate_behind_its_own_state(tmp_path: Path)
     source = inbox_note(tmp_path)
     _, environment = checked_workspace(tmp_path)
     assert publish(source, environment).returncode == COMPLETED
-    for result in run_public_cli("inbox", "check", environment=environment):
-        assert f"  already-ready — inbox: {source.resolve()} (markdown," in result.stdout
-        assert result.returncode == COMPLETED
+    result = run_cli("inbox", "check", environment=environment)
+    assert f"  already-ready — inbox: {source.resolve()} (markdown," in result.stdout
+    assert result.returncode == COMPLETED
 
 
 def test_repeated_checks_introduce_no_index_or_status_file(tmp_path: Path) -> None:

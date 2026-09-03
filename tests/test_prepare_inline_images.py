@@ -16,7 +16,7 @@ from galley.images.inline import ELISION, LABEL_LIMIT, inline_label
 from tests.image_fixtures import grayscale_png
 from tests.markdown_fixtures import write_markdown
 from tests.prepared_epub import media_resources
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
 SVG = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 3h18v18H3z"/></svg>'
@@ -39,100 +39,108 @@ def base64_uri(data: bytes, media_type: str) -> str:
     return f"data:{media_type};base64,{b64encode(data).decode('ascii')}"
 
 
-def prepared(tmp_path: Path, index: int, command: list[str], text: str) -> tuple[Path, Any]:
-    source = write_markdown(tmp_path / f"source-{index}.md", text)
-    output = tmp_path / f"book-{index}.epub"
-    result = run_command(command, str(source), "--output", str(output), *ARGUMENTS)
-    return output, json.loads(result.stdout)
-
-
 def failures(report: Any) -> list[Any]:
     return report["refusal"]["fact"]["failures"]
 
 
 def test_a_base64_png_is_read_from_the_document_it_arrived_in(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        png = grayscale_png(tmp_path / f"square-{index}.png", width=4, height=3).read_bytes()
-        output, report = prepared(tmp_path, index, command, document(base64_uri(png, "image/png")))
+    png = grayscale_png(tmp_path / "square-0.png", width=4, height=3).read_bytes()
+    prepared_source = write_markdown(
+        tmp_path / "source-0.md", document(base64_uri(png, "image/png"))
+    )
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    output, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        record = report["preparation"]["images"]["records"][0]
-        assert record["source"]["measured_media_type"] == "image/png"
-        assert (record["source"]["width"]["value"], record["source"]["height"]["value"]) == (4, 3)
-        packaged = media_resources(output)[record["artifact"]["path"].removeprefix("EPUB/")]
-        assert packaged == png
+    assert report["outcome"] == "completed"
+    record = report["preparation"]["images"]["records"][0]
+    assert record["source"]["measured_media_type"] == "image/png"
+    assert (record["source"]["width"]["value"], record["source"]["height"]["value"]) == (4, 3)
+    packaged = media_resources(output)[record["artifact"]["path"].removeprefix("EPUB/")]
+    assert packaged == png
 
 
 def test_a_percent_encoded_svg_is_read_the_same_way(tmp_path: Path) -> None:
     """RFC 2397's other form. An extractor that does not base64 its icons is not a special case."""
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        reference = f"data:image/svg+xml,{quote(SVG)}"
-        _, report = prepared(tmp_path, index, command, document(reference))
+    reference = f"data:image/svg+xml,{quote(SVG)}"
+    prepared_source = write_markdown(tmp_path / "source-0.md", document(reference))
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    _, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        record = report["preparation"]["images"]["records"][0]
-        assert record["source"]["measured_media_type"] == "image/svg+xml"
+    assert report["outcome"] == "completed"
+    record = report["preparation"]["images"]["records"][0]
+    assert record["source"]["measured_media_type"] == "image/svg+xml"
 
 
 def test_the_media_type_the_document_claims_is_not_believed(tmp_path: Path) -> None:
     """The bytes decide, exactly as they do for a file on disk or a fetched resource."""
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        png = grayscale_png(tmp_path / f"lied-{index}.png").read_bytes()
-        _, report = prepared(tmp_path, index, command, document(base64_uri(png, "image/jpeg")))
+    png = grayscale_png(tmp_path / "lied-0.png").read_bytes()
+    prepared_source = write_markdown(
+        tmp_path / "source-0.md", document(base64_uri(png, "image/jpeg"))
+    )
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    _, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        record = report["preparation"]["images"]["records"][0]
-        assert record["source"]["measured_media_type"] == "image/png"
+    assert report["outcome"] == "completed"
+    record = report["preparation"]["images"]["records"][0]
+    assert record["source"]["measured_media_type"] == "image/png"
 
 
 def test_a_reference_with_no_payload_separator_is_not_a_data_uri(tmp_path: Path) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        _, report = prepared(tmp_path, index, command, document("data:image/png;base64"))
+    prepared_source = write_markdown(tmp_path / "source-0.md", document("data:image/png;base64"))
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    _, report = journey.output, journey.report
 
-        assert report["outcome"] == "refused"
-        assert failures(report)[0]["reason"] == "malformed-inline-reference"
+    assert report["outcome"] == "refused"
+    assert failures(report)[0]["reason"] == "malformed-inline-reference"
 
 
 def test_a_payload_that_will_not_decode_says_so_rather_than_blaming_the_location(
     tmp_path: Path,
 ) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        _, report = prepared(tmp_path, index, command, document("data:image/png;base64,AAAAA"))
+    prepared_source = write_markdown(
+        tmp_path / "source-0.md", document("data:image/png;base64,AAAAA")
+    )
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    _, report = journey.output, journey.report
 
-        assert report["outcome"] == "refused"
-        assert failures(report)[0]["reason"] == "undecodable-inline-data"
+    assert report["outcome"] == "refused"
+    assert failures(report)[0]["reason"] == "undecodable-inline-data"
 
 
 def test_a_payload_that_decodes_to_something_other_than_an_image_measures_as_such(
     tmp_path: Path,
 ) -> None:
-    for index, command in enumerate(public_cli_commands("prepare")):
-        reference = base64_uri(b"not an image at all", "image/png")
-        _, report = prepared(tmp_path, index, command, document(reference))
+    reference = base64_uri(b"not an image at all", "image/png")
+    prepared_source = write_markdown(tmp_path / "source-0.md", document(reference))
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    _, report = journey.output, journey.report
 
-        assert report["outcome"] == "refused"
-        assert failures(report)[0]["reason"] == "unmeasurable-bytes"
+    assert report["outcome"] == "refused"
+    assert failures(report)[0]["reason"] == "unmeasurable-bytes"
 
 
 def test_no_report_line_carries_the_payload(tmp_path: Path) -> None:
     """A base64 SVG runs to thousands of characters. One elided name stands in for it everywhere,
     in the refusal a reader sees and in the record a completed run keeps."""
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        png = grayscale_png(tmp_path / f"bounded-{index}.png").read_bytes()
-        completed_reference = base64_uri(png, "image/png")
-        _, completed = prepared(tmp_path, index, command, document(completed_reference))
-        _, refused = prepared(
-            tmp_path, index + 100, command, document(base64_uri(b"nothing", "image/png"))
-        )
+    png = grayscale_png(tmp_path / "bounded-0.png").read_bytes()
+    completed_reference = base64_uri(png, "image/png")
+    prepared_source = write_markdown(tmp_path / "source-0.md", document(completed_reference))
+    journey = prepare(tmp_path, prepared_source, expected_exit=None)
+    _, completed = journey.output, journey.report
+    prepared_source = write_markdown(
+        tmp_path / "control.md", document(base64_uri(b"nothing", "image/png"))
+    )
+    journey2 = prepare(tmp_path, prepared_source, expected_exit=None)
+    _, refused = journey2.output, journey2.report
 
-        label = "data:image/png;base64" + ELISION
-        record = completed["preparation"]["images"]["records"][0]
-        assert (record["src"], record["source"]["path"]) == (label, label)
-        assert failures(refused)[0]["src"] == label
-        assert b64encode(png).decode("ascii") not in json.dumps(completed)
+    label = "data:image/png;base64" + ELISION
+    record = completed["preparation"]["images"]["records"][0]
+    assert (record["src"], record["source"]["path"]) == (label, label)
+    assert failures(refused)[0]["src"] == label
+    assert b64encode(png).decode("ascii") not in json.dumps(completed)
 
 
 def test_a_locator_is_still_its_own_name() -> None:

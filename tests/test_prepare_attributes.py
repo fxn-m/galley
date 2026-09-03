@@ -7,7 +7,6 @@ already rescues most unrecognised names under the format's own `data-` prefix. T
 rescue to every name rather than to the ones Pandoc's own list happens to miss.
 """
 
-import json
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -16,7 +15,7 @@ from tests.article_fixtures import filler
 from tests.article_server import served
 from tests.image_fixtures import grayscale_png
 from tests.markdown_fixtures import write_markdown
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import prepare
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
 # A real page's presentational table. Pandoc namespaces `align`, `cellpadding` and `bgcolor` under
@@ -31,13 +30,6 @@ TABLED = f"""<!doctype html>
 </article>
 </body></html>
 """
-
-
-def prepared(tmp_path: Path, index: int, command: list[str], *extra: str) -> tuple[Path, Any]:
-    output = tmp_path / f"book-{index}.epub"
-    result = run_command(command, "--output", str(output), *ARGUMENTS, *extra)
-    assert (result.returncode, result.stderr) == (0, "")
-    return output, json.loads(result.stdout)
 
 
 def namespacing(report: Any) -> Any:
@@ -61,17 +53,17 @@ def test_an_attribute_the_element_does_not_admit_is_namespaced(tmp_path: Path) -
     """`width` is legal on an image and illegal on a table, so the name alone cannot decide it."""
 
     with served(TABLED) as url:
-        for index, command in enumerate(public_cli_commands("prepare", url)):
-            artifact, report = prepared(tmp_path, index, command)
+        journey = prepare(tmp_path, url)
+        artifact, report = journey.output, journey.report
 
-            assert report["outcome"] == "completed"
-            assert '<table data-width="100%"' in chapters(artifact)
-            assert "<table width=" not in chapters(artifact)
-            assert {
-                "constructor": "Table",
-                "element": "table",
-                "attribute": "width",
-            } in namespacing(report)["renamed"]
+        assert report["outcome"] == "completed"
+        assert '<table data-width="100%"' in chapters(artifact)
+        assert "<table width=" not in chapters(artifact)
+        assert {
+            "constructor": "Table",
+            "element": "table",
+            "attribute": "width",
+        } in namespacing(report)["renamed"]
 
 
 def test_the_same_attribute_survives_on_the_element_that_admits_it(tmp_path: Path) -> None:
@@ -82,12 +74,12 @@ def test_the_same_attribute_survives_on_the_element_that_admits_it(tmp_path: Pat
     )
     grayscale_png(tmp_path / "figure.png", width=64, height=48)
 
-    for index, command in enumerate(public_cli_commands("prepare", str(source))):
-        _, report = prepared(tmp_path, index, command)
+    journey = prepare(tmp_path, str(source))
+    _, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        renamed = {entry["attribute"] for entry in namespacing(report)["renamed"]}
-        assert "width" not in renamed and "height" not in renamed
+    assert report["outcome"] == "completed"
+    renamed = {entry["attribute"] for entry in namespacing(report)["renamed"]}
+    assert "width" not in renamed and "height" not in renamed
 
 
 def test_a_globally_admitted_attribute_is_left_alone(tmp_path: Path) -> None:
@@ -100,13 +92,13 @@ def test_a_globally_admitted_attribute_is_left_alone(tmp_path: Path) -> None:
         '# A heading {title="a tooltip" role="heading" custom="x"}\n\nText and more text.\n',
     )
 
-    for index, command in enumerate(public_cli_commands("prepare", str(source))):
-        artifact, report = prepared(tmp_path, index, command)
+    journey = prepare(tmp_path, str(source))
+    artifact, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        assert [entry["attribute"] for entry in namespacing(report)["renamed"]] == ["custom"]
-        assert 'title="a tooltip"' in chapters(artifact)
-        assert 'role="heading"' in chapters(artifact)
+    assert report["outcome"] == "completed"
+    assert [entry["attribute"] for entry in namespacing(report)["renamed"]] == ["custom"]
+    assert 'title="a tooltip"' in chapters(artifact)
+    assert 'role="heading"' in chapters(artifact)
 
 
 def test_namespacing_an_attribute_moves_no_word(tmp_path: Path) -> None:
@@ -114,12 +106,12 @@ def test_namespacing_an_attribute_moves_no_word(tmp_path: Path) -> None:
     exactly where it was."""
 
     with served(TABLED) as url:
-        for index, command in enumerate(public_cli_commands("prepare", url)):
-            _, report = prepared(tmp_path, index, command)
+        journey = prepare(tmp_path, url)
+        _, report = journey.output, journey.report
 
-            assert report["outcome"] == "completed"
-            assert report["artifact"]["text_preservation"]["claimed"] is True
-            assert report["artifact"]["text_preservation"]["tokens"]["unexpected_missing"] == []
+        assert report["outcome"] == "completed"
+        assert report["artifact"]["text_preservation"]["claimed"] is True
+        assert report["artifact"]["text_preservation"]["tokens"]["unexpected_missing"] == []
 
 
 def test_a_document_with_nothing_to_namespace_says_so(tmp_path: Path) -> None:
@@ -130,13 +122,13 @@ def test_a_document_with_nothing_to_namespace_says_so(tmp_path: Path) -> None:
         "---\ntitle: A Plain Book\n---\n\n# A Plain Book\n\nText and more text.\n",
     )
 
-    for index, command in enumerate(public_cli_commands("prepare", str(source))):
-        _, report = prepared(tmp_path, index, command)
+    journey = prepare(tmp_path, str(source))
+    _, report = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        assert namespacing(report) == {
-            **namespacing(report),
-            "fired": False,
-            "renamed": [],
-            "count": {"basis": "measured", "unit": "attributes", "value": 0},
-        }
+    assert report["outcome"] == "completed"
+    assert namespacing(report) == {
+        **namespacing(report),
+        "fired": False,
+        "renamed": [],
+        "count": {"basis": "measured", "unit": "attributes", "value": 0},
+    }

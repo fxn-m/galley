@@ -21,7 +21,7 @@ from tests.localisation_fixtures import (
     serving,
 )
 from tests.prepared_epub import media_resources
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import run_cli
 
 
 def covered_source(path: Path, cover: str, *pictures: str) -> Path:
@@ -55,8 +55,9 @@ def test_a_remote_cover_image_is_localised_and_the_book_carries_it(tmp_path: Pat
     assert named["cover-image"]["locator"] == f"{origin}/cover.png"
 
     evidence = tmp_path / "repair"
-    built = run_command(
-        public_cli_commands("prepare", str(source))[0],
+    built = run_cli(
+        "prepare",
+        str(source),
         *PROFILE,
         "--output",
         str(tmp_path / "after.epub"),

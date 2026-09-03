@@ -13,8 +13,8 @@ from typing import cast
 from scripts.checkrecords import ASSESSMENT, READING_RECORD, record_validator
 from tests.crosspoint_server import crosspoint
 from tests.delivery_fixtures import published, records
-from tests.ready_fixtures import COMPLETED, report
-from tests.public_cli import run_public_cli
+from tests.ready_fixtures import COMPLETED, ready_reports, report
+from tests.public_cli import run_cli
 
 PROFILE = {"id": "x4-crosspoint", "profile_version": "1.0.0"}
 
@@ -45,7 +45,8 @@ def worklist(document: dict[str, object]) -> list[dict[str, str]]:
 def test_the_worklist_is_derived_from_the_report_and_is_stable(tmp_path: Path) -> None:
     """The same Report always yields the same list, and each entry keeps its own owner."""
 
-    document = _prepared(tmp_path)[3]
+    workspace, _, _ = published(tmp_path)
+    document = ready_reports(workspace)[0]
 
     first = worklist(document)
     assert first == worklist(json.loads(json.dumps(document)))
@@ -60,7 +61,9 @@ def test_the_worklist_is_derived_from_the_report_and_is_stable(tmp_path: Path) -
 def test_the_four_artifacts_may_disagree_without_overwriting_one_another(tmp_path: Path) -> None:
     """A clean build, a worried agent, a confirmed Delivery and a contented reader, all at once."""
 
-    workspace, artifact, environment, document, report_path = _prepared(tmp_path)
+    workspace, artifact, environment = published(tmp_path)
+    report_path = next((workspace / "ready/evidence").glob("*/report.json"))
+    document = report(report_path.read_text("utf-8"))
     assert document["outcome"] == "completed"
     verdict = cast(dict[str, object], document["reading_verdict"])
     assert verdict == {"value": "not_tested", "predicted": None}
@@ -72,11 +75,11 @@ def test_the_four_artifacts_may_disagree_without_overwriting_one_another(tmp_pat
     _ = assessment_path.write_text(json.dumps(assessment, indent=2), encoding="utf-8")
 
     with crosspoint() as (host, device):
-        results = run_public_cli(
+        results = run_cli(
             "deliver", str(artifact), "--json", "--host", host, environment=environment
         )
         assert device.files[artifact.name] == artifact.stat().st_size
-    assert results[0].returncode == COMPLETED
+    assert results.returncode == COMPLETED
     record_path = _delivered_record(workspace)
     delivery = report(record_path.read_text("utf-8"))
     assert delivery["outcome"] == "delivered"
@@ -108,18 +111,12 @@ def test_neither_authored_record_can_sign_the_others_name() -> None:
         assert anchor in cast(list[object], reading["required"])
 
 
-def _prepared(tmp_path: Path) -> tuple[Path, Path, dict[str, str], dict[str, object], Path]:
-    workspace, artifact, environment = published(tmp_path)
-    report_path = next(iter(sorted((workspace / "ready/evidence").glob("*/report.json"))))
-    return workspace, artifact, environment, report(report_path.read_text("utf-8")), report_path
-
-
 def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _delivered_record(workspace: Path) -> Path:
-    """The record of the one invocation that uploaded; the second entry point finds it there."""
+    """The immutable record of the invocation that uploaded the Ready Artifact."""
 
     written = sorted((workspace / "delivery").glob("*.json"))
     assert len(written) == len(records(workspace))

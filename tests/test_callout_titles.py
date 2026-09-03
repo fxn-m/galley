@@ -23,7 +23,7 @@ from typing import Any
 
 from tests.markdown_fixtures import write_markdown
 from tests.prepared_epub import content_text, element_texts, navigation_entries
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import prepare
 from tests.repair_fixtures import RepairInputs, inspected, repaired_document
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
@@ -58,9 +58,7 @@ def html_ast(path: Path, markup: str) -> Any:
     return json.loads(completed.stdout)
 
 
-def prepared(
-    tmp_path: Path, index: int, command: list[str], markup: str, lines: list[str]
-) -> tuple[Path, Any]:
+def callout_inputs(tmp_path: Path, markup: str, lines: list[str]) -> tuple[Path, RepairInputs]:
     """Inspect a source carrying the same words, then prepare the callout AST as a repair.
 
     The Markdown source exists to produce a real inspection and a real Preservation Baseline; the
@@ -70,21 +68,19 @@ def prepared(
 
     words = "\n\n".join(lines)
     source = write_markdown(
-        tmp_path / f"callout-{index}.md",
+        tmp_path / "callout-0.md",
         f"---\ntitle: A Callout Book\n---\n\n# A Callout Book\n\n{PROSE}\n\n{words}\n",
     )
-    evidence = inspected(tmp_path / f"callout-{index}.galley", str(source))
+    evidence = inspected(tmp_path / "callout-0.galley", str(source))
     canonical = repaired_document(
         evidence,
-        tmp_path / f"callout-{index}.json",
-        html_ast(tmp_path / f"callout-{index}.html", markup),
+        tmp_path / "callout-0.json",
+        html_ast(tmp_path / "callout-0.html", markup),
     )
     repair = RepairInputs(
         evidence / "report.json", canonical, evidence / "preservation-baseline.txt"
     )
-    output = tmp_path / f"book-{index}.epub"
-    result = run_command(command, str(source), "--output", str(output), *ARGUMENTS, *repair.options)
-    return output, json.loads(result.stdout)
+    return source, repair
 
 
 def emphasis(report: Any) -> Any:
@@ -99,14 +95,15 @@ def test_a_recognised_callout_title_becomes_one_emphasised_paragraph(tmp_path: P
     markup = callout(recognised(REACH)) + callout(recognised(SURVIVAL), "Keep going anyway.")
     lines = [REACH, BODY, SURVIVAL, "Keep going anyway."]
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, markup, lines)
+    source, repair = callout_inputs(tmp_path, markup, lines)
+    journey = prepare(tmp_path, source, *repair.options, expected_exit=None)
+    (artifact, report) = journey.output, journey.report
 
-        assert report["outcome"] == "completed"
-        assert emphasis(report)["fired"] is True
-        assert emphasis(report)["emphasised"]["value"] == 2
-        assert emphasis(report)["titles"] == [REACH, SURVIVAL]
-        assert element_texts(artifact, "strong") == [REACH, SURVIVAL]
+    assert report["outcome"] == "completed"
+    assert emphasis(report)["fired"] is True
+    assert emphasis(report)["emphasised"]["value"] == 2
+    assert emphasis(report)["titles"] == [REACH, SURVIVAL]
+    assert element_texts(artifact, "strong") == [REACH, SURVIVAL]
 
 
 def test_no_title_becomes_a_heading_because_headings_drive_pagination(tmp_path: Path) -> None:
@@ -119,13 +116,14 @@ def test_no_title_becomes_a_heading_because_headings_drive_pagination(tmp_path: 
 
     markup = callout(recognised(REACH))
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, markup, [REACH, BODY])
+    source, repair = callout_inputs(tmp_path, markup, [REACH, BODY])
+    journey = prepare(tmp_path, source, *repair.options, expected_exit=None)
+    (artifact, report) = journey.output, journey.report
 
-        assert emphasis(report)["fired"] is True
-        for tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
-            assert REACH not in element_texts(artifact, tag)
-        assert navigation_entries(artifact) == ["A Callout Book"]
+    assert emphasis(report)["fired"] is True
+    for tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
+        assert REACH not in element_texts(artifact, tag)
+    assert navigation_entries(artifact) == ["A Callout Book"]
 
 
 def test_no_title_becomes_a_blockquote_because_real_quotations_already_are(tmp_path: Path) -> None:
@@ -136,11 +134,12 @@ def test_no_title_becomes_a_blockquote_because_real_quotations_already_are(tmp_p
 
     markup = callout(recognised(REACH))
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, markup, [REACH, BODY])
+    source, repair = callout_inputs(tmp_path, markup, [REACH, BODY])
+    journey = prepare(tmp_path, source, *repair.options, expected_exit=None)
+    (artifact, report) = journey.output, journey.report
 
-        assert emphasis(report)["fired"] is True
-        assert element_texts(artifact, "blockquote") == []
+    assert emphasis(report)["fired"] is True
+    assert element_texts(artifact, "blockquote") == []
 
 
 def test_the_words_survive_the_reblocking_untouched(tmp_path: Path) -> None:
@@ -148,24 +147,26 @@ def test_the_words_survive_the_reblocking_untouched(tmp_path: Path) -> None:
 
     markup = callout(recognised(REACH))
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, markup, [REACH, BODY])
-        preservation = report["artifact"]["text_preservation"]
+    source, repair = callout_inputs(tmp_path, markup, [REACH, BODY])
+    journey = prepare(tmp_path, source, *repair.options, expected_exit=None)
+    (artifact, report) = journey.output, journey.report
+    preservation = report["artifact"]["text_preservation"]
 
-        assert preservation["claimed"] is True
-        assert preservation["tokens"]["unexpected_missing"] == []
-        assert content_text(artifact).count(REACH) == 1
+    assert preservation["claimed"] is True
+    assert preservation["tokens"]["unexpected_missing"] == []
+    assert content_text(artifact).count(REACH) == 1
 
 
 def test_a_title_holding_more_than_one_block_is_left_alone(tmp_path: Path) -> None:
     inner = f'<div class="callout-title-inner">{REACH}</div><p>{SURVIVAL}</p>'
     markup = callout(f'<div class="callout-title">{inner}</div>')
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, markup, [REACH, SURVIVAL, BODY])
+    source, repair = callout_inputs(tmp_path, markup, [REACH, SURVIVAL, BODY])
+    journey = prepare(tmp_path, source, *repair.options, expected_exit=None)
+    (artifact, report) = journey.output, journey.report
 
-        assert emphasis(report)["fired"] is False
-        assert element_texts(artifact, "strong") == []
+    assert emphasis(report)["fired"] is False
+    assert element_texts(artifact, "strong") == []
 
 
 def test_an_inner_title_with_no_wrapper_is_left_alone(tmp_path: Path) -> None:
@@ -173,18 +174,20 @@ def test_an_inner_title_with_no_wrapper_is_left_alone(tmp_path: Path) -> None:
 
     markup = callout(f'<div class="callout-title-inner">{REACH}</div>')
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, markup, [REACH, BODY])
+    source, repair = callout_inputs(tmp_path, markup, [REACH, BODY])
+    journey = prepare(tmp_path, source, *repair.options, expected_exit=None)
+    (artifact, report) = journey.output, journey.report
 
-        assert emphasis(report)["fired"] is False
-        assert element_texts(artifact, "strong") == []
+    assert emphasis(report)["fired"] is False
+    assert element_texts(artifact, "strong") == []
 
 
 def test_an_empty_title_is_left_alone(tmp_path: Path) -> None:
     markup = callout('<div class="callout-title"><div class="callout-title-inner"></div></div>')
 
-    for index, command in enumerate(public_cli_commands("prepare")):
-        artifact, report = prepared(tmp_path, index, command, markup, [BODY])
+    source, repair = callout_inputs(tmp_path, markup, [BODY])
+    journey = prepare(tmp_path, source, *repair.options, expected_exit=None)
+    (artifact, report) = journey.output, journey.report
 
-        assert emphasis(report)["fired"] is False
-        assert element_texts(artifact, "strong") == []
+    assert emphasis(report)["fired"] is False
+    assert element_texts(artifact, "strong") == []

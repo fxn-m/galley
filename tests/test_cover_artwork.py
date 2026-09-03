@@ -12,7 +12,7 @@ from galley.profile.loading import load_profile
 from galley.tools import resvg
 from tests.markdown_fixtures import write_markdown
 from tests.prepared_epub import media_resources
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import run_cli, prepare
 
 FONT = {
     "family": "Atkinson Hyperlegible",
@@ -74,9 +74,7 @@ def _svg(profile: str, width: int, height: int) -> str:
     )
 
 
-def _prepare(
-    tmp_path: Path, profile: str, index: int, command: list[str]
-) -> tuple[Path, Path, Any]:
+def cover_source(tmp_path: Path, profile: str, index: int) -> Path:
     direction = DIRECTIONS[profile]
     canvas = cast(dict[str, int], direction["canvas"])
     directory = tmp_path / f"{profile}-{index}"
@@ -89,21 +87,7 @@ def _prepare(
         "---\ntitle: A Distinct Cover\nauthor: Example Author\ncover-image: cover.svg\n---\n\n"
         "# A Distinct Cover\n\nA work with its own visual identity.\n",
     )
-    output = directory / "book.epub"
-    evidence = directory / "evidence"
-    result = run_command(
-        command,
-        str(source),
-        "--output",
-        str(output),
-        "--evidence-dir",
-        str(evidence),
-        "--profile",
-        profile,
-        "--json",
-    )
-    assert (result.returncode, result.stderr) == (0, "")
-    return output, evidence, json.loads(result.stdout)
+    return source
 
 
 def _cover(report: Any) -> Any:
@@ -130,12 +114,13 @@ def test_public_prepare_makes_distinct_deterministic_evidenced_raster_covers(
     tmp_path: Path, profile: str
 ) -> None:
     outputs = [
-        _prepare(tmp_path, profile, index, command)
-        for index, command in enumerate(public_cli_commands("prepare"))
+        prepare(tmp_path, cover_source(tmp_path, profile, index), profile=profile)
+        for index in range(2)
     ]
     payloads: list[bytes] = []
 
-    for output, evidence, report in outputs:
+    for journey in outputs:
+        output, evidence, report = journey.output, journey.evidence, journey.report
         direction = DIRECTIONS[profile]
         canvas = cast(dict[str, int], direction["canvas"])
         record = _cover(report)
@@ -190,14 +175,8 @@ def test_a_missing_or_unrenderable_requested_cover_refuses(
         _ = (tmp_path / "cover.svg").write_bytes(payload)
     output = tmp_path / f"{reason}.epub"
 
-    result = run_command(
-        public_cli_commands("prepare")[0],
-        str(source),
-        "--output",
-        str(output),
-        "--profile",
-        "x4-crosspoint",
-        "--json",
+    result = run_cli(
+        "prepare", str(source), "--output", str(output), "--profile", "x4-crosspoint", "--json"
     )
 
     assert (result.returncode, result.stderr) == (3, "")

@@ -18,22 +18,22 @@ from tests.epub_fixtures import (
     without,
     write_epub,
 )
-from tests.public_cli import NO_EPUBCHECK, run_public_cli
+from tests.public_cli import NO_EPUBCHECK, run_cli
 
 FIGURE_BODY = '<p><img src="images/figure.png" alt="A measured figure"/></p>'
 
 
 def audited(book: Path) -> dict[str, Any]:
     before = sha256(book.read_bytes()).hexdigest()
-    results = run_public_cli(
+    result = run_cli(
         "audit", str(book), "--profile", "x4-crosspoint", "--json", environment=NO_EPUBCHECK
     )
 
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
+    assert (result.returncode, result.stderr) == (0, "")
     assert sha256(book.read_bytes()).hexdigest() == before
-    reports: list[dict[str, Any]] = [json.loads(result.stdout) for result in results]
-    assert reports[0]["artifact"] == reports[1]["artifact"]
-    return reports[0]
+    reports: dict[str, Any] = json.loads(result.stdout)
+
+    return reports
 
 
 def with_figure(tmp_path: Path, data: bytes, name: str, body: str = FIGURE_BODY) -> dict[str, Any]:

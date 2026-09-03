@@ -5,7 +5,7 @@ from pathlib import Path
 
 from tests.article_fixtures import ARTICLE
 from tests.article_server import served
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import run_cli
 from tests.ready_fixtures import (
     BODY,
     COMPLETED,
@@ -25,7 +25,9 @@ def test_ready_publishes_the_artifact_and_its_evidence(tmp_path: Path) -> None:
     source = inbox_note(tmp_path)
     workspace = tmp_path / "workspace"
     environment = workspace_environment(workspace, tmp_path / "home")
-    first, _ = prepare_ready(source, environment)
+    before = tree(tmp_path / "inbox")
+    digest = sha256(source.read_bytes()).hexdigest()
+    first = prepare_ready(source, environment)
     assert first.returncode == COMPLETED
     published_report = report(first.stdout)
     artifact = facts(published_report, "artifact")
@@ -40,28 +42,20 @@ def test_ready_publishes_the_artifact_and_its_evidence(tmp_path: Path) -> None:
     assert facts(retained[0], "profile")["id"] == PROFILE
     assert facts(retained[0], "artifact")["path"] == str(published)
 
-
-def test_the_full_contract_completes_before_publication(tmp_path: Path) -> None:
-    """Compatibility, preservation and the read-only audit are all in the published Report."""
-
-    source = inbox_note(tmp_path)
-    environment = workspace_environment(tmp_path / "workspace", tmp_path / "home")
-    result, _ = prepare_ready(source, environment)
-    published_report = report(result.stdout)
-    artifact = facts(published_report, "artifact")
     assert published_report["compatibility"]
     assert "text_preservation" in artifact
     assert "conformance" in artifact
     assert facts(published_report, "preparation")["images"] is not None
 
+    assert published_report["reading_verdict"] == {"value": "not_tested", "predicted": None}
 
-def test_ready_never_supplies_a_verdict(tmp_path: Path) -> None:
-    """`ready` is mechanical Delivery eligibility, never an assessment or a Reading Verdict."""
+    assert tree(tmp_path / "inbox") == before
+    assert sha256(source.read_bytes()).hexdigest() == digest
 
-    source = inbox_note(tmp_path)
-    environment = workspace_environment(tmp_path / "workspace", tmp_path / "home")
-    result, _ = prepare_ready(source, environment)
-    assert report(result.stdout)["reading_verdict"] == {"value": "not_tested", "predicted": None}
+    identity = facts(facts(published_report, "preparation"), "artifact_identity")
+    canonical = facts(published_report, "canonical_document")
+    assert identity["identifier"] == f"urn:sha256:{canonical['sha256']}"
+    assert identity["source_date_epoch"] == "0"
 
 
 def test_different_bytes_take_a_deterministic_hash_suffix(tmp_path: Path) -> None:
@@ -70,10 +64,10 @@ def test_different_bytes_take_a_deterministic_hash_suffix(tmp_path: Path) -> Non
     source = inbox_note(tmp_path)
     workspace = tmp_path / "workspace"
     environment = workspace_environment(workspace, tmp_path / "home")
-    first, _ = prepare_ready(source, environment)
+    first = prepare_ready(source, environment)
     original = Path(str(facts(report(first.stdout), "artifact")["path"])).read_bytes()
     _ = source.write_text(BODY + "\nAn added paragraph that changes the book.\n", encoding="utf-8")
-    second, _ = prepare_ready(source, environment)
+    second = prepare_ready(source, environment)
     assert second.returncode == COMPLETED
     published = Path(str(facts(report(second.stdout), "artifact")["path"]))
     assert published.name.startswith("note-")
@@ -82,29 +76,17 @@ def test_different_bytes_take_a_deterministic_hash_suffix(tmp_path: Path) -> Non
     assert len(ready_reports(workspace)) == 2
 
 
-def test_the_inbox_is_never_touched(tmp_path: Path) -> None:
-    """Every external Inbox input is immutable: nothing is created, moved, renamed or edited."""
-
-    source = inbox_note(tmp_path)
-    environment = workspace_environment(tmp_path / "workspace", tmp_path / "home")
-    before = tree(tmp_path / "inbox")
-    digest = sha256(source.read_bytes()).hexdigest()
-    result, _ = prepare_ready(source, environment)
-    assert result.returncode == COMPLETED
-    assert tree(tmp_path / "inbox") == before
-    assert sha256(source.read_bytes()).hexdigest() == digest
-
-
 def test_an_explicit_output_still_behaves_exactly_as_before(tmp_path: Path) -> None:
     """The named-output mode is unchanged, including its companion evidence directory."""
 
     source = inbox_note(tmp_path)
-    for index, command in enumerate(public_cli_commands("prepare", str(source))):
-        output = tmp_path / f"book{index}.epub"
-        result = run_command(command, "--profile", PROFILE, "--output", str(output), "--json")
-        assert result.returncode == COMPLETED
-        assert output.is_file()
-        assert (tmp_path / f"book{index}.galley" / "report.json").is_file()
+    output = tmp_path / "book0.epub"
+    result = run_cli(
+        "prepare", str(source), "--profile", PROFILE, "--output", str(output), "--json"
+    )
+    assert result.returncode == COMPLETED
+    assert output.is_file()
+    assert (tmp_path / "book0.galley" / "report.json").is_file()
 
 
 def test_two_runs_over_identical_bytes_produce_identical_artifacts(tmp_path: Path) -> None:
@@ -112,25 +94,14 @@ def test_two_runs_over_identical_bytes_produce_identical_artifacts(tmp_path: Pat
 
     source = inbox_note(tmp_path)
     digests: list[str] = []
-    for index, command in enumerate(public_cli_commands("prepare", str(source))):
+    for index in range(2):
         output = tmp_path / f"book{index}.epub"
-        result = run_command(command, "--profile", PROFILE, "--output", str(output), "--json")
+        result = run_cli(
+            "prepare", str(source), "--profile", PROFILE, "--output", str(output), "--json"
+        )
         assert result.returncode == COMPLETED
         digests.append(sha256(output.read_bytes()).hexdigest())
     assert digests[0] == digests[1]
-
-
-def test_the_artifact_identifier_names_the_canonical_document(tmp_path: Path) -> None:
-    """A book's identity follows the document it was built from, and says so in the Report."""
-
-    source = inbox_note(tmp_path)
-    environment = workspace_environment(tmp_path / "workspace", tmp_path / "home")
-    result, _ = prepare_ready(source, environment)
-    published_report = report(result.stdout)
-    identity = facts(facts(published_report, "preparation"), "artifact_identity")
-    canonical = facts(published_report, "canonical_document")
-    assert identity["identifier"] == f"urn:sha256:{canonical['sha256']}"
-    assert identity["source_date_epoch"] == "0"
 
 
 def test_an_article_like_page_publishes_as_a_ready_artifact(tmp_path: Path) -> None:
@@ -139,13 +110,8 @@ def test_an_article_like_page_publishes_as_a_ready_artifact(tmp_path: Path) -> N
     workspace = tmp_path / "workspace"
     environment = workspace_environment(workspace, tmp_path / "home")
     with served(ARTICLE) as url:
-        result = run_command(
-            public_cli_commands("prepare", url)[0],
-            "--profile",
-            PROFILE,
-            "--ready",
-            "--json",
-            environment=environment,
+        result = run_cli(
+            "prepare", url, "--profile", PROFILE, "--ready", "--json", environment=environment
         )
     assert result.returncode == COMPLETED
     published_report = report(result.stdout)

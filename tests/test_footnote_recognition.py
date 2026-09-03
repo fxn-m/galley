@@ -10,7 +10,7 @@ from pathlib import Path
 
 from tests.article_fixtures import filler
 from tests.article_server import defuddle_returning, served
-from tests.public_cli import run_public_cli
+from tests.public_cli import run_cli
 
 
 def test_only_a_closed_container_holding_its_own_endnotes_is_an_apparatus(tmp_path: Path) -> None:
@@ -38,7 +38,7 @@ def test_only_a_closed_container_holding_its_own_endnotes_is_an_apparatus(tmp_pa
         command = defuddle_returning(tmp_path / f"defuddle-{abs(hash(label))}", content)
 
         with served() as url:
-            results = run_public_cli(
+            results = run_cli(
                 "inspect",
                 url,
                 "--profile",
@@ -47,14 +47,14 @@ def test_only_a_closed_container_holding_its_own_endnotes_is_an_apparatus(tmp_pa
                 environment={"GALLEY_DEFUDDLE": str(command)},
             )
 
-        assert [result.returncode for result in results] == [0, 0], label
-        for result in results:
-            report = json.loads(result.stdout)
-            recovery = report["extraction"]["footnote_recovery"]
-            assert recovery["outcome"] == "skipped", label
-            assert recovery["recovered_notes"]["value"] == 0, label
-            # Nothing was relabelled, so no empty note and no corrupted document reached Pandoc.
-            assert report["canonical_document"]["reading"]["notes"]["value"] == 0, label
+        assert results.returncode == 0, label
+        result = results
+        report = json.loads(result.stdout)
+        recovery = report["extraction"]["footnote_recovery"]
+        assert recovery["outcome"] == "skipped", label
+        assert recovery["recovered_notes"]["value"] == 0, label
+        # Nothing was relabelled, so no empty note and no corrupted document reached Pandoc.
+        assert report["canonical_document"]["reading"]["notes"]["value"] == 0, label
 
 
 def test_an_ordinary_list_after_the_endnotes_is_not_part_of_them(tmp_path: Path) -> None:
@@ -69,7 +69,7 @@ def test_an_ordinary_list_after_the_endnotes_is_not_part_of_them(tmp_path: Path)
     command = defuddle_returning(tmp_path / "defuddle", content)
 
     with served() as url:
-        results = run_public_cli(
+        result = run_cli(
             "inspect",
             url,
             "--profile",
@@ -78,12 +78,11 @@ def test_an_ordinary_list_after_the_endnotes_is_not_part_of_them(tmp_path: Path)
             environment={"GALLEY_DEFUDDLE": str(command)},
         )
 
-    assert [result.returncode for result in results] == [0, 0]
-    for result in results:
-        recovery = json.loads(result.stdout)["extraction"]["footnote_recovery"]
-        assert recovery["outcome"] == "recovered"
-        assert recovery["definitions"]["value"] == 1
-        assert recovery["recovered_notes"]["value"] == 1
+    assert result.returncode == 0
+    recovery = json.loads(result.stdout)["extraction"]["footnote_recovery"]
+    assert recovery["outcome"] == "recovered"
+    assert recovery["definitions"]["value"] == 1
+    assert recovery["recovered_notes"]["value"] == 1
 
 
 def test_a_note_carrying_its_own_list_is_read_whole(tmp_path: Path) -> None:
@@ -98,7 +97,7 @@ def test_a_note_carrying_its_own_list_is_read_whole(tmp_path: Path) -> None:
     command = defuddle_returning(tmp_path / "defuddle", content)
 
     with served() as url:
-        results = run_public_cli(
+        result = run_cli(
             "inspect",
             url,
             "--profile",
@@ -107,12 +106,11 @@ def test_a_note_carrying_its_own_list_is_read_whole(tmp_path: Path) -> None:
             environment={"GALLEY_DEFUDDLE": str(command)},
         )
 
-    assert [result.returncode for result in results] == [0, 0]
-    for result in results:
-        recovery = json.loads(result.stdout)["extraction"]["footnote_recovery"]
-        assert recovery["outcome"] == "recovered"
-        assert recovery["definitions"]["value"] == 1
-        assert recovery["empty_notes"]["value"] == 0
+    assert result.returncode == 0
+    recovery = json.loads(result.stdout)["extraction"]["footnote_recovery"]
+    assert recovery["outcome"] == "recovered"
+    assert recovery["definitions"]["value"] == 1
+    assert recovery["empty_notes"]["value"] == 0
 
 
 def test_equal_counts_with_different_identifiers_do_not_report_no_mismatch(
@@ -128,7 +126,7 @@ def test_equal_counts_with_different_identifiers_do_not_report_no_mismatch(
     command = defuddle_returning(tmp_path / "defuddle", content)
 
     with served() as url:
-        results = run_public_cli(
+        result = run_cli(
             "inspect",
             url,
             "--profile",
@@ -137,10 +135,9 @@ def test_equal_counts_with_different_identifiers_do_not_report_no_mismatch(
             environment={"GALLEY_DEFUDDLE": str(command)},
         )
 
-    assert [result.returncode for result in results] == [0, 0]
-    for result in results:
-        recovery = json.loads(result.stdout)["extraction"]["footnote_recovery"]
-        assert recovery["reason"] == "reference-definition-mismatch"
-        assert (recovery["references"]["value"], recovery["definitions"]["value"]) == (1, 1)
-        # One reference and one endnote, neither of which names the other.
-        assert recovery["mismatch"]["value"] == 2
+    assert result.returncode == 0
+    recovery = json.loads(result.stdout)["extraction"]["footnote_recovery"]
+    assert recovery["reason"] == "reference-definition-mismatch"
+    assert (recovery["references"]["value"], recovery["definitions"]["value"]) == (1, 1)
+    # One reference and one endnote, neither of which names the other.
+    assert recovery["mismatch"]["value"] == 2

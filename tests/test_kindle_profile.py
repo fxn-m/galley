@@ -7,7 +7,7 @@ from typing import Any, cast
 from galley.profile.loading import load_profile
 from tests.image_fixtures import transparent_webp, vector_svg
 from tests.markdown_fixtures import write_markdown
-from tests.public_cli import public_cli_commands, run_command, run_public_cli
+from tests.public_cli import run_cli
 
 PROFILE = "kindle-ios-personal-documents"
 OBSERVATIONS = [
@@ -82,12 +82,12 @@ def test_profile_records_the_observed_app_identity_and_product_boundaries_explic
 
 
 def test_public_profile_show_exposes_the_assembled_kindle_contract() -> None:
-    results = run_public_cli("profiles", "show", PROFILE, "--json")
+    result = run_cli("profiles", "show", PROFILE, "--json")
 
-    profiles = [_json(result) for result in results]
-    assert profiles[0] == profiles[1]
-    assert profiles[0]["id"] == PROFILE
-    assert [entry["name"] for entry in profiles[0]["observations"]] == OBSERVATIONS
+    profiles = _json(result)
+
+    assert profiles["id"] == PROFILE
+    assert [entry["name"] for entry in profiles["observations"]] == OBSERVATIONS
 
 
 def test_profile_requests_rgb_rasterised_svg_and_a_separate_exact_cover_canvas() -> None:
@@ -116,22 +116,12 @@ def test_public_workflows_keep_kindles_post_conversion_observations_unawarded(
     _ = vector_svg(tmp_path / "cover.svg", width=1600, height=2560)
     _ = transparent_webp(tmp_path / "alpha.webp")
 
-    inspected = _json(
-        run_command(public_cli_commands("inspect")[0], str(source), "--profile", PROFILE, "--json")
-    )
+    inspected = _json(run_cli("inspect", str(source), "--profile", PROFILE, "--json"))
     assert _observation_names(inspected) == OBSERVATIONS
 
     output = tmp_path / "probe.epub"
     prepared = _json(
-        run_command(
-            public_cli_commands("prepare")[0],
-            str(source),
-            "--output",
-            str(output),
-            "--profile",
-            PROFILE,
-            "--json",
-        )
+        run_cli("prepare", str(source), "--output", str(output), "--profile", PROFILE, "--json")
     )
     assert _observation_names(prepared) == OBSERVATIONS
     records = {
@@ -141,9 +131,7 @@ def test_public_workflows_keep_kindles_post_conversion_observations_unawarded(
     assert records["cover.svg"]["packaged"]["colour_type"]["value"] == 2
     assert records["alpha.webp"]["packaged"]["colour_type"]["value"] == 6
 
-    audited = _json(
-        run_command(public_cli_commands("audit")[0], str(output), "--profile", PROFILE, "--json")
-    )
+    audited = _json(run_cli("audit", str(output), "--profile", PROFILE, "--json"))
     assert _observation_names(audited) == OBSERVATIONS
     assert audited["artifact"]["conformance"]["valid"] is True
     assert {entry["id"] for entry in audited["artifact"]["conformance"]["non_requirements"]} == {

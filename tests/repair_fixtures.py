@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from tests.markdown_fixtures import native_ast, write_markdown
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import run_cli
 
 PROFILE = ("--profile", "x4-crosspoint")
 
@@ -91,13 +91,7 @@ class RepairInputs:
 def inspected(directory: Path, source: str) -> Path:
     """Run one real inspection and retain its evidence, exactly as an agent would."""
 
-    result = run_command(
-        public_cli_commands("inspect", source)[0],
-        *PROFILE,
-        "--json",
-        "--evidence-dir",
-        str(directory),
-    )
+    result = run_cli("inspect", source, *PROFILE, "--json", "--evidence-dir", str(directory))
     assert result.returncode in (0, 3), result.stderr
     return directory
 

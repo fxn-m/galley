@@ -13,7 +13,7 @@ from tests.check_fixtures import (
     states,
 )
 from tests.markdown_fixtures import blocked_links
-from tests.public_cli import NO_PANDOC, run_public_cli
+from tests.public_cli import NO_PANDOC, run_cli
 from tests.ready_fixtures import BODY, COMPLETED, REFUSED, facts, inbox_note, report
 from tests.workspace_fixtures import entries, inbox_table, tree
 
@@ -195,8 +195,8 @@ def test_human_output_states_the_attempt_and_the_damage_it_found(tmp_path: Path)
     assert publish(source, environment).returncode == COMPLETED
     assert publish(source, environment, "--expected-source-hash", STALE).returncode == REFUSED
     (workspace / "ready" / "note.epub").unlink()
-    for result in run_public_cli("inbox", "check", environment=environment):
-        assert "    latest attempt: source-hash-mismatch (source-acquisition)" in result.stdout
-        assert "Evidence problems: 1" in result.stdout
-        assert f"  artifact-missing: {workspace / 'ready' / 'evidence'}" in result.stdout
-        assert result.returncode == COMPLETED
+    result = run_cli("inbox", "check", environment=environment)
+    assert "    latest attempt: source-hash-mismatch (source-acquisition)" in result.stdout
+    assert "Evidence problems: 1" in result.stdout
+    assert f"  artifact-missing: {workspace / 'ready' / 'evidence'}" in result.stdout
+    assert result.returncode == COMPLETED

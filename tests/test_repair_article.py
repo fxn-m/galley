@@ -9,7 +9,7 @@ from typing import Any, cast
 from tests.article_fixtures import ARTICLE
 from tests.article_server import served
 from tests.prepared_epub import content_text, navigation_entries
-from tests.public_cli import NO_DEFUDDLE, public_cli_commands, run_command
+from tests.public_cli import run_cli, NO_DEFUDDLE
 from tests.repair_fixtures import RepairInputs, inspected, repaired_document
 
 ARGUMENTS = ("--profile", "x4-crosspoint", "--json")
@@ -44,26 +44,26 @@ def test_a_repaired_article_is_prepared_without_extracting_the_page_again(
     with article_repair(tmp_path) as (url, repair):
         # The server is down and the extractor is unreachable. A repaired preparation needs
         # neither: the document it packages already exists, which is the whole point of the route.
-        for index, command in enumerate(public_cli_commands("prepare", url)):
-            output = tmp_path / f"book-{index}.epub"
-            result = run_command(
-                command,
-                "--output",
-                str(output),
-                *ARGUMENTS,
-                *repair.options,
-                environment=NO_DEFUDDLE,
-            )
-            report: Any = json.loads(result.stdout)
+        output = tmp_path / "book-0.epub"
+        result = run_cli(
+            "prepare",
+            url,
+            "--output",
+            str(output),
+            *ARGUMENTS,
+            *repair.options,
+            environment=NO_DEFUDDLE,
+        )
+        report: Any = json.loads(result.stdout)
 
-            assert (result.returncode, report["outcome"]) == (0, "completed")
-            assert "defuddle" not in report["galley"]["dependencies"]
-            # The extracted document lists only the essay title at this depth; the section
-            # heading appears because the repaired structure is what was packaged.
-            assert report["source"]["repair"]["changed"] is True
-            assert navigation_entries(output) == ["A Small Essay", "A section inside it"]
-            assert "Enginewise" in content_text(output)
-            assert report["artifact"]["text_preservation"]["tokens"]["unexpected_missing"] == []
+        assert (result.returncode, report["outcome"]) == (0, "completed")
+        assert "defuddle" not in report["galley"]["dependencies"]
+        # The extracted document lists only the essay title at this depth; the section
+        # heading appears because the repaired structure is what was packaged.
+        assert report["source"]["repair"]["changed"] is True
+        assert navigation_entries(output) == ["A Small Essay", "A section inside it"]
+        assert "Enginewise" in content_text(output)
+        assert report["artifact"]["text_preservation"]["tokens"]["unexpected_missing"] == []
 
 
 def test_facts_the_repaired_run_did_not_establish_are_reported_not_measured(
@@ -72,33 +72,32 @@ def test_facts_the_repaired_run_did_not_establish_are_reported_not_measured(
     with article_repair(tmp_path) as (url, repair):
         inspection = json.loads(repair.report.read_text(encoding="utf-8"))
 
-        for index, command in enumerate(public_cli_commands("prepare", url)):
-            result = run_command(
-                command,
-                "--output",
-                str(tmp_path / f"book-{index}.epub"),
-                *ARGUMENTS,
-                *repair.options,
-                environment=NO_DEFUDDLE,
-            )
-            report: Any = json.loads(result.stdout)
+        result = run_cli(
+            "prepare",
+            url,
+            "--output",
+            str(tmp_path / "book-0.epub"),
+            *ARGUMENTS,
+            *repair.options,
+            environment=NO_DEFUDDLE,
+        )
+        report: Any = json.loads(result.stdout)
 
-            assert result.returncode == 0
-            assert _bases(report["extraction"]) == {"reported"}
-            assert _bases(report["source"]) == set()
-            assert (
-                report["extraction"]["words"]["value"]
-                == (inspection["extraction"]["words"]["value"])
-            )
-            assert report["source"]["url"] == url
-            assert report["source"]["repair"]["source"] == {
-                "kind": "article-url",
-                "path": None,
-                "sha256": None,
-                "url": url,
-            }
-            # The document this run did read is measured, so inheritance never spreads.
-            assert _bases(report["canonical_document"]["reading"]) == {"measured"}
+        assert result.returncode == 0
+        assert _bases(report["extraction"]) == {"reported"}
+        assert _bases(report["source"]) == set()
+        assert (
+            report["extraction"]["words"]["value"] == (inspection["extraction"]["words"]["value"])
+        )
+        assert report["source"]["url"] == url
+        assert report["source"]["repair"]["source"] == {
+            "kind": "article-url",
+            "path": None,
+            "sha256": None,
+            "url": url,
+        }
+        # The document this run did read is measured, so inheritance never spreads.
+        assert _bases(report["canonical_document"]["reading"]) == {"measured"}
 
 
 def _bases(facts: object) -> set[str]:

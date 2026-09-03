@@ -14,7 +14,7 @@ def test_historical_v1_record_still_selects_and_validates_its_schema(tmp_path: P
 
     _workspace, artifact, environment = published(tmp_path)
     with crosspoint() as (host, _device):
-        current = command_document(plan(artifact, environment, host)[0])
+        current = command_document(plan(artifact, environment, host))
     historical = deepcopy(current)
     del historical["exchanges"]
     field(historical, "galley")["document_schema"] = "galley/delivery-record/1"

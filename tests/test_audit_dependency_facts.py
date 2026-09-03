@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from tests.epub_fixtures import write_epub
-from tests.public_cli import run_public_cli
+from tests.public_cli import run_cli
 
 # The Homebrew launcher is a shell script that execs a Java runtime, so an absent runtime
 # surfaces exactly this way: a non-zero exit, a Java diagnostic on stderr, and no JSON.
@@ -47,7 +47,7 @@ def audit_with(book: Path, command: str) -> dict[str, Any]:
     """Audit one EPUB with an explicitly selected EPUBCheck command."""
 
     before = sha256(book.read_bytes()).hexdigest()
-    results = run_public_cli(
+    result = run_cli(
         "audit",
         str(book),
         "--profile",
@@ -56,10 +56,10 @@ def audit_with(book: Path, command: str) -> dict[str, Any]:
         environment={"GALLEY_EPUBCHECK": command},
     )
 
-    assert [(result.returncode, result.stderr) for result in results] == [(0, ""), (0, "")]
+    assert (result.returncode, result.stderr) == (0, "")
     assert sha256(book.read_bytes()).hexdigest() == before
-    reports: list[dict[str, Any]] = [json.loads(result.stdout) for result in results]
-    return reports[0]
+    reports: dict[str, Any] = json.loads(result.stdout)
+    return reports
 
 
 def test_a_missing_epubcheck_completes_audit_as_an_execution_fact(tmp_path: Path) -> None:

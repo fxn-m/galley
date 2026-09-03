@@ -6,11 +6,11 @@ from pathlib import Path
 
 from tests.crosspoint_server import Device, crosspoint
 from tests.delivery_fixtures import REFUSED, published
-from tests.public_cli import public_cli_commands, run_command
+from tests.public_cli import cli_command, run_command
 from tests.workspace_fixtures import command_document, entries, field
 
 COMPLETED = 0
-ENTRY_POINT = public_cli_commands()[0]
+ENTRY_POINT = cli_command()
 
 
 def _plan(
